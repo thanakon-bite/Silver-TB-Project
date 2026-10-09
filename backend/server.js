@@ -1,3 +1,5 @@
+// backend/.env first; a monorepo-root .env can fill in anything not set there
+require('dotenv').config({ path: require('path').resolve(__dirname, '.env') });
 require('dotenv').config({ path: require('path').resolve(__dirname, '../.env') });
 const express = require('express');
 const cors = require('cors');
