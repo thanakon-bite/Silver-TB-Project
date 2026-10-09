@@ -1,6 +1,5 @@
 const express = require('express');
 const axios = require('axios');
-const supabase = require('../config/supabase');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { asyncHandler, badRequest } = require('../lib/http');
 const line = require('../lib/line');
@@ -16,13 +15,12 @@ router.get(
   authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { source, targets, joined_at } = await line.getAdminTargets();
+    const { source, targets } = await line.getAdminTargets();
     res.json({
       configured: line.isConfigured(),
       webhook_secret_set: Boolean(process.env.LINE_CHANNEL_SECRET),
       source,
       targets: targets.map(mask),
-      group_joined_at: joined_at || null,
     });
   })
 );
@@ -69,8 +67,8 @@ router.post(
 
 /**
  * POST /api/notifications/line/webhook — LINE platform events (raw body, signature-verified).
- * When the OA bot is added to a group, that group becomes the admin notification target
- * (unless LINE_ADMIN_TARGET_IDS is set).
+ * Events are acknowledged only: alert recipients come from env vars, never from events
+ * (anyone can invite the bot to a group).
  */
 router.post('/line/webhook', async (req, res) => {
   if (!process.env.LINE_CHANNEL_SECRET) return res.status(503).json({ error: 'LINE webhook not configured' });
@@ -78,35 +76,6 @@ router.post('/line/webhook', async (req, res) => {
   const raw = Buffer.isBuffer(req.body) ? req.body : Buffer.from('');
   if (!line.verifySignature(raw, req.headers['x-line-signature'])) {
     return res.status(401).json({ error: 'Invalid signature' });
-  }
-
-  let payload;
-  try {
-    payload = JSON.parse(raw.toString('utf8'));
-  } catch {
-    return res.status(400).json({ error: 'Invalid JSON' });
-  }
-
-  try {
-    for (const event of payload.events || []) {
-      const src = event.source || {};
-      if (event.type === 'join' && (src.groupId || src.roomId)) {
-        const id = src.groupId || src.roomId;
-        await supabase.from('app_settings').upsert({
-          key: 'line_admin_group',
-          value: { id, type: src.type, joined_at: new Date(event.timestamp || Date.now()).toISOString() },
-          updated_at: new Date().toISOString(),
-        });
-        console.log(`LINE: bot joined ${src.type} ${mask(id)} — set as admin notification target`);
-      }
-      if (event.type === 'leave' && (src.groupId || src.roomId)) {
-        const id = src.groupId || src.roomId;
-        const { data } = await supabase.from('app_settings').select('value').eq('key', 'line_admin_group').maybeSingle();
-        if (data?.value?.id === id) await supabase.from('app_settings').delete().eq('key', 'line_admin_group');
-      }
-    }
-  } catch (err) {
-    console.error('LINE webhook handling failed:', err.message);
   }
 
   res.sendStatus(200);

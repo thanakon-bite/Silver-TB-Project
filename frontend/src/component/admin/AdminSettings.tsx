@@ -7,9 +7,8 @@ import { baht, dateTime } from '../../lib/format';
 interface LineStatus {
   configured: boolean;
   webhook_secret_set: boolean;
-  source: 'env' | 'group' | 'none';
+  source: 'env' | 'none';
   targets: string[];
-  group_joined_at: string | null;
 }
 
 interface PaymentEvent {
@@ -43,7 +42,7 @@ const AdminSettings: React.FC = () => {
     setSending(true);
     try {
       await api.post('/notifications/line/test', {});
-      Swal.fire({ icon: 'success', title: 'Test message sent', text: 'Check your LINE admin group.' });
+      Swal.fire({ icon: 'success', title: 'Test message sent', text: 'Check your LINE.' });
     } catch (err: any) {
       Swal.fire('LINE test failed', err.message, 'error');
     } finally {
@@ -63,15 +62,14 @@ const AdminSettings: React.FC = () => {
               <Check ok={line.configured}>Channel access token set on the server</Check>
               <Check ok={line.webhook_secret_set}>Channel secret set (webhook signature check)</Check>
               <Check ok={line.targets.length > 0}>
-                {line.source === 'env' && `Sending to LINE_ADMIN_TARGET_IDS (${line.targets.join(', ')})`}
-                {line.source === 'group' && `Sending to admin group ${line.targets[0]} (joined ${dateTime(line.group_joined_at)})`}
-                {line.source === 'none' && 'No admin group yet'}
+                {line.source === 'env' && `Sending to ${line.targets.join(', ')}`}
+                {line.source === 'none' && 'No recipient set'}
               </Check>
             </ul>
             {line.source === 'none' && (
               <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
-                Add your LINE Official Account to your staff LINE group. The bot records the group automatically
-                (the webhook URL must be set to <code className="text-xs">/api/notifications/line/webhook</code> in the LINE Developers console).
+                Set <code className="text-xs">LINE_OWNER_USER_ID</code> on the server to your LINE user ID (LINE Developers console →
+                Basic settings → "Your user ID"), and add the Official Account as a friend on that LINE account.
               </p>
             )}
             <button

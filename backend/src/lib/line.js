@@ -1,14 +1,13 @@
 /**
  * LINE Messaging API — server-side only. The channel access token / secret never leave the backend.
  *
- * Admin notification target, in priority order:
- *   1. LINE_ADMIN_TARGET_IDS env var (comma-separated group IDs "C..." or user IDs "U...")
- *   2. The group the OA bot was most recently added to (captured by the LINE webhook "join" event
- *      and stored in app_settings.line_admin_group)
+ * Paid-order alerts contain customer PII, so recipients come ONLY from env vars
+ * (docs/adr/0002-line-target-from-env-only.md):
+ *   LINE_OWNER_USER_ID     — the shop owner's LINE user ID ("U…", LINE Developers → Basic settings)
+ *   LINE_ADMIN_TARGET_IDS  — optional extra user/group IDs, comma-separated
  */
 const crypto = require('crypto');
 const axios = require('axios');
-const supabase = require('../config/supabase');
 const { formatAddress } = require('./thaiAddress');
 
 const LINE_API = 'https://api.line.me/v2/bot/message';
@@ -28,15 +27,11 @@ function verifySignature(rawBody, signature, secret = process.env.LINE_CHANNEL_S
 }
 
 async function getAdminTargets() {
-  const fromEnv = (process.env.LINE_ADMIN_TARGET_IDS || '')
-    .split(',')
-    .map((s) => s.trim())
+  const ids = [process.env.LINE_OWNER_USER_ID, ...(process.env.LINE_ADMIN_TARGET_IDS || '').split(',')]
+    .map((s) => (s || '').trim())
     .filter(Boolean);
-  if (fromEnv.length) return { source: 'env', targets: fromEnv };
-
-  const { data } = await supabase.from('app_settings').select('value, updated_at').eq('key', 'line_admin_group').maybeSingle();
-  if (data?.value?.id) return { source: 'group', targets: [data.value.id], joined_at: data.value.joined_at };
-  return { source: 'none', targets: [] };
+  const targets = [...new Set(ids)];
+  return { source: targets.length ? 'env' : 'none', targets };
 }
 
 async function pushMessage(to, messages) {
@@ -57,7 +52,7 @@ async function pushMessage(to, messages) {
 async function pushToAdmins(text) {
   if (!isConfigured()) throw new Error('LINE_CHANNEL_ACCESS_TOKEN is not set');
   const { targets } = await getAdminTargets();
-  if (!targets.length) throw new Error('No LINE admin target configured (add the OA to a group or set LINE_ADMIN_TARGET_IDS)');
+  if (!targets.length) throw new Error('No LINE recipient configured (set LINE_OWNER_USER_ID)');
 
   const messages = [{ type: 'text', text: text.length > MAX_TEXT ? `${text.slice(0, MAX_TEXT - 1)}…` : text }];
   const results = await Promise.allSettled(targets.map((to) => pushMessage(to, messages)));
