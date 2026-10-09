@@ -1,13 +1,31 @@
 export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
 export type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded';
 
+export type ProductCategory = 'beetle' | 'food' | 'log' | 'gear';
+export const PRODUCT_CATEGORIES: ProductCategory[] = ['beetle', 'food', 'log', 'gear'];
+export const BEETLE_SEXES = ['male', 'female', 'pair', 'trio', 'unsexed'] as const;
+export const BEETLE_STAGES = ['egg', 'L1', 'L2', 'L3', 'pupa', 'adult'] as const;
+
+/** Beetle Attributes (CONTEXT.md) — only set on beetle products */
+export interface BeetleAttributes {
+  family?: string;
+  species?: string;
+  locality?: string;
+  sex?: (typeof BEETLE_SEXES)[number];
+  stage?: (typeof BEETLE_STAGES)[number];
+  size_mm?: number;
+}
+
 export interface Product {
   id: string;
   name: string;
+  name_th?: string | null;
   description: string | null;
+  description_th?: string | null;
   price: number;
   stock: number;
-  category: string | null;
+  category: ProductCategory;
+  attributes?: BeetleAttributes;
   images: string[];
   is_best_seller: boolean;
   is_active: boolean;

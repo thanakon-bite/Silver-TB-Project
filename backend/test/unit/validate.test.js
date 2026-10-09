@@ -47,3 +47,17 @@ test('likePattern escapes wildcards', () => {
 test('pagination clamps limit and page', () => {
   assert.deepEqual(v.pagination({ page: '-3', limit: '100000' }, { maxLimit: 100 }), { page: 1, limit: 100, from: 0, to: 99 });
 });
+
+test('productAttributes keeps known beetle fields and rejects the rest', () => {
+  assert.deepEqual(v.productAttributes({ family: 'Stag', species: ' Dorcus titanus ', sex: 'trio', stage: 'L3', size_mm: '72.36' }), {
+    family: 'Stag',
+    species: 'Dorcus titanus',
+    sex: 'trio',
+    stage: 'L3',
+    size_mm: 72.4,
+  });
+  assert.throws(() => v.productAttributes({ colour: 'red' }), /unknown keys/);
+  assert.throws(() => v.productAttributes({ sex: 'yes' }), /must be one of/);
+  assert.throws(() => v.productAttributes({ size_mm: -1 }), /size_mm/);
+  assert.throws(() => v.productAttributes([]), /must be an object/);
+});

@@ -7,6 +7,7 @@ import { useCart } from '../contexts/CartContext';
 import { useFavorites } from '../contexts/FavoritesContext';
 import Modal from '../component/common/Modal';
 import Swal from 'sweetalert2';
+import { PRODUCT_CATEGORIES, type BeetleAttributes, type ProductCategory } from '../lib/types';
 
 interface Product {
   id: string;
@@ -16,13 +17,14 @@ interface Product {
   description_th?: string | null;
   price: number;
   stock: number;
-  category: string;
+  category: ProductCategory;
+  attributes?: BeetleAttributes;
   images: string[];
   is_best_seller: boolean;
   views: number;
 }
 
-const CATEGORIES = ['All', 'Rhinoceros', 'Stag', 'Flower'];
+const CATEGORIES = ['all', ...PRODUCT_CATEGORIES];
 
 // Image Slider component for product cards
 const ImageSlider: React.FC<{ images: string[]; alt: string }> = ({ images, alt }) => {
@@ -123,7 +125,10 @@ const Products: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [category, setCategory] = useState('All');
+  const [category, setCategory] = useState('all');
+  const [family, setFamily] = useState('');
+  const families = Array.from(new Set(products.map((p) => p.attributes?.family).filter(Boolean) as string[])).sort();
+  const categoryLabel = (p: Product) => (p.category === 'beetle' && p.attributes?.family ? t(p.attributes.family) : t(p.category));
   const [sort, setSort] = useState('default');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
 
@@ -149,9 +154,11 @@ const Products: React.FC = () => {
         (p.name_th || '').toLowerCase().includes(q) ||
         (p.description || '').toLowerCase().includes(q) ||
         (p.description_th || '').toLowerCase().includes(q) ||
-        (p.category || '').toLowerCase().includes(q);
-      const matchCategory = category === 'All' || p.category === category;
-      return matchSearch && matchCategory;
+        (p.attributes?.species || '').toLowerCase().includes(q) ||
+        (p.attributes?.family || '').toLowerCase().includes(q);
+      const matchCategory = category === 'all' || p.category === category;
+      const matchFamily = category !== 'beetle' || !family || p.attributes?.family === family;
+      return matchSearch && matchCategory && matchFamily;
     });
 
     if (sort === 'price_asc') list = [...list].sort((a, b) => a.price - b.price);
@@ -163,7 +170,7 @@ const Products: React.FC = () => {
     });
 
     return list;
-  }, [products, search, category, sort, isThai]);
+  }, [products, search, category, family, sort, isThai]);
 
   const handleAddToCart = (product: Product) => {
     if (product.stock === 0) return;
@@ -234,7 +241,7 @@ const Products: React.FC = () => {
           {CATEGORIES.map((cat) => (
             <button
               key={cat}
-              onClick={() => setCategory(cat)}
+              onClick={() => { setCategory(cat); setFamily(''); }}
               className={`px-5 py-2 rounded-full text-sm font-semibold border transition-all ${
                 category === cat
                   ? 'bg-orange text-white border-orange shadow-md shadow-orange/20'
@@ -245,6 +252,23 @@ const Products: React.FC = () => {
             </button>
           ))}
         </div>
+        {category === 'beetle' && families.length > 0 && (
+          <div className="flex flex-wrap gap-2 -mt-3 mb-6">
+            {['', ...families].map((f) => (
+              <button
+                key={f || 'any'}
+                onClick={() => setFamily(f)}
+                className={`px-3 py-1 rounded-full text-xs font-semibold border transition-all ${
+                  family === f
+                    ? 'bg-orange/10 text-orange border-orange'
+                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:border-orange hover:text-orange'
+                }`}
+              >
+                {f ? t(f) : t('all')}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Results count */}
         <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
@@ -313,7 +337,7 @@ const Products: React.FC = () => {
 
                 {/* Content */}
                 <div className="p-5">
-                  <span className="text-xs font-semibold text-orange uppercase tracking-wider">{t(product.category)}</span>
+                  <span className="text-xs font-semibold text-orange uppercase tracking-wider">{categoryLabel(product)}</span>
                   <h3
                     className="font-bold text-gray-900 dark:text-gray-100 mt-1 mb-1.5 cursor-pointer hover:text-orange transition-colors line-clamp-1"
                     onClick={() => setSelectedProduct(product)}
@@ -356,7 +380,7 @@ const Products: React.FC = () => {
             </div>
             <div className="flex flex-col justify-between flex-1">
               <div>
-                <span className="text-xs font-semibold text-orange uppercase tracking-wider">{t(selectedProduct.category)}</span>
+                <span className="text-xs font-semibold text-orange uppercase tracking-wider">{categoryLabel(selectedProduct)}</span>
                 {selectedProduct.is_best_seller && (
                   <span className="ml-2 inline-flex items-center gap-1 bg-orange/10 text-orange text-xs font-bold px-2 py-0.5 rounded-full">
                     <Star className="w-3 h-3 fill-orange" /> {t('best_seller')}
@@ -369,6 +393,15 @@ const Products: React.FC = () => {
                   {isThai && selectedProduct.description_th ? selectedProduct.description_th : selectedProduct.description}
                 </p>
                 <div className="mt-4 space-y-1.5 text-sm">
+                  {selectedProduct.category === 'beetle' && selectedProduct.attributes && (
+                    <>
+                      {selectedProduct.attributes.species && <div className="flex gap-2"><span className="text-gray-400 w-20">{t('species')}</span><span className="font-semibold italic text-gray-800 dark:text-gray-200">{selectedProduct.attributes.species}</span></div>}
+                      {selectedProduct.attributes.locality && <div className="flex gap-2"><span className="text-gray-400 w-20">{t('locality')}</span><span className="font-semibold text-gray-800 dark:text-gray-200">{selectedProduct.attributes.locality}</span></div>}
+                      {selectedProduct.attributes.sex && <div className="flex gap-2"><span className="text-gray-400 w-20">{t('sex')}</span><span className="font-semibold text-gray-800 dark:text-gray-200">{t(`sex_${selectedProduct.attributes.sex}`)}</span></div>}
+                      {selectedProduct.attributes.stage && <div className="flex gap-2"><span className="text-gray-400 w-20">{t('stage')}</span><span className="font-semibold text-gray-800 dark:text-gray-200">{t(`stage_${selectedProduct.attributes.stage}`)}</span></div>}
+                      {selectedProduct.attributes.size_mm && <div className="flex gap-2"><span className="text-gray-400 w-20">{t('size')}</span><span className="font-semibold text-gray-800 dark:text-gray-200">{selectedProduct.attributes.size_mm} mm</span></div>}
+                    </>
+                  )}
                   <div className="flex gap-2"><span className="text-gray-400 w-20">Stock:</span><span className="font-semibold text-gray-800 dark:text-gray-200">{selectedProduct.stock} available</span></div>
                   <div className="flex gap-2"><span className="text-gray-400 w-20">{t('views')}</span><span className="font-semibold text-gray-800 dark:text-gray-200">{selectedProduct.views?.toLocaleString()}</span></div>
                 </div>

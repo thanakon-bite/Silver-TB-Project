@@ -54,6 +54,9 @@ await run('migration 001 (re-run)', migration);
 const migration2 = fs.readFileSync(`${ROOT}/migrations/002_spec_alignment.sql`, 'utf8');
 await run('migration 002 (1st run)', migration2);
 await run('migration 002 (re-run)', migration2);
+const migration3 = fs.readFileSync(`${ROOT}/migrations/003_product_categories.sql`, 'utf8');
+await run('migration 003 (1st run)', migration3);
+await run('migration 003 (re-run)', migration3);
 
 // Backfill checks
 let r = await db.query(`SELECT order_number, subtotal FROM orders`);
@@ -222,7 +225,10 @@ console.log('OK   adjust_product_stock: atomic, never negative, service-only');
 
 // 002: beetle attributes JSONB + "paid" status vocabulary + checkout session column
 r = (await db.query(`SELECT attributes FROM products WHERE id=$1`, [atlas.id])).rows[0];
-assert.deepEqual(r.attributes, {}, 'attributes default to an empty object');
+assert.deepEqual(r.attributes, { family: 'Rhinoceros' }, 'old family category moved into attributes');
+r = (await db.query(`SELECT DISTINCT category FROM products ORDER BY 1`)).rows.map((x) => x.category);
+assert.deepEqual(r, ['beetle'], 'seeded beetles recategorised');
+await expectError(() => db.query(`UPDATE products SET category='Stag' WHERE id=$1`, [atlas.id]), 'products_category_check');
 await db.query(`UPDATE products SET attributes='{"species":"Chalcosoma atlas","sex":"male","stage":"adult","size_mm":95}' WHERE id=$1`, [atlas.id]);
 await expectError(() => db.query(`UPDATE products SET attributes='[1]' WHERE id=$1`, [atlas.id]), 'products_attributes_object');
 await expectError(() => db.query(`UPDATE orders SET status='confirmed' WHERE id=$1`, [o4.id]), 'orders_status_check');

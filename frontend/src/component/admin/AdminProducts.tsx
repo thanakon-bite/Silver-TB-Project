@@ -4,20 +4,27 @@ import Swal from 'sweetalert2';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import { baht, uuidv4 } from '../../lib/format';
-import type { Product } from '../../lib/types';
+import { BEETLE_SEXES, BEETLE_STAGES, PRODUCT_CATEGORIES, type BeetleAttributes, type Product, type ProductCategory } from '../../lib/types';
 import Modal from '../common/Modal';
 
 const BUCKET = 'product-images';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const DEFAULT_CATEGORIES = ['Rhinoceros', 'Stag', 'Flower', 'Supplies'];
+const DEFAULT_FAMILIES = ['Rhinoceros', 'Stag', 'Flower'];
+const CATEGORY_LABELS: Record<ProductCategory, string> = { beetle: 'Beetle', food: 'Food', log: 'Logs & substrate', gear: 'Gear' };
+
+type Attrs = { family: string; species: string; locality: string; sex: string; stage: string; size_mm: string };
+const emptyAttrs = (): Attrs => ({ family: '', species: '', locality: '', sex: '', stage: '', size_mm: '' });
 
 type Form = {
   name: string;
+  name_th: string;
   description: string;
+  description_th: string;
   price: string;
   stock: string;
-  category: string;
+  category: ProductCategory;
+  attrs: Attrs;
   images: string[];
   is_best_seller: boolean;
   is_active: boolean;
@@ -25,10 +32,13 @@ type Form = {
 
 const emptyForm = (): Form => ({
   name: '',
+  name_th: '',
   description: '',
+  description_th: '',
   price: '',
   stock: '0',
-  category: 'Rhinoceros',
+  category: 'beetle',
+  attrs: emptyAttrs(),
   images: [],
   is_best_seller: false,
   is_active: true,
@@ -61,7 +71,8 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
     return () => clearTimeout(t);
   }, [fetchProducts]);
 
-  const categories = Array.from(new Set([...DEFAULT_CATEGORIES, ...products.map((p) => p.category).filter(Boolean) as string[]]));
+  const families = Array.from(new Set([...DEFAULT_FAMILIES, ...products.map((p) => p.attributes?.family).filter(Boolean) as string[]]));
+  const setAttr = (key: keyof Attrs, value: string) => setForm((f) => ({ ...f, attrs: { ...f.attrs, [key]: value } }));
 
   const open = (p: Product | 'new') => {
     setEditing(p);
@@ -70,10 +81,20 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
         ? emptyForm()
         : {
             name: p.name,
+            name_th: p.name_th || '',
             description: p.description || '',
+            description_th: p.description_th || '',
             price: String(p.price),
             stock: String(p.stock),
-            category: p.category || '',
+            category: p.category,
+            attrs: {
+              family: p.attributes?.family || '',
+              species: p.attributes?.species || '',
+              locality: p.attributes?.locality || '',
+              sex: p.attributes?.sex || '',
+              stage: p.attributes?.stage || '',
+              size_mm: p.attributes?.size_mm ? String(p.attributes.size_mm) : '',
+            },
             images: p.images || [],
             is_best_seller: p.is_best_seller,
             is_active: p.is_active,
@@ -120,11 +141,23 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    // Beetle Attributes only apply to beetles; empty fields are left out
+    const attributes: BeetleAttributes =
+      form.category === 'beetle'
+        ? (Object.fromEntries(
+            Object.entries(form.attrs)
+              .filter(([, val]) => val.trim() !== '')
+              .map(([k, val]) => [k, k === 'size_mm' ? Number(val) : val.trim()])
+          ) as BeetleAttributes)
+        : {};
     const payload = {
       name: form.name,
+      name_th: form.name_th,
       description: form.description,
+      description_th: form.description_th,
       price: Number(form.price),
       category: form.category,
+      attributes,
       images: form.images,
       is_best_seller: form.is_best_seller,
       is_active: form.is_active,
@@ -226,7 +259,10 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                     </div>
                   </div>
                 </td>
-                <td className="p-3 text-gray-600">{p.category}</td>
+                <td className="p-3 text-gray-600">
+                  {CATEGORY_LABELS[p.category] || p.category}
+                  {p.attributes?.family && <div className="text-xs text-gray-400">{p.attributes.family}</div>}
+                </td>
                 <td className="p-3 text-gray-800 text-right">{baht(p.price)}</td>
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-1">
@@ -275,8 +311,16 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
               <input required maxLength={200} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} />
             </div>
             <div className="col-span-2">
+              <label className="block text-sm font-medium mb-1 text-gray-700">Name (Thai)</label>
+              <input maxLength={200} value={form.name_th} onChange={(e) => setForm({ ...form, name_th: e.target.value })} className={input} />
+            </div>
+            <div className="col-span-2">
               <label className="block text-sm font-medium mb-1 text-gray-700">Description</label>
               <textarea maxLength={5000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${input} min-h-[100px]`} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium mb-1 text-gray-700">Description (Thai)</label>
+              <textarea maxLength={5000} value={form.description_th} onChange={(e) => setForm({ ...form, description_th: e.target.value })} className={`${input} min-h-[80px]`} />
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700">Price (฿)</label>
@@ -292,12 +336,11 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
             </div>
             <div>
               <label className="block text-sm font-medium mb-1 text-gray-700">Category</label>
-              <input list="product-categories" maxLength={50} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={input} />
-              <datalist id="product-categories">
-                {categories.map((c) => (
-                  <option key={c} value={c} />
+              <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })} className={input}>
+                {PRODUCT_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
                 ))}
-              </datalist>
+              </select>
             </div>
             <div className="flex items-center gap-4 mt-6">
               <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
@@ -310,6 +353,51 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
               </label>
             </div>
           </div>
+
+          {form.category === 'beetle' && (
+            <fieldset className="grid grid-cols-2 gap-4 rounded-xl border border-gray-100 p-4">
+              <legend className="px-1 text-sm font-semibold text-gray-700">Beetle details</legend>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Family</label>
+                <input list="beetle-families" maxLength={50} value={form.attrs.family} onChange={(e) => setAttr('family', e.target.value)} className={input} />
+                <datalist id="beetle-families">
+                  {families.map((f) => (
+                    <option key={f} value={f} />
+                  ))}
+                </datalist>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Species</label>
+                <input maxLength={120} value={form.attrs.species} onChange={(e) => setAttr('species', e.target.value)} placeholder="Dynastes hercules" className={input} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Locality</label>
+                <input maxLength={120} value={form.attrs.locality} onChange={(e) => setAttr('locality', e.target.value)} className={input} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Size (mm)</label>
+                <input type="number" min="0.1" max="300" step="0.1" value={form.attrs.size_mm} onChange={(e) => setAttr('size_mm', e.target.value)} className={input} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Sex</label>
+                <select value={form.attrs.sex} onChange={(e) => setAttr('sex', e.target.value)} className={input}>
+                  <option value="">—</option>
+                  {BEETLE_SEXES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-gray-700">Stage</label>
+                <select value={form.attrs.stage} onChange={(e) => setAttr('stage', e.target.value)} className={input}>
+                  <option value="">—</option>
+                  {BEETLE_STAGES.map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            </fieldset>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-2 text-gray-700">Images (first image is the cover)</label>

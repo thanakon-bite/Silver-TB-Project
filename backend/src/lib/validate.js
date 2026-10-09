@@ -130,7 +130,8 @@ function likePattern(value) {
   return `%${String(value).slice(0, 100).replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-const BEETLE_SEX = ['male', 'female', 'pair', 'unsexed'];
+const PRODUCT_CATEGORIES = ['beetle', 'food', 'log', 'gear'];
+const BEETLE_SEX = ['male', 'female', 'pair', 'trio', 'unsexed'];
 const BEETLE_STAGE = ['egg', 'L1', 'L2', 'L3', 'pupa', 'adult'];
 
 // Beetle-specific product data stored in products.attributes (JSONB). Unknown keys are rejected.
@@ -138,12 +139,14 @@ function productAttributes(value, field = 'attributes') {
   if (value === undefined) return undefined;
   if (value === null) return {};
   if (typeof value !== 'object' || Array.isArray(value)) throw badRequest(`${field} must be an object`);
-  const allowed = ['species', 'sex', 'stage', 'size_mm'];
+  const allowed = ['family', 'species', 'locality', 'sex', 'stage', 'size_mm'];
   const unknown = Object.keys(value).filter((k) => !allowed.includes(k));
   if (unknown.length) throw badRequest(`${field} has unknown keys: ${unknown.join(', ')}`);
   const out = {};
-  const species = str(value.species, `${field}.species`, { required: false, max: 120 });
-  if (species) out.species = species;
+  for (const [key, max] of [['family', 50], ['species', 120], ['locality', 120]]) {
+    const text = str(value[key], `${field}.${key}`, { required: false, max });
+    if (text) out[key] = text;
+  }
   const sex = oneOf(value.sex, `${field}.sex`, BEETLE_SEX, { required: false });
   if (sex) out.sex = sex;
   const stage = oneOf(value.stage, `${field}.stage`, BEETLE_STAGE, { required: false });
@@ -157,6 +160,7 @@ function productAttributes(value, field = 'attributes') {
 }
 
 module.exports = {
+  PRODUCT_CATEGORIES,
   BEETLE_SEX,
   BEETLE_STAGE,
   productAttributes,

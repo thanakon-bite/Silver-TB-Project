@@ -113,7 +113,7 @@ const Favorites: React.FC = () => {
                       ) : '🪲'}
                     </div>
                     <div className="p-4">
-                      <span className="text-xs font-semibold text-orange uppercase tracking-wider">{product.category}</span>
+                      <span className="text-xs font-semibold text-orange uppercase tracking-wider">{t(product.category)}</span>
                       <h3 className="font-bold text-gray-900 dark:text-gray-100 mt-1 mb-1 line-clamp-1">{product.name}</h3>
                       <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100 mb-4">฿{product.price.toLocaleString()}</p>
                       <div className="flex gap-2">
