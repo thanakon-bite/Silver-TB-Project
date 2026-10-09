@@ -1,0 +1,350 @@
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Plus, Edit2, Trash2, Upload, X, Minus, Search, ArrowLeft, ArrowRight } from 'lucide-react';
+import Swal from 'sweetalert2';
+import { api } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
+import { baht, uuidv4 } from '../../lib/format';
+import type { Product } from '../../lib/types';
+import Modal from '../common/Modal';
+
+const BUCKET = 'product-images';
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+const DEFAULT_CATEGORIES = ['Rhinoceros', 'Stag', 'Flower', 'Supplies'];
+
+type Form = {
+  name: string;
+  description: string;
+  price: string;
+  stock: string;
+  category: string;
+  images: string[];
+  is_best_seller: boolean;
+  is_active: boolean;
+};
+
+const emptyForm = (): Form => ({
+  name: '',
+  description: '',
+  price: '',
+  stock: '0',
+  category: 'Rhinoceros',
+  images: [],
+  is_best_seller: false,
+  is_active: true,
+});
+
+const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [search, setSearch] = useState('');
+  const [lowOnly, setLowOnly] = useState(initialFilter === 'low');
+  const [editing, setEditing] = useState<Product | 'new' | null>(null);
+  const [form, setForm] = useState<Form>(emptyForm());
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const fileInput = useRef<HTMLInputElement>(null);
+
+  const fetchProducts = useCallback(async () => {
+    const q = new URLSearchParams({ limit: '200' });
+    if (search) q.set('search', search);
+    if (lowOnly) q.set('low_stock', 'true');
+    try {
+      const data = await api.get<{ products: Product[] }>(`/products/admin/all?${q}`);
+      setProducts(data.products || []);
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
+    }
+  }, [search, lowOnly]);
+
+  useEffect(() => {
+    const t = setTimeout(fetchProducts, 250);
+    return () => clearTimeout(t);
+  }, [fetchProducts]);
+
+  const categories = Array.from(new Set([...DEFAULT_CATEGORIES, ...products.map((p) => p.category).filter(Boolean) as string[]]));
+
+  const open = (p: Product | 'new') => {
+    setEditing(p);
+    setForm(
+      p === 'new'
+        ? emptyForm()
+        : {
+            name: p.name,
+            description: p.description || '',
+            price: String(p.price),
+            stock: String(p.stock),
+            category: p.category || '',
+            images: p.images || [],
+            is_best_seller: p.is_best_seller,
+            is_active: p.is_active,
+          }
+    );
+  };
+
+  const uploadImages = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const list = Array.from(files);
+    const bad = list.find((f) => !IMAGE_TYPES.includes(f.type) || f.size > MAX_IMAGE_BYTES);
+    if (bad) return Swal.fire('Invalid image', 'Use JPG, PNG or WebP files up to 5 MB.', 'error');
+    if (form.images.length + list.length > 10) return Swal.fire('Too many images', 'A product can have up to 10 images.', 'error');
+
+    setUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const file of list) {
+        const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+        const path = `products/${uuidv4()}.${ext}`;
+        // RLS on storage.objects only lets admins write to this bucket
+        const { error } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type, cacheControl: '31536000' });
+        if (error) throw error;
+        urls.push(supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl);
+      }
+      setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
+    } catch (err: any) {
+      Swal.fire('Upload failed', err.message, 'error');
+    } finally {
+      setUploading(false);
+      if (fileInput.current) fileInput.current.value = '';
+    }
+  };
+
+  const moveImage = (i: number, dir: -1 | 1) =>
+    setForm((f) => {
+      const imgs = [...f.images];
+      const j = i + dir;
+      if (j < 0 || j >= imgs.length) return f;
+      [imgs[i], imgs[j]] = [imgs[j], imgs[i]];
+      return { ...f, images: imgs };
+    });
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const payload = {
+      name: form.name,
+      description: form.description,
+      price: Number(form.price),
+      category: form.category,
+      images: form.images,
+      is_best_seller: form.is_best_seller,
+      is_active: form.is_active,
+    };
+    try {
+      if (editing === 'new') await api.post('/products', { ...payload, stock: Number(form.stock) });
+      else if (editing) await api.patch(`/products/${editing.id}`, payload);
+      setEditing(null);
+      fetchProducts();
+      Swal.fire({ icon: 'success', title: 'Saved', timer: 900, showConfirmButton: false });
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const adjustStock = async (p: Product, sign: 1 | -1) => {
+    const { value } = await Swal.fire({
+      title: `${sign > 0 ? 'Add' : 'Remove'} stock — ${p.name}`,
+      text: `Current stock: ${p.stock}`,
+      input: 'number',
+      inputValue: 1,
+      inputAttributes: { min: '1', step: '1' },
+      showCancelButton: true,
+      confirmButtonColor: '#FF922B',
+    });
+    const n = Number(value);
+    if (!value || !Number.isInteger(n) || n <= 0) return;
+    try {
+      const updated = await api.post<Product>(`/products/${p.id}/stock`, { delta: sign * n });
+      setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, stock: updated.stock } : x)));
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
+    }
+  };
+
+  const deactivate = async (p: Product) => {
+    const r = await Swal.fire({
+      title: `Deactivate ${p.name}?`,
+      text: 'It disappears from the shop but stays in order history. You can reactivate it later.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#FF922B',
+      confirmButtonText: 'Deactivate',
+    });
+    if (!r.isConfirmed) return;
+    try {
+      await api.delete(`/products/${p.id}`);
+      fetchProducts();
+    } catch (err: any) {
+      Swal.fire('Error', err.message, 'error');
+    }
+  };
+
+  const input = 'w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange/50 outline-none';
+
+  return (
+    <div>
+      <div className="flex flex-col sm:flex-row gap-3 justify-between mb-4">
+        <div className="flex gap-3 items-center flex-1">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products" className={`${input} pl-9`} />
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
+            <input type="checkbox" className="accent-orange" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} />
+            Low stock only
+          </label>
+        </div>
+        <button onClick={() => open('new')} className="flex items-center justify-center gap-2 px-4 py-2 bg-orange text-white font-bold rounded-lg hover:opacity-90">
+          <Plus className="w-4 h-4" /> Add product
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-left border-collapse text-sm">
+          <thead>
+            <tr className="border-b-2 border-gray-100 bg-gray-50/50 text-gray-600">
+              <th className="p-3 font-semibold">Product</th>
+              <th className="p-3 font-semibold">Category</th>
+              <th className="p-3 font-semibold text-right">Price</th>
+              <th className="p-3 font-semibold text-center">Stock</th>
+              <th className="p-3 font-semibold">Status</th>
+              <th className="p-3 font-semibold">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {products.map((p) => (
+              <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+                <td className="p-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
+                      {p.images?.[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover" /> : '🪲'}
+                    </div>
+                    <div>
+                      <div className="font-semibold text-gray-800">{p.name}</div>
+                      {p.is_best_seller && <div className="text-xs text-orange">Best seller</div>}
+                    </div>
+                  </div>
+                </td>
+                <td className="p-3 text-gray-600">{p.category}</td>
+                <td className="p-3 text-gray-800 text-right">{baht(p.price)}</td>
+                <td className="p-3">
+                  <div className="flex items-center justify-center gap-1">
+                    <button aria-label="Remove stock" onClick={() => adjustStock(p, -1)} className="p-1 rounded border border-gray-200 hover:border-orange" disabled={p.stock === 0}>
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className={`w-10 text-center font-semibold ${p.stock === 0 ? 'text-red-600' : p.stock <= 2 ? 'text-orange-dark' : 'text-gray-800'}`}>{p.stock}</span>
+                    <button aria-label="Add stock" onClick={() => adjustStock(p, 1)} className="p-1 rounded border border-gray-200 hover:border-orange">
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                </td>
+                <td className="p-3">
+                  <span className={`px-2 py-1 text-xs rounded-full font-semibold ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
+                    {p.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
+                <td className="p-3">
+                  <div className="flex gap-1">
+                    <button aria-label="Edit" onClick={() => open(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg">
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    {p.is_active && (
+                      <button aria-label="Deactivate" onClick={() => deactivate(p)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+            {products.length === 0 && (
+              <tr>
+                <td colSpan={6} className="p-8 text-center text-gray-400">No products found.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? 'Add product' : 'Edit product'} maxWidth="2xl">
+        <form onSubmit={save} className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="col-span-2">
+              <label className="block text-sm font-medium mb-1 text-gray-700">Name</label>
+              <input required maxLength={200} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-medium mb-1 text-gray-700">Description</label>
+              <textarea maxLength={5000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${input} min-h-[100px]`} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Price (฿)</label>
+              <input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className={input} />
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">{editing === 'new' ? 'Initial stock' : 'Stock'}</label>
+              {editing === 'new' ? (
+                <input required type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className={input} />
+              ) : (
+                <p className="py-2 text-sm text-gray-500">{form.stock} — adjust with +/− in the table</p>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1 text-gray-700">Category</label>
+              <input list="product-categories" maxLength={50} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} className={input} />
+              <datalist id="product-categories">
+                {categories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+            <div className="flex items-center gap-4 mt-6">
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+                <input type="checkbox" checked={form.is_best_seller} onChange={(e) => setForm({ ...form, is_best_seller: e.target.checked })} className="accent-orange w-4 h-4" />
+                Best seller
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+                <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="accent-orange w-4 h-4" />
+                Available in shop
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium mb-2 text-gray-700">Images (first image is the cover)</label>
+            <div className="flex flex-wrap gap-3">
+              {form.images.map((url, i) => (
+                <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 group">
+                  <img src={url} alt="" className="w-full h-full object-cover" />
+                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/50 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                    <button type="button" aria-label="Move left" onClick={() => moveImage(i, -1)} className="p-1 text-white"><ArrowLeft className="w-3 h-3" /></button>
+                    <button type="button" aria-label="Remove image" onClick={() => setForm((f) => ({ ...f, images: f.images.filter((u) => u !== url) }))} className="p-1 text-white"><X className="w-3 h-3" /></button>
+                    <button type="button" aria-label="Move right" onClick={() => moveImage(i, 1)} className="p-1 text-white"><ArrowRight className="w-3 h-3" /></button>
+                  </div>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => fileInput.current?.click()}
+                disabled={uploading || form.images.length >= 10}
+                className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-orange hover:text-orange disabled:opacity-50"
+              >
+                <Upload className="w-5 h-5" />
+                <span className="text-xs mt-1">{uploading ? 'Uploading…' : 'Upload'}</span>
+              </button>
+              <input ref={fileInput} type="file" accept={IMAGE_TYPES.join(',')} multiple hidden onChange={(e) => uploadImages(e.target.files)} />
+            </div>
+            <p className="text-xs text-gray-400 mt-2">JPG, PNG or WebP · up to 5 MB each · max 10 images</p>
+          </div>
+
+          <button type="submit" disabled={saving || uploading} className="w-full mt-2 py-3 bg-orange text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50">
+            {saving ? 'Saving…' : editing === 'new' ? 'Create product' : 'Save changes'}
+          </button>
+        </form>
+      </Modal>
+    </div>
+  );
+};
+
+export default AdminProducts;

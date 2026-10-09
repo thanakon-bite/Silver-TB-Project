@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Bug, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import Swal from 'sweetalert2';
@@ -7,8 +7,12 @@ import Swal from 'sweetalert2';
 type Mode = 'login' | 'signup';
 
 const Login: React.FC = () => {
-  const { login, signup } = useAuth();
+  const { login, signup, requestPasswordReset } = useAuth();
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  // Only allow internal redirects (prevents open-redirect via ?redirect=https://evil)
+  const rawRedirect = params.get('redirect') || '/';
+  const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/';
 
   const [mode, setMode] = useState<Mode>('login');
   const [showPassword, setShowPassword] = useState(false);
@@ -28,7 +32,7 @@ const Login: React.FC = () => {
     if (!form.email.trim()) e.email = 'Email is required';
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format';
     if (!form.password) e.password = 'Password is required';
-    else if (form.password.length < 6) e.password = 'Password must be at least 6 characters';
+    else if (mode === 'signup' && form.password.length < 8) e.password = 'Password must be at least 8 characters';
     if (mode === 'signup') {
       if (!form.full_name.trim()) e.full_name = 'Full name is required';
     }
@@ -48,18 +52,47 @@ const Login: React.FC = () => {
     setLoading(true);
     try {
       if (mode === 'login') {
-        await login(form.email, form.password);
+        await login(form.email.trim(), form.password);
         await Swal.fire({ icon: 'success', title: 'Welcome back!', timer: 1200, showConfirmButton: false });
       } else {
-        await signup(form.email, form.password, form.full_name, form.phone || undefined);
+        const { needsEmailConfirmation } = await signup(form.email.trim(), form.password, form.full_name.trim(), form.phone || undefined);
+        if (needsEmailConfirmation) {
+          await Swal.fire({
+            icon: 'info',
+            title: 'Check your email',
+            text: `We sent a confirmation link to ${form.email.trim()}. Click it, then sign in.`,
+          });
+          setMode('login');
+          setForm((f) => ({ ...f, password: '' }));
+          return;
+        }
         await Swal.fire({ icon: 'success', title: 'Account created!', text: 'Welcome to Silver Thief Bug 🪲', timer: 1500, showConfirmButton: false });
       }
-      navigate('/');
+      navigate(redirectTo, { replace: true });
     } catch (err: any) {
       Swal.fire({ icon: 'error', title: 'Error', text: err.message || 'Something went wrong' });
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleForgot = async () => {
+    const { value: email } = await Swal.fire({
+      title: 'Reset your password',
+      input: 'email',
+      inputValue: form.email,
+      inputPlaceholder: 'you@example.com',
+      showCancelButton: true,
+      confirmButtonColor: '#FF922B',
+      confirmButtonText: 'Send reset link',
+    });
+    if (!email) return;
+    try {
+      await requestPasswordReset(email);
+    } catch {
+      /* don't reveal whether the email exists */
+    }
+    Swal.fire({ icon: 'success', title: 'Check your email', text: 'If an account exists for that email, a reset link is on its way.' });
   };
 
   return (
@@ -124,6 +157,7 @@ const Login: React.FC = () => {
                 <input
                   type="email"
                   name="email"
+                  autoComplete="email"
                   value={form.email}
                   onChange={handleChange}
                   placeholder="you@example.com"
@@ -140,6 +174,7 @@ const Login: React.FC = () => {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   value={form.password}
                   onChange={handleChange}
                   placeholder="••••••••"
@@ -166,6 +201,14 @@ const Login: React.FC = () => {
                     className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange/50"
                   />
                 </div>
+              </div>
+            )}
+
+            {mode === 'login' && (
+              <div className="text-right -mt-2">
+                <button type="button" onClick={handleForgot} className="text-xs text-gray-500 hover:text-orange">
+                  Forgot password?
+                </button>
               </div>
             )}
 

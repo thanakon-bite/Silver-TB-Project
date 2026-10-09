@@ -1,0 +1,159 @@
+const express = require('express');
+const supabase = require('../config/supabase');
+const { authenticate, requireAdmin } = require('../middleware/auth');
+const { asyncHandler, unwrap, badRequest, notFound } = require('../lib/http');
+const v = require('../lib/validate');
+
+const router = express.Router();
+router.use(authenticate, requireAdmin);
+
+const LOW_STOCK = 2;
+
+const bangkokDay = (iso) => new Date(iso).toLocaleDateString('en-CA', { timeZone: 'Asia/Bangkok' });
+
+// GET /api/admin/stats — dashboard overview
+router.get(
+  '/stats',
+  asyncHandler(async (req, res) => {
+    const since = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000);
+    since.setUTCHours(0, 0, 0, 0);
+
+    const [statusRows, paidRecent, lowStock, attention, customers] = await Promise.all([
+      supabase.from('orders').select('status, payment_status, total'),
+      supabase.from('orders').select('total, paid_at').eq('payment_status', 'paid').gte('paid_at', since.toISOString()),
+      supabase
+        .from('products')
+        .select('id, name, stock')
+        .eq('is_active', true)
+        .lte('stock', LOW_STOCK)
+        .order('stock', { ascending: true })
+        .limit(20),
+      supabase.from('orders').select('id', { count: 'exact', head: true }).eq('needs_attention', true),
+      supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user'),
+    ]);
+    for (const r of [statusRows, paidRecent, lowStock]) if (r.error) throw r.error;
+
+    const byStatus = Object.fromEntries(['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map((s) => [s, 0]));
+    let revenue = 0;
+    for (const o of statusRows.data) {
+      byStatus[o.status] = (byStatus[o.status] || 0) + 1;
+      if (o.payment_status === 'paid') revenue += Number(o.total);
+    }
+
+    const days = [];
+    for (let i = 0; i < 14; i++) {
+      const d = new Date(since.getTime() + i * 24 * 60 * 60 * 1000);
+      days.push({ date: bangkokDay(d), revenue: 0, orders: 0 });
+    }
+    const dayIndex = Object.fromEntries(days.map((d, i) => [d.date, i]));
+    for (const o of paidRecent.data) {
+      const i = dayIndex[bangkokDay(o.paid_at)];
+      if (i !== undefined) {
+        days[i].revenue += Number(o.total);
+        days[i].orders += 1;
+      }
+    }
+
+    res.json({
+      revenue_total: revenue,
+      orders_by_status: byStatus,
+      to_fulfil: byStatus.confirmed,
+      needs_attention: attention.count || 0,
+      customers: customers.count || 0,
+      low_stock: lowStock.data,
+      daily: days,
+    });
+  })
+);
+
+// GET /api/admin/customers — customers with order count and total spent
+router.get(
+  '/customers',
+  asyncHandler(async (req, res) => {
+    const { page, limit, from, to } = v.pagination(req.query, { defaultLimit: 25, maxLimit: 100 });
+    let query = supabase
+      .from('profiles')
+      .select('id, full_name, email, phone, role, created_at', { count: 'exact' })
+      .order('created_at', { ascending: false })
+      .range(from, to);
+    if (req.query.search) {
+      // Only allow safe characters inside the PostgREST or() filter
+      const term = String(req.query.search).replace(/[^\p{L}\p{N}@.\- ]/gu, '').trim().slice(0, 100);
+      if (term) query = query.or(`full_name.ilike.%${term}%,email.ilike.%${term}%`);
+    }
+    const { data: profiles, error, count } = await query;
+    if (error) throw error;
+
+    const ids = profiles.map((p) => p.id);
+    const orderRows = ids.length
+      ? unwrap(await supabase.from('orders').select('user_id, total, payment_status').in('user_id', ids))
+      : [];
+    const stats = {};
+    for (const o of orderRows) {
+      const s = (stats[o.user_id] ||= { orders: 0, spent: 0 });
+      s.orders += 1;
+      if (o.payment_status === 'paid') s.spent += Number(o.total);
+    }
+
+    res.json({
+      customers: profiles.map((p) => ({ ...p, orders: stats[p.id]?.orders || 0, total_spent: stats[p.id]?.spent || 0 })),
+      total: count,
+      page,
+      limit,
+    });
+  })
+);
+
+// GET /api/admin/customers/:id — profile, addresses and orders
+router.get(
+  '/customers/:id',
+  asyncHandler(async (req, res) => {
+    const id = v.uuid(req.params.id, 'id');
+    const profile = unwrap(
+      await supabase.from('profiles').select('id, full_name, email, phone, role, created_at').eq('id', id).maybeSingle()
+    );
+    if (!profile) throw notFound('Customer not found');
+    const [addresses, orders] = await Promise.all([
+      supabase.from('addresses').select('*').eq('user_id', id),
+      supabase
+        .from('orders')
+        .select('id, order_number, total, status, payment_status, created_at')
+        .eq('user_id', id)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
+    res.json({ ...profile, addresses: addresses.data || [], orders: orders.data || [] });
+  })
+);
+
+// PATCH /api/admin/customers/:id/role — promote/demote admins (cannot change your own role)
+router.patch(
+  '/customers/:id/role',
+  asyncHandler(async (req, res) => {
+    const id = v.uuid(req.params.id, 'id');
+    const role = v.oneOf(req.body.role, 'role', ['user', 'admin']);
+    if (id === req.user.id) throw badRequest('You cannot change your own role');
+    const data = unwrap(await supabase.from('profiles').update({ role }).eq('id', id).select('id, role').maybeSingle());
+    if (!data) throw notFound('Customer not found');
+    console.log(`ROLE CHANGE: ${req.user.id} set ${id} to ${role}`);
+    res.json(data);
+  })
+);
+
+// GET /api/admin/payments — recent Stripe webhook events (audit trail)
+router.get(
+  '/payments',
+  asyncHandler(async (req, res) => {
+    const { from, to } = v.pagination(req.query, { defaultLimit: 50, maxLimit: 200 });
+    const data = unwrap(
+      await supabase
+        .from('payment_events')
+        .select('*, orders(order_number)')
+        .order('created_at', { ascending: false })
+        .range(from, to)
+    );
+    res.json(data);
+  })
+);
+
+module.exports = router;

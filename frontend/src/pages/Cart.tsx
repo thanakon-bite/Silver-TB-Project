@@ -95,7 +95,9 @@ const Cart: React.FC = () => {
                             <span className="w-6 text-center font-semibold text-sm">{item.quantity}</span>
                             <button
                               onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
-                              className="p-1 rounded-full border border-gray-200 hover:border-orange hover:text-orange transition-colors"
+                              disabled={item.max_quantity !== undefined && item.quantity >= item.max_quantity}
+                              aria-label="Increase quantity"
+                              className="p-1 rounded-full border border-gray-200 hover:border-orange hover:text-orange transition-colors disabled:opacity-30 disabled:pointer-events-none"
                             >
                               <Plus className="w-3 h-3" />
                             </button>

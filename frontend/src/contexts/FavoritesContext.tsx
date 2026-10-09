@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { storage } from '../lib/format';
 
 interface FavoritesContextType {
   favorites: string[];
@@ -6,10 +7,17 @@ interface FavoritesContextType {
   isFavorite: (product_id: string) => boolean;
 }
 
+const FAVORITES_KEY = 'stb_favorites_v1';
+
 const FavoritesContext = createContext<FavoritesContextType | null>(null);
 
 export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(() => {
+    const saved = storage.get<string[]>(FAVORITES_KEY, []);
+    return Array.isArray(saved) ? saved.filter((id) => typeof id === 'string') : [];
+  });
+
+  useEffect(() => storage.set(FAVORITES_KEY, favorites), [favorites]);
 
   const toggle = useCallback((product_id: string) => {
     setFavorites((prev) =>

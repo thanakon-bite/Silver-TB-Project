@@ -10,7 +10,7 @@ import Swal from 'sweetalert2';
 interface Product {
   id: string;
   name: string;
-  description: string;
+  description: string | null;
   price: number;
   stock: number;
   category: string;
@@ -57,7 +57,7 @@ const Products: React.FC = () => {
   const filtered = useCallback(() => {
     let list = products.filter((p) => {
       const matchSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase());
+        (p.description || '').toLowerCase().includes(search.toLowerCase());
       const matchCategory = category === 'All' || p.category === category;
       return matchSearch && matchCategory;
     });
@@ -76,6 +76,7 @@ const Products: React.FC = () => {
       name: product.name,
       price: product.price,
       image: product.images?.[0] || '',
+      max_quantity: product.stock,
     });
     Swal.fire({
       icon: 'success',

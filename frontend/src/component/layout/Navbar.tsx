@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, User, Menu, X, Bug, LogOut } from 'lucide-react';
+import { ShoppingCart, Heart, User, Menu, X, Bug, LogOut, Package } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
@@ -22,7 +22,7 @@ const Navbar: React.FC = () => {
       confirmButtonText: 'Sign out',
     });
     if (result.isConfirmed) {
-      logout();
+      await logout();
       navigate('/');
     }
   };
@@ -77,7 +77,10 @@ const Navbar: React.FC = () => {
                 {isAdmin && (
                   <Link to="/admin" className="text-xs font-bold bg-orange/10 text-orange px-2 py-1 rounded-md uppercase tracking-wider mr-2 hover:bg-orange/20 transition-colors">Admin</Link>
                 )}
-                <span className="text-sm font-medium text-gray-700">{user.full_name?.split(' ')[0]}</span>
+                <Link to="/orders" title="My orders" className="p-2 text-gray-500 hover:text-orange transition-colors">
+                  <Package className="w-5 h-5" />
+                </Link>
+                <Link to="/account" className="text-sm font-medium text-gray-700 hover:text-orange">{user.full_name?.split(' ')[0]}</Link>
                 <button
                   onClick={handleLogout}
                   className="flex items-center gap-1.5 px-3 py-2 rounded-full border-2 border-gray-200 hover:border-red-300 hover:text-red-500 transition-all text-sm font-semibold text-gray-500"
@@ -127,6 +130,12 @@ const Navbar: React.FC = () => {
             </Link>
             {isAdmin && (
               <Link to="/admin" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-orange font-bold">Admin Dashboard</Link>
+            )}
+            {user && (
+              <>
+                <Link to="/orders" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-orange font-medium">My orders</Link>
+                <Link to="/account" onClick={() => setIsOpen(false)} className="block px-3 py-2 text-gray-700 hover:text-orange font-medium">My account</Link>
+              </>
             )}
             {user ? (
               <button onClick={() => { setIsOpen(false); handleLogout(); }} className="block w-full text-left px-3 py-2 text-red-500 font-medium">

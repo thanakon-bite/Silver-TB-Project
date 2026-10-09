@@ -45,7 +45,7 @@ const Favorites: React.FC = () => {
   const handleAddToCart = (id: string) => {
     const product = productsMap[id];
     if (!product || product.stock === 0) return;
-    addItem({ product_id: id, name: product.name, price: product.price, image: product.images?.[0] || '' });
+    addItem({ product_id: id, name: product.name, price: product.price, image: product.images?.[0] || '', max_quantity: product.stock });
     Swal.fire({ icon: 'success', title: 'Added to cart!', text: product.name, timer: 1000, showConfirmButton: false, position: 'top-end', toast: true });
   };
 

@@ -4,13 +4,18 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { FavoritesProvider } from './contexts/FavoritesContext';
 import { ToastProvider } from './component/common/NotificationToast';
+import { RequireAuth, RequireAdmin } from './component/auth/RouteGuards';
 import Navbar from './component/layout/Navbar';
 import Footer from './component/layout/Footer';
 import Cart from './pages/Cart';
 import Home from './pages/Home';
 import Products from './pages/Products';
 import Login from './pages/Login';
+import ResetPassword from './pages/ResetPassword';
 import Checkout from './pages/Checkout';
+import Orders from './pages/Orders';
+import OrderDetail from './pages/OrderDetail';
+import Account from './pages/Account';
 import AdminDashboard from './pages/AdminDashboard';
 import Favorites from './pages/Favorites';
 
@@ -37,10 +42,14 @@ function AppShell() {
           <Route path="/products" element={<Products />} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/about" element={<Placeholder title="About Us" />} />
           <Route path="/contact" element={<Placeholder title="Contact Us" />} />
-          <Route path="/checkout" element={<Checkout />} />
-          <Route path="/admin" element={<AdminDashboard />} />
+          <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
+          <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
+          <Route path="/orders/:id" element={<RequireAuth><OrderDetail /></RequireAuth>} />
+          <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
           <Route path="/shipping" element={<Placeholder title="Shipping Policy" />} />
           <Route path="/terms" element={<Placeholder title="Terms of Service" />} />
           <Route path="/privacy" element={<Placeholder title="Privacy Policy" />} />

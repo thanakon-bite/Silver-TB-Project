@@ -1,0 +1,217 @@
+/**
+ * Order / payment lifecycle shared by routes, the Stripe webhook and the background job.
+ *
+ * Trust model: an order becomes "paid" ONLY through markPaidFromIntent(), which is fed a
+ * PaymentIntent that came from a signature-verified Stripe webhook or was fetched directly
+ * from the Stripe API by this server. The browser's payment result is never trusted.
+ */
+const supabase = require('../config/supabase');
+const stripe = require('../config/stripe');
+const line = require('../lib/line');
+const { conflict, unwrap } = require('../lib/http');
+
+const ORDER_WITH_ITEMS = '*, order_items(id, product_id, product_name, product_image, unit_price, quantity, line_total)';
+
+async function getOrderWithItems(orderId) {
+  const { data, error } = await supabase.from('orders').select(ORDER_WITH_ITEMS).eq('id', orderId).maybeSingle();
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+/**
+ * Notify admins on LINE exactly once per paid order.
+ * Claims the order by setting admin_notified_at; resets it if the push fails so the job retries.
+ */
+async function notifyAdminsOrderPaid(orderId) {
+  const { data: claimed, error } = await supabase
+    .from('orders')
+    .update({ admin_notified_at: new Date().toISOString() })
+    .eq('id', orderId)
+    .eq('payment_status', 'paid')
+    .is('admin_notified_at', null)
+    .select('id');
+  if (error) throw new Error(error.message);
+  if (!claimed?.length) return false; // already notified (or not paid)
+
+  try {
+    const order = await getOrderWithItems(orderId);
+    await line.pushToAdmins(line.buildOrderPaidMessage(order, order.order_items));
+    return true;
+  } catch (err) {
+    await supabase.from('orders').update({ admin_notified_at: null }).eq('id', orderId);
+    throw err;
+  }
+}
+
+async function warnAdmins(text) {
+  try {
+    await line.pushToAdmins(`⚠️ ${text}`);
+  } catch (err) {
+    console.error('LINE warning failed:', err.message);
+  }
+}
+
+/**
+ * Apply a succeeded PaymentIntent (from Stripe) to its order. Idempotent.
+ * @returns {Promise<string>} result of mark_order_paid
+ */
+async function markPaidFromIntent(intent) {
+  const orderId = intent.metadata?.order_id;
+  if (!orderId) return 'no_order_metadata';
+
+  const { data: result, error } = await supabase.rpc('mark_order_paid', {
+    p_order_id: orderId,
+    p_payment_intent_id: intent.id,
+    p_amount: intent.amount_received || intent.amount,
+    p_currency: intent.currency,
+  });
+  if (error) throw new Error(`mark_order_paid failed: ${error.message}`);
+
+  if (result === 'paid') {
+    await notifyAdminsOrderPaid(orderId).catch((err) => console.error('LINE notify failed (will retry):', err.message));
+  } else if (['amount_mismatch', 'intent_mismatch', 'paid_after_cancel'].includes(result)) {
+    const order = await getOrderWithItems(orderId);
+    await warnAdmins(`Payment needs review (${result}) for order ${order?.order_number || orderId}. Check the admin dashboard.`);
+  }
+  return result;
+}
+
+/**
+ * Cancel an unpaid order: cancel its Stripe PaymentIntent first (so it can't be paid later),
+ * then release reserved stock atomically.
+ * If Stripe says the payment already succeeded, the order is marked paid instead.
+ */
+async function cancelUnpaidOrder(order, reason) {
+  if (order.stripe_payment_intent_id) {
+    let intent = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id);
+    if (intent.status === 'succeeded') {
+      await markPaidFromIntent(intent);
+      throw conflict('This order has already been paid.', 'ALREADY_PAID');
+    }
+    if (intent.status === 'processing') {
+      throw conflict('A payment for this order is still processing. Please wait a moment.', 'PAYMENT_PROCESSING');
+    }
+    if (intent.status !== 'canceled') {
+      try {
+        intent = await stripe.paymentIntents.cancel(intent.id);
+      } catch (err) {
+        intent = await stripe.paymentIntents.retrieve(intent.id);
+        if (intent.status === 'succeeded') {
+          await markPaidFromIntent(intent);
+          throw conflict('This order has already been paid.', 'ALREADY_PAID');
+        }
+        if (intent.status !== 'canceled') throw err;
+      }
+    }
+  }
+  return unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason }));
+}
+
+/** One open checkout per customer: release their other unpaid orders before reserving new stock. */
+async function releaseOtherPendingOrders(userId, keepRequestId) {
+  const { data: pending, error } = await supabase
+    .from('orders')
+    .select('id, status, payment_status, stripe_payment_intent_id, client_request_id')
+    .eq('user_id', userId)
+    .eq('status', 'pending')
+    .in('payment_status', ['unpaid', 'failed']);
+  if (error) throw new Error(error.message);
+
+  for (const order of pending || []) {
+    if (order.client_request_id === keepRequestId) continue;
+    try {
+      await cancelUnpaidOrder(order, 'replaced_by_new_checkout');
+    } catch (err) {
+      if (err.code === 'ALREADY_PAID') continue; // it was paid meanwhile — nothing to release
+      if (err.code === 'PAYMENT_PROCESSING') {
+        throw conflict('Your previous order is still being paid. Please wait a minute and check My orders.', 'PAYMENT_PROCESSING');
+      }
+      throw err;
+    }
+  }
+}
+
+/**
+ * Background job: expire unpaid orders past their reservation window and release stock.
+ * Also reconciles payments whose webhook was missed.
+ */
+async function expireStaleOrders() {
+  const { data: stale, error } = await supabase
+    .from('orders')
+    .select('id, order_number, status, payment_status, stripe_payment_intent_id')
+    .eq('status', 'pending')
+    .in('payment_status', ['unpaid', 'failed'])
+    .lt('expires_at', new Date().toISOString())
+    .limit(50);
+  if (error) throw new Error(error.message);
+
+  let expired = 0;
+  for (const order of stale || []) {
+    try {
+      await cancelUnpaidOrder(order, 'payment_timeout');
+      expired += 1;
+    } catch (err) {
+      if (!['ALREADY_PAID', 'PAYMENT_PROCESSING'].includes(err.code)) {
+        console.error(`Expire ${order.order_number} failed:`, err.message);
+      }
+    }
+  }
+  return expired;
+}
+
+/** Background job: retry LINE notifications for paid orders that were not delivered. */
+async function retryAdminNotifications() {
+  if (!line.isConfigured()) return 0;
+  const since = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from('orders')
+    .select('id')
+    .eq('payment_status', 'paid')
+    .is('admin_notified_at', null)
+    .gte('paid_at', since)
+    .limit(20);
+  if (error) throw new Error(error.message);
+  let sent = 0;
+  for (const { id } of data || []) {
+    try {
+      if (await notifyAdminsOrderPaid(id)) sent += 1;
+    } catch (err) {
+      console.error('LINE retry failed:', err.message);
+      break; // LINE is probably down or misconfigured; try again next run
+    }
+  }
+  return sent;
+}
+
+function startOrderJobs({ intervalMs = 60_000 } = {}) {
+  let running = false;
+  const tick = async () => {
+    if (running) return;
+    running = true;
+    try {
+      const expired = await expireStaleOrders();
+      const notified = await retryAdminNotifications();
+      if (expired || notified) console.log(`🧹 jobs: expired ${expired} order(s), sent ${notified} LINE notification(s)`);
+    } catch (err) {
+      console.error('Order job error:', err.message);
+    } finally {
+      running = false;
+    }
+  };
+  const timer = setInterval(tick, intervalMs);
+  timer.unref();
+  setTimeout(tick, 5_000).unref();
+  return timer;
+}
+
+module.exports = {
+  ORDER_WITH_ITEMS,
+  getOrderWithItems,
+  notifyAdminsOrderPaid,
+  markPaidFromIntent,
+  cancelUnpaidOrder,
+  releaseOtherPendingOrders,
+  expireStaleOrders,
+  retryAdminNotifications,
+  startOrderJobs,
+};
