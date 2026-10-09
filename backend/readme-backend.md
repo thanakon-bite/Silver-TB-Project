@@ -1,4 +1,4 @@
-> **อัปเดต (ต.ค. 2026):** ระบบยืนยันตัวตนเปลี่ยนเป็น Supabase Auth sessions, เพิ่ม migration `001_secure_commerce.sql` (RLS, order_items, ที่อยู่, การจองสต็อก), Stripe webhook เป็นแหล่งยืนยันการชำระเงินเพียงแห่งเดียว และแจ้งเตือน LINE ไปยังกลุ่มแอดมิน — ดูขั้นตอนติดตั้งและตัวแปร env ล่าสุดใน `../README.md`
+> **อัปเดต (ต.ค. 2026):** ระบบยืนยันตัวตนเปลี่ยนเป็น Supabase Auth sessions, เพิ่ม migration `001_secure_commerce.sql` (RLS, order_items, ที่อยู่, การจองสต็อก), Stripe webhook เป็นแหล่งยืนยันการชำระเงินเพียงแห่งเดียว และแจ้งเตือน LINE ไปยังเจ้าของร้าน (LINE_OWNER_USER_ID), ชำระเงินผ่าน Stripe Checkout — ดูขั้นตอนติดตั้งและตัวแปร env ล่าสุดใน `../README.md`
 > *(Updated Oct 2026: see ../README.md for the current architecture, migrations, env vars and setup. Parts of this file describe the previous design.)*
 
 # Silver Thief Bug (SilverTB) - Backend Architecture

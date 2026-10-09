@@ -7,7 +7,7 @@ Exotic beetle shop — React (CRA + TypeScript + Tailwind) storefront, Node/Expr
 - [x] **Phase 2: Database & Authentication** — Supabase Auth sessions, roles from the DB, RLS hardened (migration 001)
 - [x] **Phase 3: Core Features (User-Facing)** — cart & favourites persist across refreshes
 - [x] **Phase 4: Admin Dashboard** — overview + 14-day revenue chart, products (Storage image upload, atomic stock), orders & fulfilment, refunds, customers, payments log, LINE settings
-- [x] **Phase 5: Payment & External Integration** — Stripe PaymentElement (card / PromptPay), webhook-verified payments, LINE admin alerts
+- [x] **Phase 5: Payment & External Integration** — Stripe Checkout (hosted; card / PromptPay), webhook-verified payments, LINE owner alerts
 - [x] **Shipping** — saved addresses + cascading จังหวัด → อำเภอ/เขต → ตำบล/แขวง with postal-code autofill
 - [ ] **Phase 6: Final Polish** — image optimisation, code splitting, responsive QA, real About/Contact/Policy pages
 
@@ -23,18 +23,18 @@ Browser (React) ──Supabase Auth (sign-in/up, reset)──▶ Supabase Auth
                                                  │   ├─ create_order()     atomic stock reservation
                                                  │   ├─ mark_order_paid()  only from Stripe webhook
                                                  │   └─ cancel_order()     releases stock
-                                                 ├──▶ Stripe (PaymentIntents, refunds)
-Stripe ──signed webhook──▶ /api/payments/webhook ┘──▶ LINE Messaging API (admin group)
-LINE   ──signed webhook──▶ /api/notifications/line/webhook (captures admin group id)
+                                                 ├──▶ Stripe (Checkout Sessions, refunds)
+Stripe ──signed webhook──▶ /api/payments/webhook ┘──▶ LINE Messaging API push → LINE_OWNER_USER_ID
+LINE   ──signed webhook──▶ /api/notifications/line/webhook (verified, acknowledged only)
 ```
 
 **Security model**
-- The browser only ever holds public keys (Supabase anon key, Stripe publishable key).
+- The browser only ever holds public values (Supabase URL + anon key). Customers pay on Stripe's hosted Checkout page.
 - Every API call is authenticated with the user's Supabase access token; the role is read from `profiles` on the server.
 - Users cannot change their own role (column privileges), insert orders directly, or call the order functions (service-role only).
 - Prices and totals are always computed in Postgres from `products`; the client sends only product ids and quantities.
-- An order becomes **paid only** when a signature-verified Stripe webhook (or a server-side Stripe lookup) reports `succeeded` with the exact amount and currency.
-- Stock is reserved atomically at checkout with row locks; unpaid orders expire after `ORDER_RESERVATION_MINUTES` and release stock (their Stripe PaymentIntent is cancelled first).
+- An order becomes **paid only** when a signature-verified Stripe webhook (or a server-side Stripe lookup) reports the Checkout Session / PaymentIntent as paid with the exact amount and currency.
+- Stock is reserved atomically at checkout with row locks; unpaid orders expire after `ORDER_RESERVATION_MINUTES` and release stock (their Stripe Checkout Session is expired first). Opening checkout can extend a reservation, but never past 2 hours after the order was created ([ADR 0001](docs/adr/0001-stripe-hosted-checkout.md)).
 - Re-submitting the same checkout returns the same order (`client_request_id` idempotency key); starting a new checkout releases the customer's previous unpaid one.
 
 ### Order lifecycle
@@ -42,7 +42,7 @@ LINE   ──signed webhook──▶ /api/notifications/line/webhook (captures a
 | Status | Set by | Meaning |
 |---|---|---|
 | `pending` | `create_order` | Stock reserved, awaiting payment (expires) |
-| `confirmed` | Stripe webhook only | Paid — admins get a LINE alert |
+| `paid` | Stripe webhook only | Paid — the owner gets a LINE alert |
 | `shipped` | Admin (carrier + tracking required) | |
 | `delivered` | Admin | |
 | `cancelled` | Customer/admin (unpaid), expiry job, or admin refund | Stock released (refunds: optional) |
@@ -88,8 +88,10 @@ frontend/src/
 
 ### 1. Supabase
 1. **SQL Editor** → run `backend/src/db/schema.sql` (new projects only), then `seed.sql` (optional sample products).
-2. **SQL Editor** → run `backend/src/db/migrations/001_secure_commerce.sql`. It is idempotent and keeps existing data
-   (old orders get order numbers and `order_items`; old unpaid orders get a 24h expiry).
+2. **SQL Editor** → run the migrations in order: `001_secure_commerce.sql`, `002_spec_alignment.sql`,
+   `003_product_categories.sql`, `004_favorites_rls.sql` (all in `backend/src/db/migrations/`). Each is idempotent and
+   keeps existing data. 003 moves Rhinoceros/Stag/Flower into `attributes.family` and turns other old categories into
+   `gear` — review those products afterwards.
 3. Seed Thai addresses (≈7,400 subdistricts): `cd backend && npm run seed:thai-geo`
 4. **Authentication → Providers → Email**: keep *Confirm email* ON. Set minimum password length to 8.
 5. **Authentication → URL Configuration**: Site URL = your storefront URL; add `http://localhost:3000/**` and
@@ -102,18 +104,21 @@ frontend/src/
    After that, manage admins from **Admin → Customers**.
 
 ### 2. Stripe
-1. Use **test keys** (`sk_test_…`, `pk_test_…`) in development.
-2. Dashboard → Settings → Payment methods: enable **Cards** and **PromptPay** (THB).
+1. Use **test mode** (`sk_test_…`) in development. Only the secret key is needed (backend); the frontend has no Stripe key.
+2. Dashboard → Settings → Payment methods: enable **Cards** and **PromptPay** (THB account required for PromptPay).
 3. Webhook endpoint `https://<api-host>/api/payments/webhook` with events:
+   `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed`,
    `payment_intent.succeeded`, `payment_intent.payment_failed`, `charge.refunded`.
    Copy its signing secret into `STRIPE_WEBHOOK_SECRET`.
 4. Local development: `stripe listen --forward-to localhost:5000/api/payments/webhook` and use the `whsec_…` it prints.
 
 ### 3. LINE Official Account
 1. LINE Developers → your Messaging API channel: copy the **channel access token** and **channel secret** into the backend `.env`.
-2. Webhook URL: `https://<api-host>/api/notifications/line/webhook` → enable *Use webhook*; allow the bot to join groups.
-3. Add the OA to your staff LINE group — the backend stores that group as the alert target.
-   (Or set `LINE_ADMIN_TARGET_IDS` to specific group/user IDs.)
+2. Same channel → **Basic settings** → copy **Your user ID** (`U…`) into `LINE_OWNER_USER_ID`, and add the OA as a
+   friend from that LINE account (push messages only reach friends).
+3. Optional: webhook URL `https://<api-host>/api/notifications/line/webhook` (signature-checked, nothing else happens
+   there). Alert recipients come only from env vars ([ADR 0002](docs/adr/0002-line-target-from-env-only.md)).
+   LINE Notify is discontinued and not used.
 4. Admin → **Payments & LINE** → *Send test message*.
 
 ### 4. Run
@@ -139,7 +144,8 @@ npm start                                             # http://localhost:3000
 | `FRONTEND_URL` | ✅ | CORS allow-list (comma-separated) and admin links in LINE messages |
 | `LINE_CHANNEL_ACCESS_TOKEN` | for LINE | |
 | `LINE_CHANNEL_SECRET` | for LINE | Verifies LINE webhook signatures |
-| `LINE_ADMIN_TARGET_IDS` | optional | Overrides the auto-captured admin group |
+| `LINE_OWNER_USER_ID` | for LINE | Owner's LINE user ID (`U…`) — receives every paid-order alert |
+| `LINE_ADMIN_TARGET_IDS` | optional | Extra recipients (user/group IDs), comma-separated |
 | `SHIPPING_FEE_THB` | optional | Default `0` |
 | `ORDER_RESERVATION_MINUTES` | optional | Default `30` |
 | `PORT`, `NODE_ENV`, `TRUST_PROXY`, `RATE_LIMIT_MAX`, `DISABLE_JOBS` | optional | |
@@ -152,7 +158,6 @@ npm start                                             # http://localhost:3000
 | `REACT_APP_SUPABASE_URL` | |
 | `REACT_APP_SUPABASE_ANON_KEY` | anon/publishable key only |
 | `REACT_APP_API_URL` | e.g. `https://api.example.com/api` |
-| `REACT_APP_STRIPE_PUBLISHABLE_KEY` | `pk_…` |
 
 ## API overview
 
@@ -165,11 +170,12 @@ npm start                                             # http://localhost:3000
 | `GET /api/geo/provinces`, `/provinces/:id/districts`, `/districts/:id/subdistricts`, `/postal/:code` | public | Thai address data |
 | `POST /api/orders`, `GET /api/orders[/:id]`, `POST /api/orders/:id/cancel` | user | checkout & history |
 | `GET /api/orders/admin/all`, `PATCH /api/orders/:id/status`, `PATCH /api/orders/:id/admin`, `POST /api/orders/:id/refund` | admin | fulfilment |
-| `POST /api/payments/create-payment-intent` | user | one PaymentIntent per order |
+| `POST /api/payments/checkout-session` | user | one hosted Checkout Session per order → `{ url }` |
 | `POST /api/payments/webhook` | Stripe | signed |
 | `GET /api/admin/stats`, `/customers[/:id]`, `PATCH /customers/:id/role`, `GET /payments` | admin | dashboard |
 | `GET /api/notifications/line/status`, `POST /line/test`, `POST /broadcast` | admin | LINE |
 | `POST /api/notifications/line/webhook` | LINE | signed |
 
 Removed: `POST /api/auth/signup` and `/login` (Supabase Auth from the browser), `POST /api/payments/create-qr` and
-`GET /api/payments/status/:id` (PaymentElement shows PromptPay; status comes from `GET /api/orders/:id`).
+`GET /api/payments/status/:id`, `POST /api/payments/create-payment-intent` (Stripe Checkout handles card and
+PromptPay; status comes from `GET /api/orders/:id`).
