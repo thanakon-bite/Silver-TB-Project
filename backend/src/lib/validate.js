@@ -130,7 +130,36 @@ function likePattern(value) {
   return `%${String(value).slice(0, 100).replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
+const BEETLE_SEX = ['male', 'female', 'pair', 'unsexed'];
+const BEETLE_STAGE = ['egg', 'L1', 'L2', 'L3', 'pupa', 'adult'];
+
+// Beetle-specific product data stored in products.attributes (JSONB). Unknown keys are rejected.
+function productAttributes(value, field = 'attributes') {
+  if (value === undefined) return undefined;
+  if (value === null) return {};
+  if (typeof value !== 'object' || Array.isArray(value)) throw badRequest(`${field} must be an object`);
+  const allowed = ['species', 'sex', 'stage', 'size_mm'];
+  const unknown = Object.keys(value).filter((k) => !allowed.includes(k));
+  if (unknown.length) throw badRequest(`${field} has unknown keys: ${unknown.join(', ')}`);
+  const out = {};
+  const species = str(value.species, `${field}.species`, { required: false, max: 120 });
+  if (species) out.species = species;
+  const sex = oneOf(value.sex, `${field}.sex`, BEETLE_SEX, { required: false });
+  if (sex) out.sex = sex;
+  const stage = oneOf(value.stage, `${field}.stage`, BEETLE_STAGE, { required: false });
+  if (stage) out.stage = stage;
+  if (!isMissing(value.size_mm)) {
+    const size = Number(value.size_mm);
+    if (!Number.isFinite(size) || size <= 0 || size > 300) throw badRequest(`${field}.size_mm must be between 0 and 300`);
+    out.size_mm = Math.round(size * 10) / 10;
+  }
+  return out;
+}
+
 module.exports = {
+  BEETLE_SEX,
+  BEETLE_STAGE,
+  productAttributes,
   UUID_RE,
   isUuid: (v) => typeof v === 'string' && UUID_RE.test(v),
   str,

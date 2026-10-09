@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { MapPin, CreditCard, Plus } from 'lucide-react';
@@ -41,6 +42,7 @@ const resetRequestId = () => {
 };
 
 const Checkout = () => {
+  const { t } = useTranslation();
   const { items, totalPrice } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -124,21 +126,21 @@ const Checkout = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8 text-center">Checkout</h1>
+      <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center">{t('checkout')}</h1>
 
       <div className="flex items-center justify-center mb-10">
         <div className={`flex items-center gap-2 ${step >= 1 ? 'text-orange font-bold' : 'text-gray-400'}`}>
           <MapPin className="w-5 h-5" />
-          <span>Shipping</span>
+          <span>{t('shipping')}</span>
         </div>
         <div className="w-16 h-px bg-gray-300 mx-4" />
         <div className={`flex items-center gap-2 ${step >= 2 ? 'text-orange font-bold' : 'text-gray-400'}`}>
           <CreditCard className="w-5 h-5" />
-          <span>Payment</span>
+          <span>{t('payment')}</span>
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-xl overflow-hidden border border-gray-100 p-6 sm:p-8">
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden border border-gray-100 dark:border-gray-700 p-6 sm:p-8">
         {step === 1 && (
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
             <h2 className="text-xl font-bold mb-6 text-gray-800">1. Shipping address</h2>

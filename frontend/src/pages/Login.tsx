@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { Bug, Mail, Lock, User, Phone, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
@@ -7,6 +8,8 @@ import Swal from 'sweetalert2';
 type Mode = 'login' | 'signup';
 
 const Login: React.FC = () => {
+  const { t } = useTranslation();
+
   const { login, signup, requestPasswordReset } = useAuth();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -99,7 +102,7 @@ const Login: React.FC = () => {
     <div className="min-h-screen bg-premium-gradient flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-md">
         {/* Card */}
-        <div className="bg-white rounded-3xl shadow-2xl overflow-hidden">
+        <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-2xl overflow-hidden">
           {/* Header */}
           <div className="bg-gradient-to-br from-gray-900 to-gray-800 px-8 py-10 text-center">
             <Link to="/" className="inline-flex items-center gap-2 mb-3">
@@ -110,11 +113,11 @@ const Login: React.FC = () => {
                 <span className="text-white">Bug</span>
               </span>
             </Link>
-            <p className="text-gray-400 text-sm">Premium Exotic Beetle Store</p>
+            <p className="text-gray-400 dark:text-gray-500 text-sm">Premium Exotic Beetle Store</p>
           </div>
 
           {/* Toggle */}
-          <div className="flex border-b border-gray-100">
+          <div className="flex border-b border-gray-100 dark:border-gray-700">
             {(['login', 'signup'] as Mode[]).map((m) => (
               <button
                 key={m}
@@ -134,9 +137,9 @@ const Login: React.FC = () => {
           <form onSubmit={handleSubmit} className="px-8 py-8 space-y-5">
             {mode === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Full Name</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('full_name')}</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <input
                     type="text"
                     name="full_name"
@@ -151,9 +154,9 @@ const Login: React.FC = () => {
             )}
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Email</label>
               <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                 <input
                   type="email"
                   name="email"
@@ -168,9 +171,9 @@ const Login: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Password</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('password')}</label>
               <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
@@ -180,7 +183,7 @@ const Login: React.FC = () => {
                   placeholder="••••••••"
                   className={`w-full pl-10 pr-10 py-2.5 border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange/50 ${errors.password ? 'border-red-400' : 'border-gray-200'}`}
                 />
-                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600">
+                <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600">
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
@@ -189,16 +192,16 @@ const Login: React.FC = () => {
 
             {mode === 'signup' && (
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">Phone <span className="text-gray-400">(optional)</span></label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">{t('phone')}<span className="text-gray-400 dark:text-gray-500">(optional)</span></label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
                   <input
                     type="tel"
                     name="phone"
                     value={form.phone}
                     onChange={handleChange}
                     placeholder="+66 88 123 4567"
-                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange/50"
+                    className="w-full pl-10 pr-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-orange/50"
                   />
                 </div>
               </div>
@@ -222,7 +225,7 @@ const Login: React.FC = () => {
           </form>
         </div>
 
-        <p className="text-center text-gray-500 text-sm mt-6">
+        <p className="text-center text-gray-500 dark:text-gray-400 text-sm mt-6">
           <Link to="/" className="hover:text-orange transition-colors">← Back to store</Link>
         </p>
       </div>

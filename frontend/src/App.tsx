@@ -1,8 +1,10 @@
 import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import Swal from 'sweetalert2';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { FavoritesProvider } from './contexts/FavoritesContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { ToastProvider } from './component/common/NotificationToast';
 import { RequireAuth, RequireAdmin } from './component/auth/RouteGuards';
 import Navbar from './component/layout/Navbar';
@@ -18,10 +20,11 @@ import OrderDetail from './pages/OrderDetail';
 import Account from './pages/Account';
 import AdminDashboard from './pages/AdminDashboard';
 import Favorites from './pages/Favorites';
+import About from './pages/About';
 
 const Placeholder = ({ title }: { title: string }) => (
   <div className="flex items-center justify-center min-h-[50vh]">
-    <h1 className="text-3xl font-bold text-gray-500">{title}</h1>
+    <h1 className="text-3xl font-bold text-gray-500 dark:text-gray-400">{title}</h1>
   </div>
 );
 
@@ -33,8 +36,42 @@ const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 };
 
 function AppShell() {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    let timeoutId: NodeJS.Timeout;
+
+    const resetTimer = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        logout();
+        Swal.fire({
+          icon: 'info',
+          title: 'Session Expired',
+          text: 'You have been logged out due to 15 minutes of inactivity.',
+          confirmButtonColor: '#FF922B'
+        }).then(() => {
+          navigate('/login');
+        });
+      }, 15 * 60 * 1000); // 15 minutes
+    };
+
+    resetTimer();
+
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => document.addEventListener(event, resetTimer));
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach(event => document.removeEventListener(event, resetTimer));
+    };
+  }, [user, logout, navigate]);
+
   return (
-    <div className="min-h-screen flex flex-col bg-white font-sans">
+    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-800 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
       <Navbar />
       <main className="flex-grow">
         <Routes>
@@ -43,7 +80,7 @@ function AppShell() {
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/about" element={<Placeholder title="About Us" />} />
+          <Route path="/about" element={<About />} />
           <Route path="/contact" element={<Placeholder title="Contact Us" />} />
           <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
           <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
@@ -69,9 +106,13 @@ function App() {
     <AuthProvider>
       <CartProvider>
         <FavoritesProvider>
-          <ToastProvider>
-            <AppShell />
-          </ToastProvider>
+          <ThemeProvider>
+            <ToastProvider>
+            <React.Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+              <AppShell />
+            </React.Suspense>
+            </ToastProvider>
+          </ThemeProvider>
         </FavoritesProvider>
       </CartProvider>
     </AuthProvider>

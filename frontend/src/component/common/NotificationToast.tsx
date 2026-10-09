@@ -82,12 +82,12 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               >
                 <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${ICON_COLORS[toast.type]}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 text-sm">{toast.title}</p>
-                  {toast.message && <p className="text-gray-500 text-xs mt-0.5 leading-relaxed">{toast.message}</p>}
+                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{toast.title}</p>
+                  {toast.message && <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 leading-relaxed">{toast.message}</p>}
                 </div>
                 <button
                   onClick={() => dismiss(toast.id)}
-                  className="text-gray-400 hover:text-gray-600 flex-shrink-0 transition-colors"
+                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 flex-shrink-0 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>

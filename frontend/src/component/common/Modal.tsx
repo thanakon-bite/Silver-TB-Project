@@ -66,15 +66,15 @@ const Modal: React.FC<ModalProps> = ({
                 className={`relative w-full ${maxWidthClass} transform overflow-hidden rounded-2xl bg-white text-left shadow-2xl transition-all sm:my-8`}
               >
                 {/* Header */}
-                <div className="bg-white px-4 py-4 sm:px-6 border-b border-gray-100 flex justify-between items-center">
+                <div className="bg-white dark:bg-gray-800 px-4 py-4 sm:px-6 border-b border-gray-100 dark:border-gray-700 flex justify-between items-center">
                   {title ? (
-                    <h3 className="text-xl font-bold text-gray-900 pr-8">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 pr-8">
                       {title}
                     </h3>
                   ) : <div></div>}
                   <button
                     onClick={onClose}
-                    className="absolute top-4 right-4 rounded-full p-1 border-2 border-transparent text-gray-400 hover:text-orange-premium hover:bg-orange-50 hover:border-orange-200 focus:outline-none transition-all duration-200"
+                    className="absolute top-4 right-4 rounded-full p-1 border-2 border-transparent text-gray-400 dark:text-gray-500 hover:text-orange-premium hover:bg-orange-50 hover:border-orange-200 focus:outline-none transition-all duration-200"
                     aria-label="Close"
                   >
                     <X className="h-5 w-5" />

@@ -6,7 +6,7 @@ const v = require('../lib/validate');
 
 const router = express.Router();
 
-const PUBLIC_FIELDS = 'id, name, description, price, stock, category, images, is_best_seller, is_active, views, created_at';
+const PUBLIC_FIELDS = 'id, name, name_th, description, description_th, price, stock, category, attributes, images, is_best_seller, is_active, views, created_at';
 
 // GET /api/products — list with filter, search, pagination (active products only)
 router.get(
@@ -17,7 +17,11 @@ router.get(
 
     let query = supabase.from('products').select(PUBLIC_FIELDS, { count: 'exact' }).eq('is_active', true);
 
-    if (search) query = query.ilike('name', v.likePattern(search));
+    if (search) {
+      // .or() parses commas/parentheses/quotes — strip them so search text can't add filter clauses
+      const p = v.likePattern(String(search).replace(/[,()"]/g, ' '));
+      query = query.or(`name.ilike.${p},name_th.ilike.${p}`);
+    }
     if (category) query = query.eq('category', String(category).slice(0, 50));
     if (min_price && Number.isFinite(Number(min_price))) query = query.gte('price', Number(min_price));
     if (max_price && Number.isFinite(Number(max_price))) query = query.lte('price', Number(max_price));
@@ -95,9 +99,12 @@ function productInput(body, { partial }) {
   const out = {};
   const has = (k) => body[k] !== undefined;
   if (!partial || has('name')) out.name = v.str(body.name, 'name', { max: 200 });
+  if (!partial || has('name_th')) out.name_th = v.str(body.name_th, 'name_th', { required: false, max: 200 });
   if (!partial || has('description')) out.description = v.str(body.description, 'description', { required: false, max: 5000 });
+  if (!partial || has('description_th')) out.description_th = v.str(body.description_th, 'description_th', { required: false, max: 5000 });
   if (!partial || has('price')) out.price = v.money(body.price, 'price');
   if (!partial || has('category')) out.category = v.str(body.category, 'category', { required: false, max: 50 });
+  if (has('attributes')) out.attributes = v.productAttributes(body.attributes);
   if (has('images')) out.images = v.imageUrls(body.images);
   if (has('is_best_seller')) out.is_best_seller = v.bool(body.is_best_seller, 'is_best_seller');
   if (has('is_active')) out.is_active = v.bool(body.is_active, 'is_active');

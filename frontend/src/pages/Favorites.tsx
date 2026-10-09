@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Heart, ShoppingCart, Trash2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -22,6 +23,8 @@ interface Product {
 
 
 const Favorites: React.FC = () => {
+  const { t } = useTranslation();
+
   const { favorites, toggle } = useFavorites();
   const { addItem } = useCart();
 
@@ -64,14 +67,14 @@ const Favorites: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-silver-light">
+    <div className="min-h-screen bg-silver-light dark:bg-gray-800">
       <div className="bg-gray-900 text-white py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4">
             <Heart className="w-8 h-8 text-red-400 fill-red-400" />
             <div>
               <h1 className="text-4xl font-extrabold">My Favorites</h1>
-              <p className="text-gray-400 mt-1">{favorites.length} saved beetle{favorites.length !== 1 ? 's' : ''}</p>
+              <p className="text-gray-400 dark:text-gray-500 mt-1">{favorites.length} saved beetle{favorites.length !== 1 ? 's' : ''}</p>
             </div>
           </div>
         </div>
@@ -81,8 +84,8 @@ const Favorites: React.FC = () => {
         {favorites.length === 0 ? (
           <div className="text-center py-24">
             <Heart className="w-20 h-20 text-gray-200 mx-auto mb-6" />
-            <h2 className="text-2xl font-bold text-gray-700 mb-2">No favorites yet</h2>
-            <p className="text-gray-400 mb-8">Browse our collection and heart the beetles you love.</p>
+            <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300 mb-2">No favorites yet</h2>
+            <p className="text-gray-400 dark:text-gray-500 mb-8">Browse our collection and heart the beetles you love.</p>
             <Link
               to="/products"
               className="inline-flex items-center gap-2 px-8 py-3 bg-orange-gradient text-white font-bold rounded-full shadow-lg hover:opacity-90 transition-opacity"
@@ -102,7 +105,7 @@ const Favorites: React.FC = () => {
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.85 }}
-                    className="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-all overflow-hidden group"
+                    className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm hover:shadow-lg transition-all overflow-hidden group"
                   >
                     <div className="relative h-48 bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center text-5xl group-hover:scale-105 transition-transform duration-300">
                       {product.images?.[0] ? (
@@ -111,8 +114,8 @@ const Favorites: React.FC = () => {
                     </div>
                     <div className="p-4">
                       <span className="text-xs font-semibold text-orange uppercase tracking-wider">{product.category}</span>
-                      <h3 className="font-bold text-gray-900 mt-1 mb-1 line-clamp-1">{product.name}</h3>
-                      <p className="text-xl font-extrabold text-gray-900 mb-4">฿{product.price.toLocaleString()}</p>
+                      <h3 className="font-bold text-gray-900 dark:text-gray-100 mt-1 mb-1 line-clamp-1">{product.name}</h3>
+                      <p className="text-xl font-extrabold text-gray-900 dark:text-gray-100 mb-4">฿{product.price.toLocaleString()}</p>
                       <div className="flex gap-2">
                         <button
                           onClick={() => handleAddToCart(id)}
