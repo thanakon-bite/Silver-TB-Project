@@ -47,6 +47,11 @@ const Orders: React.FC = () => {
               <p className="text-sm text-gray-500 truncate">
                 {dateTime(o.created_at)} · {o.order_items.map((i) => `${i.product_name} ×${i.quantity}`).join(', ')}
               </p>
+              {o.tracking_number && (
+                <p className="text-xs text-gray-500 mt-1">
+                  {o.carrier}: <span className="font-mono">{o.tracking_number}</span>
+                </p>
+              )}
             </div>
             <span className="font-bold text-gray-900">{baht(o.total)}</span>
             <ChevronRight className="w-5 h-5 text-gray-300" />

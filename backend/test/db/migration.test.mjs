@@ -57,6 +57,9 @@ await run('migration 002 (re-run)', migration2);
 const migration3 = fs.readFileSync(`${ROOT}/migrations/003_product_categories.sql`, 'utf8');
 await run('migration 003 (1st run)', migration3);
 await run('migration 003 (re-run)', migration3);
+const migration4 = fs.readFileSync(`${ROOT}/migrations/004_favorites_rls.sql`, 'utf8');
+await run('migration 004 (1st run)', migration4);
+await run('migration 004 (re-run)', migration4);
 
 // Backfill checks
 let r = await db.query(`SELECT order_number, subtotal FROM orders`);
@@ -234,5 +237,16 @@ await expectError(() => db.query(`UPDATE products SET attributes='[1]' WHERE id=
 await expectError(() => db.query(`UPDATE orders SET status='confirmed' WHERE id=$1`, [o4.id]), 'orders_status_check');
 await db.query(`SELECT stripe_checkout_session_id FROM orders LIMIT 1`);
 console.log('OK   002: attributes JSONB, paid status, checkout session column');
+
+// 004: favorites are private to their owner
+await asUser(u1, async () => {
+  await db.query(`INSERT INTO favorites (user_id, product_id) VALUES ('${u1}', $1)`, [goliath.id]);
+  await expectError(() => db.query(`INSERT INTO favorites (user_id, product_id) VALUES ('${u2}', $1)`, [goliath.id]), 'row-level security');
+});
+await asUser(u2, async () => {
+  const rows = (await db.query(`SELECT * FROM favorites`)).rows;
+  assert.equal(rows.length, 0, "cannot see another user's favorites");
+});
+console.log('OK   004: favorites isolated per user');
 
 console.log('\nALL MIGRATION TESTS PASSED');
