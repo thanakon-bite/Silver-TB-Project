@@ -59,7 +59,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Tile icon={Banknote} label="Paid revenue (all time)" value={baht(stats.revenue_total)} />
-        <Tile icon={PackageOpen} label="Paid, waiting to ship" value={String(stats.to_fulfil)} onClick={() => goTo('orders', 'confirmed')} />
+        <Tile icon={PackageOpen} label="Paid, waiting to ship" value={String(stats.to_fulfil)} onClick={() => goTo('orders', 'paid')} />
         <Tile
           icon={AlertTriangle}
           label="Needs attention"

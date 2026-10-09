@@ -17,7 +17,7 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<OrderStatus | ''>(initialFilter === 'confirmed' ? 'confirmed' : '');
+  const [status, setStatus] = useState<OrderStatus | ''>(initialFilter === 'paid' ? 'paid' : '');
   const [payment, setPayment] = useState<PaymentStatus | ''>('');
   const [attention, setAttention] = useState(initialFilter === 'attention');
   const [search, setSearch] = useState('');
@@ -133,7 +133,7 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
         </div>
         <select value={status} onChange={(e) => { setPage(1); setStatus(e.target.value as OrderStatus | ''); }} className={select}>
           <option value="">All statuses</option>
-          {(['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'] as OrderStatus[]).map((s) => (
+          {(['pending', 'paid', 'shipped', 'delivered', 'cancelled'] as OrderStatus[]).map((s) => (
             <option key={s} value={s}>{ORDER_STATUS_LABEL[s]}</option>
           ))}
         </select>
@@ -243,7 +243,7 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
             </div>
 
             {/* Fulfilment actions */}
-            {selected.status === 'confirmed' && selected.payment_status === 'paid' && (
+            {selected.status === 'paid' && selected.payment_status === 'paid' && (
               <div className="rounded-xl border border-orange/30 bg-orange/5 p-4 space-y-3">
                 <h4 className="font-semibold text-gray-900 flex items-center gap-2"><Truck className="w-4 h-4" /> Ship this order</h4>
                 <div className="grid sm:grid-cols-2 gap-3">

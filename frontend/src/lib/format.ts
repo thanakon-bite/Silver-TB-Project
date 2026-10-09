@@ -20,7 +20,7 @@ export function formatAddressLines(a: ShippingSnapshot | string | null | undefin
 
 export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   pending: 'Awaiting payment',
-  confirmed: 'Paid · preparing',
+  paid: 'Paid · preparing',
   shipped: 'Shipped',
   delivered: 'Delivered',
   cancelled: 'Cancelled',
@@ -28,7 +28,7 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
 
 export const ORDER_STATUS_STYLE: Record<OrderStatus, string> = {
   pending: 'bg-yellow-100 text-yellow-800',
-  confirmed: 'bg-blue-100 text-blue-800',
+  paid: 'bg-blue-100 text-blue-800',
   shipped: 'bg-purple-100 text-purple-800',
   delivered: 'bg-green-100 text-green-800',
   cancelled: 'bg-gray-200 text-gray-700',

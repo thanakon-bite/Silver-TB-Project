@@ -1,9 +1,10 @@
 /**
  * Order / payment lifecycle shared by routes, the Stripe webhook and the background job.
  *
- * Trust model: an order becomes "paid" ONLY through markPaidFromIntent(), which is fed a
- * PaymentIntent that came from a signature-verified Stripe webhook or was fetched directly
- * from the Stripe API by this server. The browser's payment result is never trusted.
+ * Trust model: an order becomes "paid" ONLY through markPaidFromCheckoutSession() /
+ * markPaidFromIntent(), which are fed a Checkout Session or PaymentIntent that came from a
+ * signature-verified Stripe webhook or was fetched directly from the Stripe API by this server.
+ * The browser's redirect back from Stripe is never trusted.
  */
 const supabase = require('../config/supabase');
 const stripe = require('../config/stripe');
@@ -56,14 +57,38 @@ async function warnAdmins(text) {
  * @returns {Promise<string>} result of mark_order_paid
  */
 async function markPaidFromIntent(intent) {
-  const orderId = intent.metadata?.order_id;
+  return applyPayment({
+    orderId: intent.metadata?.order_id,
+    paymentIntentId: intent.id,
+    amount: intent.amount_received || intent.amount,
+    currency: intent.currency,
+  });
+}
+
+/**
+ * Apply a paid Checkout Session (from Stripe) to its order. Idempotent.
+ * Async methods (PromptPay) complete the session first and pay later — those are ignored
+ * here until checkout.session.async_payment_succeeded arrives with payment_status "paid".
+ */
+async function markPaidFromCheckoutSession(session) {
+  if (session.payment_status !== 'paid') return 'not_paid_yet';
+  return applyPayment({
+    orderId: session.metadata?.order_id || session.client_reference_id,
+    paymentIntentId: typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id,
+    amount: session.amount_total,
+    currency: session.currency,
+  });
+}
+
+async function applyPayment({ orderId, paymentIntentId, amount, currency }) {
   if (!orderId) return 'no_order_metadata';
+  if (!paymentIntentId) return 'no_payment_intent';
 
   const { data: result, error } = await supabase.rpc('mark_order_paid', {
     p_order_id: orderId,
-    p_payment_intent_id: intent.id,
-    p_amount: intent.amount_received || intent.amount,
-    p_currency: intent.currency,
+    p_payment_intent_id: paymentIntentId,
+    p_amount: amount,
+    p_currency: currency,
   });
   if (error) throw new Error(`mark_order_paid failed: ${error.message}`);
 
@@ -77,11 +102,30 @@ async function markPaidFromIntent(intent) {
 }
 
 /**
- * Cancel an unpaid order: cancel its Stripe PaymentIntent first (so it can't be paid later),
- * then release reserved stock atomically.
+ * Cancel an unpaid order: expire its Stripe Checkout Session / cancel its PaymentIntent first
+ * (so it can't be paid later), then release reserved stock atomically.
  * If Stripe says the payment already succeeded, the order is marked paid instead.
  */
 async function cancelUnpaidOrder(order, reason) {
+  if (order.stripe_checkout_session_id) {
+    let session = await stripe.checkout.sessions.retrieve(order.stripe_checkout_session_id);
+    if (session.status === 'open') {
+      try {
+        session = await stripe.checkout.sessions.expire(session.id);
+      } catch (err) {
+        session = await stripe.checkout.sessions.retrieve(session.id);
+        if (session.status === 'open') throw err;
+      }
+    }
+    if (session.payment_status === 'paid') {
+      await markPaidFromCheckoutSession(session);
+      throw conflict('This order has already been paid.', 'ALREADY_PAID');
+    }
+    if (session.status === 'complete') {
+      // Completed but not yet paid = async payment (PromptPay) still settling
+      throw conflict('A payment for this order is still processing. Please wait a moment.', 'PAYMENT_PROCESSING');
+    }
+  }
   if (order.stripe_payment_intent_id) {
     let intent = await stripe.paymentIntents.retrieve(order.stripe_payment_intent_id);
     if (intent.status === 'succeeded') {
@@ -111,7 +155,7 @@ async function cancelUnpaidOrder(order, reason) {
 async function releaseOtherPendingOrders(userId, keepRequestId) {
   const { data: pending, error } = await supabase
     .from('orders')
-    .select('id, status, payment_status, stripe_payment_intent_id, client_request_id')
+    .select('id, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id, client_request_id')
     .eq('user_id', userId)
     .eq('status', 'pending')
     .in('payment_status', ['unpaid', 'failed']);
@@ -138,7 +182,7 @@ async function releaseOtherPendingOrders(userId, keepRequestId) {
 async function expireStaleOrders() {
   const { data: stale, error } = await supabase
     .from('orders')
-    .select('id, order_number, status, payment_status, stripe_payment_intent_id')
+    .select('id, order_number, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id')
     .eq('status', 'pending')
     .in('payment_status', ['unpaid', 'failed'])
     .lt('expires_at', new Date().toISOString())
@@ -209,6 +253,7 @@ module.exports = {
   getOrderWithItems,
   notifyAdminsOrderPaid,
   markPaidFromIntent,
+  markPaidFromCheckoutSession,
   cancelUnpaidOrder,
   releaseOtherPendingOrders,
   expireStaleOrders,

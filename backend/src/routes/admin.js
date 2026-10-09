@@ -33,7 +33,7 @@ router.get(
     ]);
     for (const r of [statusRows, paidRecent, lowStock]) if (r.error) throw r.error;
 
-    const byStatus = Object.fromEntries(['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'].map((s) => [s, 0]));
+    const byStatus = Object.fromEntries(['pending', 'paid', 'shipped', 'delivered', 'cancelled'].map((s) => [s, 0]));
     let revenue = 0;
     for (const o of statusRows.data) {
       byStatus[o.status] = (byStatus[o.status] || 0) + 1;
@@ -57,7 +57,7 @@ router.get(
     res.json({
       revenue_total: revenue,
       orders_by_status: byStatus,
-      to_fulfil: byStatus.confirmed,
+      to_fulfil: byStatus.paid,
       needs_attention: attention.count || 0,
       customers: customers.count || 0,
       low_stock: lowStock.data,

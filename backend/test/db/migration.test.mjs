@@ -51,6 +51,9 @@ await db.exec(`INSERT INTO orders (user_id, items, total, shipping_address) VALU
 const migration = fs.readFileSync(`${ROOT}/migrations/001_secure_commerce.sql`, 'utf8');
 await run('migration 001 (1st run)', migration);
 await run('migration 001 (re-run)', migration);
+const migration2 = fs.readFileSync(`${ROOT}/migrations/002_spec_alignment.sql`, 'utf8');
+await run('migration 002 (1st run)', migration2);
+await run('migration 002 (re-run)', migration2);
 
 // Backfill checks
 let r = await db.query(`SELECT order_number, subtotal FROM orders`);
@@ -124,7 +127,7 @@ assert.equal(res, 'paid');
 res = (await db.query(`SELECT mark_order_paid($1,'pi_1',$2,'thb') AS r`, [o1.id, cents])).rows[0].r;
 assert.equal(res, 'already_paid');
 r = (await db.query(`SELECT status, payment_status, expires_at FROM orders WHERE id=$1`, [o1.id])).rows[0];
-assert.deepEqual([r.status, r.payment_status, r.expires_at], ['confirmed', 'paid', null]);
+assert.deepEqual([r.status, r.payment_status, r.expires_at], ['paid', 'paid', null]);
 console.log('OK   mark_order_paid: amount check, first-time "paid", idempotent');
 
 // Cancel rules
@@ -216,5 +219,14 @@ await expectError(() => db.query(`SELECT * FROM adjust_product_stock($1, $2)`, [
 assert.equal(await stockOf(atlas.id), before, 'failed adjustment rolled back');
 await asUser(u1, () => expectError(() => db.query(`SELECT * FROM adjust_product_stock('${atlas.id}', 5)`), 'permission denied'));
 console.log('OK   adjust_product_stock: atomic, never negative, service-only');
+
+// 002: beetle attributes JSONB + "paid" status vocabulary + checkout session column
+r = (await db.query(`SELECT attributes FROM products WHERE id=$1`, [atlas.id])).rows[0];
+assert.deepEqual(r.attributes, {}, 'attributes default to an empty object');
+await db.query(`UPDATE products SET attributes='{"species":"Chalcosoma atlas","sex":"male","stage":"adult","size_mm":95}' WHERE id=$1`, [atlas.id]);
+await expectError(() => db.query(`UPDATE products SET attributes='[1]' WHERE id=$1`, [atlas.id]), 'products_attributes_object');
+await expectError(() => db.query(`UPDATE orders SET status='confirmed' WHERE id=$1`, [o4.id]), 'orders_status_check');
+await db.query(`SELECT stripe_checkout_session_id FROM orders LIMIT 1`);
+console.log('OK   002: attributes JSONB, paid status, checkout session column');
 
 console.log('\nALL MIGRATION TESTS PASSED');

@@ -1,20 +1,20 @@
 /**
  * Order fulfilment rules.
  *
- *   pending ──(Stripe webhook: paid)──▶ confirmed ──▶ shipped ──▶ delivered
+ *   pending ──(Stripe webhook)──▶ paid ──▶ shipped ──▶ delivered (optional)
  *      │                                    │
  *      └──▶ cancelled (stock released)      └──▶ cancelled (only via refund)
  *
- * "confirmed" is set ONLY by the verified Stripe webhook / reconciliation, never by a person.
+ * "paid" is set ONLY by the verified Stripe webhook / reconciliation, never by a person.
  */
 
-const ORDER_STATUSES = ['pending', 'confirmed', 'shipped', 'delivered', 'cancelled'];
+const ORDER_STATUSES = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'];
 const PAYMENT_STATUSES = ['unpaid', 'paid', 'failed', 'refunded'];
 
 // Transitions an admin may trigger manually through PATCH /orders/:id/status
 const ADMIN_TRANSITIONS = {
   pending: ['cancelled'],
-  confirmed: ['shipped'],
+  paid: ['shipped'],
   shipped: ['delivered'],
   delivered: [],
   cancelled: [],
@@ -26,10 +26,10 @@ const ADMIN_TRANSITIONS = {
 function checkAdminTransition(order, next) {
   if (!ORDER_STATUSES.includes(next)) return { ok: false, reason: `Unknown status "${next}"` };
   if (order.status === next) return { ok: false, reason: `Order is already ${next}` };
-  if (next === 'confirmed') {
-    return { ok: false, reason: 'Orders become confirmed automatically when Stripe confirms the payment' };
+  if (next === 'paid') {
+    return { ok: false, reason: 'Orders become paid automatically when Stripe confirms the payment' };
   }
-  if (order.status === 'confirmed' && next === 'cancelled') {
+  if (order.status === 'paid' && next === 'cancelled') {
     return { ok: false, reason: 'Paid orders must be refunded (use Refund), not just cancelled' };
   }
   const allowed = ADMIN_TRANSITIONS[order.status] || [];

@@ -248,7 +248,7 @@ const Checkout = () => {
               </div>
             </div>
 
-            <PaymentStep order={order} onSubmitted={() => navigate(`/orders/${order.id}?paid=1`)} onExpired={handleExpired} />
+            <PaymentStep order={order} onExpired={handleExpired} />
 
             <button onClick={() => setStep(1)} className="mt-6 w-full text-sm text-gray-500 hover:text-gray-700 font-medium">
               ← Change shipping address

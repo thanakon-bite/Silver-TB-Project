@@ -116,7 +116,7 @@ const OrderDetail: React.FC = () => {
           We haven't received confirmation yet. If you completed the payment, this page will update shortly — no need to pay again.
         </div>
       )}
-      {order.payment_status === 'paid' && order.status === 'confirmed' && (
+      {order.payment_status === 'paid' && order.status === 'paid' && (
         <div className="p-4 rounded-xl bg-green-50 text-green-800 flex items-center gap-3">
           <CheckCircle2 className="w-5 h-5" /> Payment received — thank you! We're preparing your beetles.
         </div>
@@ -190,11 +190,6 @@ const OrderDetail: React.FC = () => {
           ) : (
             <PaymentStep
               order={order}
-              onSubmitted={() => {
-                setShowPay(false);
-                setParams({ paid: '1' }, { replace: true });
-                setWaiting(true);
-              }}
               onExpired={() => {
                 setShowPay(false);
                 load();

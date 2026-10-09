@@ -4,17 +4,17 @@ const { checkAdminTransition, isPayable } = require('../../src/lib/orderStatus')
 
 const order = (status, payment_status) => ({ status, payment_status });
 
-test('admins cannot mark orders paid/confirmed by hand', () => {
-  assert.equal(checkAdminTransition(order('pending', 'unpaid'), 'confirmed').ok, false);
+test('admins cannot mark orders paid by hand', () => {
+  assert.equal(checkAdminTransition(order('pending', 'unpaid'), 'paid').ok, false);
 });
 
 test('only paid orders can ship', () => {
-  assert.equal(checkAdminTransition(order('confirmed', 'paid'), 'shipped').ok, true);
+  assert.equal(checkAdminTransition(order('paid', 'paid'), 'shipped').ok, true);
   assert.equal(checkAdminTransition(order('pending', 'unpaid'), 'shipped').ok, false);
 });
 
 test('paid orders must be refunded, not cancelled', () => {
-  const r = checkAdminTransition(order('confirmed', 'paid'), 'cancelled');
+  const r = checkAdminTransition(order('paid', 'paid'), 'cancelled');
   assert.equal(r.ok, false);
   assert.match(r.reason, /refund/i);
 });

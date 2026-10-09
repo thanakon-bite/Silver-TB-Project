@@ -177,7 +177,7 @@ router.post(
   })
 );
 
-// PATCH /api/orders/:id/status — admin fulfilment: pending→cancelled, confirmed→shipped, shipped→delivered
+// PATCH /api/orders/:id/status — admin fulfilment: pending→cancelled, paid→shipped, shipped→delivered
 router.patch(
   '/:id/status',
   authenticate,

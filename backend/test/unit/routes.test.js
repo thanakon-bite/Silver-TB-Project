@@ -30,7 +30,7 @@ test('protected endpoints require a session', async () => {
     ['POST', '/api/products'],
     ['GET', '/api/admin/stats'],
     ['GET', '/api/addresses'],
-    ['POST', '/api/payments/create-payment-intent'],
+    ['POST', '/api/payments/checkout-session'],
     ['POST', '/api/notifications/broadcast'],
   ]) {
     const res = await call(path, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : '{}' });
