@@ -1,8 +1,9 @@
 import React from 'react';
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import OrderDetail from './OrderDetail';
 import { renderPage } from '../test/renderPage';
+import { useCart } from '../contexts/CartContext';
 import { api, ApiError } from '../lib/api';
 
 jest.mock('../lib/supabaseClient', () => ({
@@ -48,7 +49,13 @@ function backend(order: unknown) {
   });
 }
 
-const visit = (url = '/orders/o1') => renderPage(<OrderDetail />, { path: '/orders/:id', url });
+const atlas = { product_id: 'p1', name: 'Chalcosoma atlas', price: 3200, image: 'https://img.example/atlas.jpg', quantity: 1 };
+
+/** What the shop's cart badge would read: the number of products in the Cart. */
+const CartCount = () => <p data-testid="cart-count">{useCart().items.length}</p>;
+
+const visit = (url = '/orders/o1', cart: typeof atlas[] = []) =>
+  renderPage(<OrderDetail />, { path: '/orders/:id', url, cart, outside: <CartCount /> });
 
 beforeEach(() => {
   jest.clearAllMocks();
@@ -118,4 +125,47 @@ test('a refused cancellation is explained in Thai on the page, not in a popup', 
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent('ยกเลิกได้เฉพาะคำสั่งซื้อที่ยังไม่ได้ชำระ');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('back from Stripe with the payment already confirmed: the order reads paid and the Cart is emptied', async () => {
+  backend(anOrder({ status: 'paid', payment_status: 'paid', paid_at: '2026-10-10T07:35:00Z' }));
+  visit('/orders/o1?paid=1', [atlas]);
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'ชำระแล้ว' })).toBeInTheDocument();
+  await waitFor(() => expect(screen.getByTestId('cart-count')).toHaveTextContent('0'));
+});
+
+test('opening a paid order later leaves the current Cart alone', async () => {
+  backend(anOrder({ status: 'paid', payment_status: 'paid', paid_at: '2026-10-10T07:35:00Z' }));
+  visit('/orders/o1', [atlas]);
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'ชำระแล้ว' })).toBeInTheDocument();
+  expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
+});
+
+test('back from Stripe before the webhook: the page waits, then reads paid and empties the Cart', async () => {
+  jest.useFakeTimers();
+  try {
+    const paid = anOrder({ status: 'paid', payment_status: 'paid', paid_at: '2026-10-10T07:35:00Z' });
+    let calls = 0;
+    (api.get as jest.Mock).mockImplementation((path: string) => {
+      if (path === '/auth/me') return Promise.resolve(customer);
+      calls += 1;
+      return Promise.resolve(calls === 1 ? anOrder() : paid);
+    });
+    visit('/orders/o1?paid=1', [atlas]);
+
+    expect(await screen.findByText(/กำลังยืนยันการชำระเงิน/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ชำระ ฿/ })).not.toBeInTheDocument();
+
+    act(() => {
+      jest.advanceTimersByTime(2000);
+    });
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'ชำระแล้ว' })).toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('ขอบคุณที่สั่งซื้อ');
+    expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
+  } finally {
+    jest.useRealTimers();
+  }
 });

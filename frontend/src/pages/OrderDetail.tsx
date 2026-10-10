@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
 import { formatAddressLines } from '../lib/format';
@@ -18,6 +18,13 @@ const MAX_POLLS = 45; // ~90 seconds
 const isPayable = (o: Order) =>
   o.status === 'pending' && ['unpaid', 'failed'].includes(o.payment_status) && (!o.expires_at || new Date(o.expires_at) > new Date());
 
+/** A quiet status line on the sunken panel; errors use the danger box instead (design.md). */
+const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div role="status" className="flex items-start gap-2 rounded-xl border border-line bg-sunken p-3 text-sm text-ink">
+    {children}
+  </div>
+);
+
 /** The Order Status as customers read it (CONTEXT.md); a refunded cancellation says so. */
 const statusKey = (o: Order) => (o.status === 'cancelled' && o.payment_status === 'refunded' ? 'cancelled_refunded' : o.status);
 
@@ -31,7 +38,7 @@ const OrderDetail: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState('');
   const [waiting, setWaiting] = useState(justPaid);
-  const polls = useRef(0);
+  const [thanked, setThanked] = useState(false);
 
   const load = useCallback(async () => {
     const o = await api.get<Order>(`/orders/${id}`);
@@ -43,35 +50,34 @@ const OrderDetail: React.FC = () => {
     load().catch((e) => setError(errorMessage(e, t)));
   }, [load, t]);
 
-  // After checkout we wait for the SERVER (Stripe webhook) to confirm the payment.
+  // Back from Stripe (?paid=1): only the SERVER (verified webhook) makes an order Paid, so poll for it.
   useEffect(() => {
     if (!waiting) return;
-    polls.current = 0;
-    const timer = setInterval(async () => {
-      polls.current += 1;
-      try {
-        const o = await load();
-        if (o.payment_status === 'paid') {
-          clearInterval(timer);
-          setWaiting(false);
-          clearCart();
-          try {
-            sessionStorage.removeItem('stb_checkout_request');
-          } catch {
-            /* ignore */
-          }
-          setParams({}, { replace: true });
-        }
-      } catch {
+    let polls = 0;
+    const timer = setInterval(() => {
+      polls += 1;
+      load().catch(() => {
         /* keep polling */
-      }
-      if (polls.current >= MAX_POLLS) {
-        clearInterval(timer);
-        setWaiting(false);
-      }
+      });
+      if (polls >= MAX_POLLS) setWaiting(false);
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [waiting, load, clearCart, setParams]);
+  }, [waiting, load]);
+
+  // Seeing this order Paid on the way back from Stripe ends the purchase, whenever the webhook landed:
+  // empty the Cart once. Opening an old order without ?paid=1 never touches the Cart.
+  useEffect(() => {
+    if (!justPaid || order?.payment_status !== 'paid') return;
+    setWaiting(false);
+    setThanked(true);
+    clearCart();
+    try {
+      sessionStorage.removeItem('stb_checkout_request');
+    } catch {
+      /* ignore */
+    }
+    setParams({}, { replace: true });
+  }, [justPaid, order, clearCart, setParams]);
 
   if (error) {
     return (
@@ -132,26 +138,27 @@ const OrderDetail: React.FC = () => {
 
           <div className="min-w-0 space-y-8 lg:order-1">
             {waiting && order.payment_status !== 'paid' && (
-              <div className="p-4 rounded-xl bg-blue-50 text-blue-800 flex items-center gap-3">
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Confirming your payment with the bank… this usually takes a few seconds.
-              </div>
+              <Notice>
+                <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-accent-strong motion-reduce:animate-none" aria-hidden />
+                <p>{t('order_page.confirming')}</p>
+              </Notice>
             )}
             {!waiting && justPaid && order.payment_status !== 'paid' && order.status === 'pending' && (
-              <div className="p-4 rounded-xl bg-yellow-50 text-yellow-800 text-sm">
-                We haven't received confirmation yet. If you completed the payment, this page will update shortly — no need to pay again.
-              </div>
+              <Notice>
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
+                <p>
+                  <strong className="font-semibold">{t('order_page.not_confirmed_title')}</strong> · {t('order_page.not_confirmed_text')}
+                </p>
+              </Notice>
             )}
-            {order.payment_status === 'paid' && order.status === 'paid' && (
-              <div className="p-4 rounded-xl bg-green-50 text-green-800 flex items-center gap-3">
-                <CheckCircle2 className="w-5 h-5" /> Payment received — thank you! We're preparing your beetles.
-              </div>
-            )}
-            {order.status === 'cancelled' && (
-              <div className="p-4 rounded-xl bg-gray-100 text-gray-700 flex items-center gap-3">
-                <XCircle className="w-5 h-5" />
-                This order was cancelled{order.payment_status === 'refunded' ? ' and refunded' : ''}.
-              </div>
+            {order.status === 'paid' && (
+              <Notice>
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+                <p>
+                  {thanked && <strong className="font-semibold">{t('order_page.paid_thanks')} · </strong>}
+                  {t('order_page.preparing')}
+                </p>
+              </Notice>
             )}
 
             {order.status !== 'cancelled' && <OrderJourney order={order} />}

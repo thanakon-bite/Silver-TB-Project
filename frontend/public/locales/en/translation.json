@@ -266,6 +266,11 @@
     "cancel_keep": "Keep it",
     "cancel_confirm": "Yes, cancel",
     "cancelling": "Cancelling…",
-    "cancel_error": "Could not cancel the order"
+    "cancel_error": "Could not cancel the order",
+    "confirming": "Confirming your payment with the bank… this usually takes a few seconds.",
+    "not_confirmed_title": "We haven't received the payment confirmation yet",
+    "not_confirmed_text": "If you have paid, don't pay again. Refresh this page in a little while.",
+    "paid_thanks": "Payment received, thank you",
+    "preparing": "We're preparing your order for shipping"
   }
 }
