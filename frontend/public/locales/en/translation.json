@@ -193,7 +193,9 @@
     "reserved_for": "Your items are reserved for",
     "opening_payment": "Opening secure payment…",
     "pay_button": "Pay {{amount}} · Card / PromptPay",
-    "pay_note": "You will pay on Stripe’s secure page, then come back here. We never see your card details."
+    "pay_note": "You will pay on Stripe’s secure page, then come back here. We never see your card details.",
+    "edit_cart": "Edit cart",
+    "contact_shop": "Contact the shop"
   },
   "address_form": {
     "recipient": "Recipient",

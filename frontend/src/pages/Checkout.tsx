@@ -10,6 +10,7 @@ import { baht, formatAddressLines, uuidv4 } from '../lib/format';
 import type { Address, Order } from '../lib/types';
 import AddressForm, { emptyAddress, validateAddress, pruneErrors, toAddressPayload, AddressFormValue } from '../component/address/AddressForm';
 import PaymentStep from '../component/checkout/PaymentStep';
+import { CheckoutHeader, CheckoutFooter } from '../component/checkout/FocusedChrome';
 
 const REQUEST_KEY = 'stb_checkout_request';
 
@@ -159,6 +160,8 @@ const Checkout = () => {
     fee === null ? '–' : Number(fee) > 0 ? baht(fee) : <span className="text-green-600 dark:text-green-400 font-semibold">{t('checkout_page.free')}</span>;
 
   return (
+    <>
+    <CheckoutHeader />
     <div className="max-w-3xl mx-auto px-4 py-12">
       <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 mb-8 text-center">{t('checkout')}</h1>
 
@@ -324,6 +327,8 @@ const Checkout = () => {
         )}
       </div>
     </div>
+    <CheckoutFooter />
+    </>
   );
 };
 

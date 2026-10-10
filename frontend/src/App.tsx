@@ -1,5 +1,5 @@
 import React from 'react';
-import { Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -38,6 +38,7 @@ const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   React.useEffect(() => {
     if (!user) return;
@@ -70,9 +71,12 @@ function AppShell() {
     };
   }, [user, logout, navigate]);
 
+  // Checkout brings its own focused header and footer (see FocusedChrome).
+  const focused = location.pathname === '/checkout';
+
   return (
     <div className="min-h-screen flex flex-col bg-white dark:bg-gray-800 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
-      <Navbar />
+      {!focused && <Navbar />}
       <main className="flex-grow">
         <Routes>
           <Route path="/" element={<Home />} />
@@ -94,7 +98,7 @@ function AppShell() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>
-      <Footer />
+      {!focused && <Footer />}
       {/* Cart slide-over renders on top of everything */}
       <Cart />
     </div>

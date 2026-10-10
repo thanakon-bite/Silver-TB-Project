@@ -1,7 +1,9 @@
 import React from 'react';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { Route } from 'react-router-dom';
 import Checkout from './Checkout';
+import Cart from './Cart';
 import { renderPage } from '../test/renderPage';
 import { api, ApiError } from '../lib/api';
 
@@ -98,4 +100,19 @@ test('when the Reservation runs out the customer is back on the address step wit
   expect(notice).toHaveTextContent('หมดเวลาการจอง');
   expect(screen.getByRole('button', { name: 'ดำเนินการชำระเงิน' })).toBeInTheDocument();
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('"edit cart" goes back to the previous page with the Cart drawer open', async () => {
+  renderPage(<Checkout />, {
+    path: '/checkout',
+    cart: [atlas],
+    history: ['/products'],
+    routes: <Route path="/products" element={<p>หน้าร้านค้า</p>} />,
+    outside: <Cart />,
+  });
+
+  userEvent.click(await screen.findByRole('button', { name: /แก้ไขตะกร้า/ }));
+
+  expect(await screen.findByText('หน้าร้านค้า')).toBeInTheDocument();
+  expect(screen.getByRole('heading', { name: 'ตะกร้าสินค้า' })).toBeInTheDocument();
 });

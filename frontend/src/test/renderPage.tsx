@@ -22,25 +22,30 @@ export function makeI18n() {
 interface Options {
   path: string;
   cart?: CartItem[];
+  /** Pages visited before this one, oldest first (browser history). */
+  history?: string[];
   /** Extra routes rendered beside the page under test, e.g. where a redirect lands. */
   routes?: React.ReactNode;
+  /** App-level UI rendered outside the routes, e.g. the Cart drawer. */
+  outside?: React.ReactNode;
 }
 
 /**
  * Renders a page the way the app does: real Auth and Cart providers, real Thai i18n, a router.
  * Only the network adapters (the API client and Supabase) are mocked, by each test file.
  */
-export function renderPage(page: React.ReactElement, { path, cart = [], routes }: Options) {
+export function renderPage(page: React.ReactElement, { path, cart = [], history = [], routes, outside }: Options) {
   localStorage.setItem('stb_cart_v1', JSON.stringify(cart));
   return render(
     <I18nextProvider i18n={makeI18n()}>
-      <MemoryRouter initialEntries={[path]}>
+      <MemoryRouter initialEntries={[...history, path]} initialIndex={history.length}>
         <AuthProvider>
           <CartProvider>
             <Routes>
               <Route path={path} element={page} />
               {routes}
             </Routes>
+            {outside}
           </CartProvider>
         </AuthProvider>
       </MemoryRouter>
