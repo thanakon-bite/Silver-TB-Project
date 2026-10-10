@@ -68,3 +68,9 @@ test('geo endpoints validate input', async () => {
   const res = await call('/api/geo/postal/12ab3');
   assert.equal(res.status, 400);
 });
+
+test('the Shipping Fee is public so the cart can show it before checkout', async () => {
+  const res = await call('/api/orders/shipping-fee');
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { shipping_fee: 0 });
+});
