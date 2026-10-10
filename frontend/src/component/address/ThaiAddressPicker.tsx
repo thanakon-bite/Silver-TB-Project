@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import type { GeoOption } from '../../lib/types';
-import { fieldClass, fieldLabel } from './fieldStyles';
+import { fieldClass, fieldError, fieldLabel } from './fieldStyles';
 
 export interface ThaiAddressValue {
   province_id: number | null;
@@ -94,7 +94,7 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
 
   return (
     <div className="space-y-3">
-      {loadError && <p className="text-sm text-red-500">{t(loadError)}</p>}
+      {loadError && <p className="text-sm text-danger">{t(loadError)}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className={label} htmlFor="addr-province">{t('address_form.province')}</label>
@@ -153,7 +153,7 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
               </option>
             ))}
           </select>
-          {errors.subdistrict_id && <p role="alert" className="text-red-500 text-xs mt-1">{t(errors.subdistrict_id)}</p>}
+          {errors.subdistrict_id && <p role="alert" className={fieldError}>{t(errors.subdistrict_id)}</p>}
         </div>
 
         <div>
@@ -168,20 +168,20 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
             onChange={(e) => handlePostal(e.target.value)}
             className={selectClass(errors.postal_code)}
           />
-          {errors.postal_code && <p role="alert" className="text-red-500 text-xs mt-1">{t(errors.postal_code)}</p>}
+          {errors.postal_code && <p role="alert" className={fieldError}>{t(errors.postal_code)}</p>}
         </div>
       </div>
 
       {postalMatches.length > 1 && (
-        <div className="rounded-xl border border-orange/30 bg-orange/5 p-3">
-          <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('address_form.choose_for_postal', { code: value.postal_code })}</p>
+        <div className="rounded-xl border border-line bg-sunken p-3">
+          <p className="text-xs font-semibold text-muted mb-2">{t('address_form.choose_for_postal', { code: value.postal_code })}</p>
           <div className="flex flex-wrap gap-2">
             {postalMatches.map((m) => (
               <button
                 type="button"
                 key={m.subdistrict_id}
                 onClick={() => applyMatch(m, value.postal_code)}
-                className="text-xs px-3 py-1.5 rounded-full bg-white text-gray-700 border border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:border-gray-600 hover:border-orange hover:text-orange"
+                className="text-xs px-3 py-1.5 rounded-full bg-paper text-ink border border-line hover:border-accent-strong hover:text-accent-strong"
               >
                 {m.subdistrict} · {m.district} · {m.province}
               </button>

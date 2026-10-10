@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import ThaiAddressPicker, { ThaiAddressValue } from './ThaiAddressPicker';
-import { fieldClass, fieldLabel } from './fieldStyles';
+import { fieldClass, fieldError, fieldLabel } from './fieldStyles';
 import type { Address } from '../../lib/types';
 
 export interface AddressFormValue extends ThaiAddressValue {
@@ -88,12 +88,12 @@ const AddressForm: React.FC<Props> = ({ value, onChange, errors = {}, showLabel 
         <div>
           <label className={label} htmlFor="addr-name">{t('address_form.recipient')}</label>
           <input id="addr-name" autoComplete="name" value={value.recipient_name} onChange={set('recipient_name')} className={input(errors.recipient_name)} />
-          {errors.recipient_name && <p role="alert" className="text-red-500 text-xs mt-1">{t(errors.recipient_name)}</p>}
+          {errors.recipient_name && <p role="alert" className={fieldError}>{t(errors.recipient_name)}</p>}
         </div>
         <div>
           <label className={label} htmlFor="addr-phone">{t('address_form.phone')}</label>
           <input id="addr-phone" type="tel" autoComplete="tel" placeholder="0812345678" value={value.phone} onChange={set('phone')} className={input(errors.phone)} />
-          {errors.phone && <p role="alert" className="text-red-500 text-xs mt-1">{t(errors.phone)}</p>}
+          {errors.phone && <p role="alert" className={fieldError}>{t(errors.phone)}</p>}
         </div>
       </div>
 
@@ -108,7 +108,7 @@ const AddressForm: React.FC<Props> = ({ value, onChange, errors = {}, showLabel 
           onChange={set('address_line')}
           className={input(errors.address_line)}
         />
-        {errors.address_line && <p role="alert" className="text-red-500 text-xs mt-1">{t(errors.address_line)}</p>}
+        {errors.address_line && <p role="alert" className={fieldError}>{t(errors.address_line)}</p>}
       </div>
 
       <ThaiAddressPicker
