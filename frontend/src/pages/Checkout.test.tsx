@@ -76,16 +76,16 @@ test('a field error disappears as soon as the customer fixes that field', async 
   expect(screen.getByText('กรุณากรอกบ้านเลขที่และถนน')).toBeInTheDocument();
 });
 
-test('a failed order is explained next to the button, not in a popup', async () => {
+test('a failed order is explained in Thai next to the button, not in a popup', async () => {
   backend({ '/addresses': [home] });
-  (api.post as jest.Mock).mockRejectedValue(new ApiError('สินค้าบางรายการหมดแล้ว', 409, 'OUT_OF_STOCK'));
+  (api.post as jest.Mock).mockRejectedValue(new ApiError('Not enough stock for Chalcosoma atlas.', 409, 'INSUFFICIENT_STOCK'));
   renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
 
   userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
 
   const alert = await screen.findByRole('alert');
   expect(alert).toHaveTextContent('สร้างคำสั่งซื้อไม่สำเร็จ');
-  expect(alert).toHaveTextContent('สินค้าบางรายการหมดแล้ว');
+  expect(alert).toHaveTextContent('สินค้าบางรายการในตะกร้ามีไม่พอ');
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
@@ -157,4 +157,14 @@ test('paying opens the Stripe page for this Order', async () => {
   await waitFor(() => expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_test_1'));
   expect(api.post).toHaveBeenCalledWith('/payments/checkout-session', { order_id: 'o1' });
   Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+});
+
+test('a reason the shop has no Thai wording for is shown as the server sent it', async () => {
+  backend({ '/addresses': [home] });
+  (api.post as jest.Mock).mockRejectedValue(new ApiError('Something unusual happened.', 409, 'SOMETHING_NEW'));
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
+
+  userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('Something unusual happened.');
 });

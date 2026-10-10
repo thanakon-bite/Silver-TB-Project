@@ -222,5 +222,19 @@
     "err_address_line": "Enter the house number and street",
     "err_subdistrict": "Choose province, district and subdistrict",
     "err_postal": "Postal code must be 5 digits"
+  },
+  "api_errors": {
+    "NETWORK": "Cannot reach the shop. Check your connection and try again.",
+    "INVALID_ITEMS": "Your cart is empty or invalid.",
+    "INVALID_QUANTITY": "Each quantity must be between 1 and 99.",
+    "INVALID_ADDRESS": "The shipping address is invalid.",
+    "PRODUCT_UNAVAILABLE": "A product in your cart is no longer available.",
+    "INSUFFICIENT_STOCK": "Some products in your cart are short on stock. Lower the quantity or remove them.",
+    "ORDER_EXPIRED": "Your reservation expired. Please place the order again.",
+    "ALREADY_PAID": "This order is already paid.",
+    "PAYMENT_PROCESSING": "Your payment is processing. Wait a moment, then check My orders.",
+    "PAYMENT_IN_PROGRESS": "Payment is already being set up for this order. Please refresh.",
+    "AMOUNT_MISMATCH": "The order total changed. Please place the order again.",
+    "PAYMENT_PROVIDER": "Payments are temporarily unavailable. Please try again shortly."
   }
 }

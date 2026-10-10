@@ -5,6 +5,7 @@ import { api, ApiError } from '../../lib/api';
 import { baht } from '../../lib/format';
 import type { Order } from '../../lib/types';
 import { primaryButton } from '../ui/buttonStyles';
+import { errorMessage } from '../../lib/errorMessage';
 
 interface Props {
   order: Order;
@@ -47,7 +48,7 @@ const PaymentStep: React.FC<Props> = ({ order, onExpired }) => {
     } catch (err) {
       const e = err as ApiError;
       if (e.code === 'ORDER_EXPIRED') onExpired?.();
-      setError(e.message);
+      setError(errorMessage(e, t));
       setRedirecting(false);
     }
   };

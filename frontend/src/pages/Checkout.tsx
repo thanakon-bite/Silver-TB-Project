@@ -6,6 +6,7 @@ import { MapPin, CreditCard, Plus, AlertCircle, Clock } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { api, ApiError } from '../lib/api';
+import { errorMessage } from '../lib/errorMessage';
 import { formatAddressLines, uuidv4 } from '../lib/format';
 import type { Address, Order } from '../lib/types';
 import AddressForm, { emptyAddress, validateAddress, pruneErrors, toAddressPayload, AddressFormValue } from '../component/address/AddressForm';
@@ -142,7 +143,7 @@ const Checkout = () => {
       setOrder(created);
       setStep(2);
     } catch (err: any) {
-      setOrderError(err.message);
+      setOrderError(errorMessage(err, t));
     } finally {
       setSubmitting(false);
     }
