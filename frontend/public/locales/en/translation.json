@@ -271,6 +271,11 @@
     "not_confirmed_title": "We haven't received the payment confirmation yet",
     "not_confirmed_text": "If you have paid, don't pay again. Refresh this page in a little while.",
     "paid_thanks": "Payment received, thank you",
-    "preparing": "We're preparing your order for shipping"
+    "preparing": "We're preparing your order for shipping",
+    "expired_title": "Payment time is over",
+    "expired_text": "This order will be cancelled automatically and the items released.",
+    "keep_shopping": "Keep shopping",
+    "failed_title": "The last payment didn't go through",
+    "failed_text": "You can try again by card or PromptPay."
   }
 }

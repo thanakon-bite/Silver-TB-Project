@@ -15,8 +15,9 @@ import CancelOrder from '../component/orders/CancelOrder';
 const POLL_MS = 2000;
 const MAX_POLLS = 45; // ~90 seconds
 
-const isPayable = (o: Order) =>
-  o.status === 'pending' && ['unpaid', 'failed'].includes(o.payment_status) && (!o.expires_at || new Date(o.expires_at) > new Date());
+const reservationOver = (o: Order) => !!o.expires_at && new Date(o.expires_at) <= new Date();
+
+const isPayable = (o: Order) => o.status === 'pending' && ['unpaid', 'failed'].includes(o.payment_status) && !reservationOver(o);
 
 /** A quiet status line on the sunken panel; errors use the danger box instead (design.md). */
 const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -172,9 +173,30 @@ const OrderDetail: React.FC = () => {
               ))}
             </section>
 
+            {order.status === 'pending' && order.payment_status !== 'paid' && reservationOver(order) && !waiting && (
+              <Notice>
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
+                <p>
+                  <strong className="font-semibold">{t('order_page.expired_title')}</strong> · {t('order_page.expired_text')}{' '}
+                  <Link to="/products" className="whitespace-nowrap font-medium text-accent-strong underline-offset-4 hover:underline">
+                    {t('order_page.keep_shopping')}
+                  </Link>
+                </p>
+              </Notice>
+            )}
+
             {isPayable(order) && !waiting && (
-              <div className="space-y-4">
-                <PaymentStep order={order} onExpired={() => load()} />
+              <div className="space-y-5">
+                {order.payment_status === 'failed' && (
+                  <Notice>
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
+                    <p>
+                      <strong className="font-semibold">{t('order_page.failed_title')}</strong> · {t('order_page.failed_text')}
+                    </p>
+                  </Notice>
+                )}
+                {/* When the countdown ends, reload: the order is then shown as expired instead of payable. */}
+                <PaymentStep order={order} onExpired={() => load().catch(() => {})} />
                 <CancelOrder order={order} onCancelled={setOrder} onAlreadyPaid={() => load().catch(() => {})} />
               </div>
             )}

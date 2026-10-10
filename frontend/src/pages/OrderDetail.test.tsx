@@ -169,3 +169,15 @@ test('back from Stripe before the webhook: the page waits, then reads paid and e
     jest.useRealTimers();
   }
 });
+
+test('a Pending order whose Reservation has run out says it will be cancelled and offers no payment', async () => {
+  backend(anOrder({ expires_at: new Date(Date.now() - MINUTE).toISOString() }));
+  visit();
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'รอชำระเงิน' })).toBeInTheDocument();
+  const notice = screen.getByRole('status');
+  expect(notice).toHaveTextContent('หมดเวลาชำระ');
+  expect(within(notice).getByRole('link', { name: 'เลือกสินค้าต่อ' })).toHaveAttribute('href', '/products');
+  expect(screen.queryByRole('button', { name: /ชำระ ฿/ })).not.toBeInTheDocument();
+  expect(screen.queryByRole('button', { name: 'ยกเลิกคำสั่งซื้อ' })).not.toBeInTheDocument();
+});
