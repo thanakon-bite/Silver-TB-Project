@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingCart, Heart, User, Menu, X, Bug, LogOut, Package, Sun, Moon } from 'lucide-react';
+import { ShoppingCart, Heart, User, Menu, X, LogOut, Package, Sun, Moon } from 'lucide-react';
+import BeetleMark from '../brand/BeetleMark';
 import { useAuth } from '../../contexts/AuthContext';
 import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
@@ -43,7 +44,7 @@ const Navbar: React.FC = () => {
         <div className="flex justify-between h-20">
           <div className="flex items-center">
             <Link to="/" className="flex-shrink-0 flex items-center gap-2 group">
-              <Bug className="w-8 h-8 text-orange group-hover:rotate-12 transition-transform" />
+              <BeetleMark className="w-8 h-8 text-accent-strong" />
               <span className="text-2xl font-bold tracking-tight">
                 <span className="text-silver-dark italic">Silver</span>
                 <span className="text-orange">Thief</span>
