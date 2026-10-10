@@ -51,7 +51,8 @@ body {
 }
 
 @layer base {
-  h1, h2, h3, h4, h5, h6 {
+  /* :where() keeps this default at zero specificity, so a heading's own colour class (text-ink) wins in dark mode too. */
+  :where(h1, h2, h3, h4, h5, h6) {
     @apply font-bold text-gray-800 dark:text-gray-100;
   }
 }
