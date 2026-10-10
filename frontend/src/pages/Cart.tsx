@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
 import { baht } from '../lib/format';
 import BeetleMark from '../component/brand/BeetleMark';
+import { useProductText } from '../component/products/ProductCard';
 import { iconButton, primaryButton, primaryButtonInline, quietLink } from '../component/ui/buttonStyles';
 
 const stepper =
@@ -15,6 +16,7 @@ const stepper =
 const Cart: React.FC = () => {
   const { t } = useTranslation();
   const { items, isOpen, closeCart, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
+  const text = useProductText();
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -73,7 +75,7 @@ const Cart: React.FC = () => {
                   <ShoppingBag className="h-10 w-10 text-muted" aria-hidden />
                   <p className="mt-4 font-display text-lg font-bold text-ink">{t('cart_empty')}</p>
                   <p className="mt-1 text-sm text-muted">{t('cart_page.empty_hint')}</p>
-                  <Link to="/products" onClick={closeCart} className={`${primaryButtonInline} mt-6`}>
+                  <Link to="/" onClick={closeCart} className={`${primaryButtonInline} mt-6`}>
                     {t('shop_now')}
                   </Link>
                 </div>
@@ -92,12 +94,12 @@ const Cart: React.FC = () => {
                       </div>
                       <div className="flex min-w-0 flex-1 flex-col">
                         <div className="flex items-start justify-between gap-3">
-                          <p className="min-w-0 text-sm font-medium text-ink">{item.name}</p>
+                          <p className="min-w-0 text-sm font-medium text-ink">{text.name(item)}</p>
                           <p className="shrink-0 font-mono text-sm tabular-nums text-ink">{baht(item.price * item.quantity)}</p>
                         </div>
                         <p className="font-mono text-xs tabular-nums text-muted">{baht(item.price)}</p>
                         <div className="mt-auto flex items-center justify-between pt-2">
-                          <div className="flex items-center gap-1" role="group" aria-label={`${t('quantity')} · ${item.name}`}>
+                          <div className="flex items-center gap-1" role="group" aria-label={`${t('quantity')} · ${text.name(item)}`}>
                             <button
                               type="button"
                               onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
@@ -125,7 +127,7 @@ const Cart: React.FC = () => {
                             className="min-h-[36px] px-1 text-sm text-muted underline-offset-4 hover:text-danger hover:underline"
                           >
                             {t('remove')}
-                            <span className="sr-only"> {item.name}</span>
+                            <span className="sr-only"> {text.name(item)}</span>
                           </button>
                         </div>
                       </div>

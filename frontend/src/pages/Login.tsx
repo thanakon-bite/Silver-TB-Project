@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, Link, useLocation, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, MailCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import BeetleMark from '../component/brand/BeetleMark';
@@ -36,15 +36,17 @@ const Login: React.FC = () => {
     setNotice('');
   };
 
-  // Following the link again while already on this page (e.g. from the footer) still switches the form.
+  // Following the link again while already on this page (e.g. from the footer) still switches the form,
+  // even when the URL is unchanged because the shopper switched tabs by hand: every navigation has a new key.
   const urlMode = params.get('mode');
+  const { key: visit } = useLocation();
   useEffect(() => {
     if (urlMode !== 'signup') return;
     setMode('signup');
     setErrors({});
     setServerError('');
     setNotice('');
-  }, [urlMode]);
+  }, [urlMode, visit]);
 
   const validate = (): boolean => {
     const e: Record<string, string> = {};

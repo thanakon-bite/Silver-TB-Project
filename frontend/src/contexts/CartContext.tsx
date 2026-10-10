@@ -1,9 +1,12 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { storage } from '../lib/format';
+import { useAuth } from './AuthContext';
 
 export interface CartItem {
   product_id: string;
   name: string;
+  /** Thai name, shown instead of `name` when the shopper reads Thai. */
+  name_th?: string | null;
   price: number; // display only — the server always recalculates prices
   image: string;
   quantity: number;
@@ -23,7 +26,18 @@ interface CartContextType {
   closeCart: () => void;
 }
 
-const CART_KEY = 'stb_cart_v1';
+/** Each Customer's Cart is kept on the device under their own key; guests have no Cart (CONTEXT.md). */
+export const cartKey = (userId: string) => `stb_cart_v1:${userId}`;
+
+const load = (userId: string | undefined): CartItem[] => {
+  if (!userId) return [];
+  const saved = storage.get<CartItem[]>(cartKey(userId), []);
+  return Array.isArray(saved) ? saved.filter((i) => i && i.product_id && i.quantity > 0) : [];
+};
+
+/** The device-wide guest Cart from before Carts belonged to accounts. */
+const LEGACY_KEY = 'stb_cart_v1';
+
 const MAX_PER_ITEM = 99;
 
 const CartContext = createContext<CartContextType | null>(null);
@@ -31,15 +45,31 @@ const CartContext = createContext<CartContextType | null>(null);
 const clamp = (qty: number, max?: number) => Math.max(1, Math.min(qty, max ?? MAX_PER_ITEM, MAX_PER_ITEM));
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [items, setItems] = useState<CartItem[]>(() => {
-    const saved = storage.get<CartItem[]>(CART_KEY, []);
-    return Array.isArray(saved) ? saved.filter((i) => i && i.product_id && i.quantity > 0) : [];
-  });
+  const userId = useAuth().user?.id;
+  // The Cart follows whoever is signed in: switching user loads theirs, signing out shows none.
+  const [owner, setOwner] = useState(userId);
+  const [items, setItems] = useState<CartItem[]>(() => load(userId));
   const [isOpen, setIsOpen] = useState(false);
+  if (owner !== userId) {
+    setOwner(userId);
+    setItems(load(userId));
+    setIsOpen(false);
+  }
 
-  useEffect(() => storage.set(CART_KEY, items), [items]);
+  useEffect(() => {
+    try {
+      window.localStorage.removeItem(LEGACY_KEY);
+    } catch {
+      /* storage blocked: nothing to clean */
+    }
+  }, []);
+
+  useEffect(() => {
+    if (userId && owner === userId) storage.set(cartKey(userId), items);
+  }, [userId, owner, items]);
 
   const addItem = useCallback((item: Omit<CartItem, 'quantity'>) => {
+    if (!userId) return;
     setItems((prev) => {
       const existing = prev.find((i) => i.product_id === item.product_id);
       if (existing) {
@@ -52,7 +82,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return [...prev, { ...item, quantity: 1 }];
     });
     setIsOpen(true);
-  }, []);
+  }, [userId]);
 
   const removeItem = useCallback((product_id: string) => {
     setItems((prev) => prev.filter((i) => i.product_id !== product_id));

@@ -18,7 +18,7 @@ export const CheckoutHeader: React.FC = () => {
   const editCart = () => {
     // 'default' is the first entry of this visit: there is no earlier page in the shop to go back to.
     if (location.key !== 'default') navigate(-1);
-    else navigate('/products');
+    else navigate('/');
     openCart();
   };
 

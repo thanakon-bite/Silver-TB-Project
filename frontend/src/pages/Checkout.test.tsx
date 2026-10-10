@@ -60,8 +60,9 @@ beforeEach(() => {
 test('the order summary shows the Shipping Fee as free when it is zero', async () => {
   renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
 
-  const shippingRow = (await screen.findByText('ค่าจัดส่ง')).parentElement!;
-  await waitFor(() => expect(shippingRow).toHaveTextContent('ฟรี'));
+  // The summary's terms are the Shipping Fee, then the total.
+  const [shippingFee] = within(await screen.findByRole('region', { name: 'สรุปคำสั่งซื้อ' })).getAllByRole('definition');
+  await waitFor(() => expect(shippingFee).toHaveTextContent('ฟรี'));
 });
 
 test('a field error disappears as soon as the customer fixes that field', async () => {
@@ -126,7 +127,7 @@ test('the order summary shows each product in the Cart with its picture, quantit
   expect(within(summary).getByRole('img', { name: 'Dynastes hercules' })).toHaveAttribute('src', hercules.image);
   expect(within(summary).getByText('฿9,000')).toBeInTheDocument();
   expect(within(summary).getByText('×2')).toBeInTheDocument();
-  expect(within(summary).getByText('ยอดรวมโดยประมาณ').parentElement).toHaveTextContent('฿12,200');
+  expect(within(summary).getAllByRole('definition')[1]).toHaveTextContent('฿12,200');
 });
 
 test('on small screens the summary folds into a bar that shows the total and opens on tap', async () => {

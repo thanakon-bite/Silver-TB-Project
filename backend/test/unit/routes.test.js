@@ -29,6 +29,8 @@ test('protected endpoints require a session', async () => {
     ['GET', '/api/products/admin/all'],
     ['POST', '/api/products'],
     ['GET', '/api/admin/stats'],
+    ['POST', '/api/admin/customers'],
+    ['PATCH', '/api/admin/customers/00000000-0000-0000-0000-000000000000/role'],
     ['GET', '/api/addresses'],
     ['POST', '/api/payments/checkout-session'],
     ['POST', '/api/notifications/broadcast'],

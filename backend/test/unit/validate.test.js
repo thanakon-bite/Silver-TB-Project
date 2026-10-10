@@ -27,6 +27,12 @@ test('phone accepts Thai formats and normalises', () => {
   assert.throws(() => v.phone('12345'), /Thai phone/);
 });
 
+test('email trims, lower-cases and rejects non-addresses', () => {
+  assert.equal(v.email('  Mali@Example.COM '), 'mali@example.com');
+  assert.throws(() => v.email('mali@'), /email address/);
+  assert.throws(() => v.email(''), /required/);
+});
+
 test('money allows 2 decimals only', () => {
   assert.equal(v.money('12.34', 'price'), 12.34);
   assert.equal(v.money(8500, 'price'), 8500);

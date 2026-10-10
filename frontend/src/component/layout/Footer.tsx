@@ -5,11 +5,13 @@ import { Link } from 'react-router-dom';
 import BeetleMark from '../brand/BeetleMark';
 import { SHOP_EMAIL, SHOP_MAP_URL, SHOP_PHONE, SHOP_TEL, SOCIAL_LINKS } from '../brand/social';
 import { PUBLISHED } from '../content/published';
+import { useAuth } from '../../contexts/AuthContext';
 
 const linkClass = 'text-muted underline-offset-4 transition-colors hover:text-ink hover:underline motion-reduce:transition-none';
 
 const Footer: React.FC = () => {
   const { t } = useTranslation();
+  const { user } = useAuth();
 
   return (
     <footer className="border-t border-line bg-sunken">
@@ -43,10 +45,14 @@ const Footer: React.FC = () => {
               {t('quick_links')}
             </h2>
             <ul className="mt-4 space-y-3 text-sm">
-              <li><Link to="/products" className={linkClass}>{t('shop_all_beetle')}</Link></li>
+              <li><Link to="/" className={linkClass}>{t('shop_all_beetle')}</Link></li>
               <li><Link to="/about" className={linkClass}>{t('about')}</Link></li>
-              <li><Link to="/favorites" className={linkClass}>{t('favorites')}</Link></li>
-              <li><Link to="/login?mode=signup" className={linkClass}>{t('membership')}</Link></li>
+              {/* Favorites are for Members; signing up is for guests. */}
+              {user ? (
+                <li><Link to="/favorites" className={linkClass}>{t('favorites')}</Link></li>
+              ) : (
+                <li><Link to="/login?mode=signup" className={linkClass}>{t('membership')}</Link></li>
+              )}
             </ul>
           </nav>
 

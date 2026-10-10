@@ -77,8 +77,8 @@ frontend/src/
 │   ├── auth/RouteGuards.tsx     ← RequireAuth / RequireAdmin
 │   ├── address/                 ← ThaiAddressPicker, AddressForm
 │   ├── checkout/PaymentStep.tsx ← Stripe PaymentElement
-│   └── admin/                   ← Overview, Products, Orders, Customers, Settings
-└── pages/                       ← Home, Products, Favorites, Login, ResetPassword, Checkout,
+│   └── admin/                   ← Overview, Products, Orders, Members, Settings, Pager
+└── pages/                       ← Products (the shop, at /), About, Favorites, Login, ResetPassword, Checkout,
                                    Orders, OrderDetail, Account, AdminDashboard
 ```
 
@@ -101,7 +101,7 @@ frontend/src/
    UPDATE public.profiles SET role = 'admin'
    WHERE id = (SELECT id FROM auth.users WHERE email = 'you@example.com');
    ```
-   After that, manage admins from **Admin → Customers**.
+   After that, create Members and change roles from **Admin → Members**.
 
 ### 2. Stripe
 1. Use **test mode** (`sk_test_…`) in development. Only the secret key is needed (backend); the frontend has no Stripe key.
@@ -181,7 +181,7 @@ npm start                                             # http://localhost:3000
 | `GET /api/orders/admin/all`, `PATCH /api/orders/:id/status`, `PATCH /api/orders/:id/admin`, `POST /api/orders/:id/refund` | admin | fulfilment |
 | `POST /api/payments/checkout-session` | user | one hosted Checkout Session per order → `{ url }` |
 | `POST /api/payments/webhook` | Stripe | signed |
-| `GET /api/admin/stats`, `/customers[/:id]`, `PATCH /customers/:id/role`, `GET /payments` | admin | dashboard |
+| `GET /api/admin/stats`, `/customers[/:id]`, `POST /customers` (invite a Member), `PATCH /customers/:id/role`, `GET /payments` | admin | dashboard & Members |
 | `GET /api/notifications/line/status`, `POST /line/test`, `POST /broadcast` | admin | LINE |
 | `POST /api/notifications/line/webhook` | LINE | signed |
 

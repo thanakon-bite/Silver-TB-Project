@@ -40,7 +40,7 @@ const Orders: React.FC = () => {
             title={t('orders_page.empty_title')}
             text={t('orders_page.empty_text')}
             action={
-              <Link to="/products" className={primaryButtonInline}>
+              <Link to="/" className={primaryButtonInline}>
                 {t('shop_now')}
               </Link>
             }

@@ -38,12 +38,12 @@ beforeEach(() => {
 
 const footer = () => screen.getByRole('contentinfo');
 
-test('the footer links to the shop, favorites, the shipping policy and the FAQ', async () => {
+test('the footer links a guest to the shop, the shipping policy and the FAQ, but not to Favorites', async () => {
   renderApp('/');
 
   const links = within(footer());
-  expect(await links.findByRole('link', { name: 'เลือกซื้อสินค้าทั้งหมด' })).toHaveAttribute('href', '/products');
-  expect(links.getByRole('link', { name: 'รายการโปรด' })).toHaveAttribute('href', '/favorites');
+  expect(await links.findByRole('link', { name: 'เลือกซื้อสินค้าทั้งหมด' })).toHaveAttribute('href', '/');
+  expect(links.queryByRole('link', { name: 'รายการโปรด' })).not.toBeInTheDocument();
   expect(links.getByRole('link', { name: 'นโยบายจัดส่ง' })).toHaveAttribute('href', '/shipping');
   expect(links.getByRole('link', { name: 'คำถามที่พบบ่อย' })).toHaveAttribute('href', '/faq');
   expect(links.getByRole('link', { name: 'ติดต่อเรา' })).toHaveAttribute('href', '/contact');
@@ -104,8 +104,8 @@ describe('the Live Arrival Guarantee', () => {
     id, name, description: null, price: 3200, stock: 2, category, attributes: {}, images: [], is_best_seller: false, views: 0,
   });
 
-  test('the home page promises arrival alive, not a 30-day survival', async () => {
-    renderApp('/');
+  test('the about page promises arrival alive, not a 30-day survival', async () => {
+    renderApp('/about');
     const main = within(screen.getByRole('main'));
     expect(await main.findByRole('heading', { name: 'รับประกันถึงมือมีชีวิต' })).toBeInTheDocument();
     expect(main.queryByText(/30 วัน/)).not.toBeInTheDocument();
@@ -113,7 +113,7 @@ describe('the Live Arrival Guarantee', () => {
 
   test("a live beetle's details link to the guarantee terms; goods do not", async () => {
     backend({ '/products?limit=100': { products: [product('b1', 'Chalcosoma atlas', 'beetle'), product('f1', 'Beetle jelly', 'food')] } });
-    renderApp('/products');
+    renderApp('/');
 
     userEvent.click(await screen.findByRole('button', { name: 'Chalcosoma atlas' }));
     const beetle = within(await screen.findByRole('dialog'));
@@ -135,7 +135,7 @@ describe('the FAQ', () => {
       expect(main.getByRole('heading', { name: group })).toBeInTheDocument();
     }
 
-    const question = main.getByText('จ่ายเงินได้ช่องทางไหน').closest('details')!;
+    const question = main.getAllByRole('group').find((g) => within(g).queryByText('จ่ายเงินได้ช่องทางไหน'))!;
     expect(question).not.toHaveAttribute('open');
     userEvent.click(main.getByText('จ่ายเงินได้ช่องทางไหน'));
     expect(question).toHaveAttribute('open');
@@ -159,7 +159,7 @@ describe('Terms and Privacy, until the seller is named', () => {
     expect(links.queryByRole('link', { name: 'นโยบายความเป็นส่วนตัว' })).not.toBeInTheDocument();
   });
 
-  test.each(['/terms', '/privacy'])('visiting %s lands on the home page', async (url) => {
+  test.each(['/terms', '/privacy'])('visiting %s lands on the shop', async (url) => {
     renderApp(url);
     expect(await screen.findByRole('heading', { level: 1, name: 'Silver Thief Bug' })).toBeInTheDocument();
   });

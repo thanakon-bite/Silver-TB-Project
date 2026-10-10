@@ -199,7 +199,7 @@ const OrderDetail: React.FC = () => {
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
                 <p>
                   <strong className="font-semibold">{t('order_page.expired_title')}</strong> · {t('order_page.expired_text')}{' '}
-                  <Link to="/products" className="whitespace-nowrap font-medium text-accent-strong underline-offset-4 hover:underline">
+                  <Link to="/" className="whitespace-nowrap font-medium text-accent-strong underline-offset-4 hover:underline">
                     {t('order_page.keep_shopping')}
                   </Link>
                 </p>

@@ -43,7 +43,7 @@ const Favorites: React.FC = () => {
             title={t('favorites_page.empty_title')}
             text={t('favorites_page.empty_text')}
             action={
-              <Link to="/products" className={primaryButtonInline}>
+              <Link to="/" className={primaryButtonInline}>
                 {t('favorites_page.browse')}
               </Link>
             }
@@ -57,7 +57,7 @@ const Favorites: React.FC = () => {
         ) : saved.length === 0 ? (
           <EmptyState title={t('favorites_page.unavailable')} />
         ) : (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-10 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
             {saved.map((p) => (
               <ProductCard key={p.id} product={p} onAdd={add} justAdded={isJustAdded(p.id)} />
             ))}

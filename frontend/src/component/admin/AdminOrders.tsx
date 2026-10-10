@@ -3,8 +3,9 @@ import { AlertTriangle, Copy, Search, Truck, PackageCheck, XCircle, RotateCcw } 
 import Swal from 'sweetalert2';
 import { api } from '../../lib/api';
 import { baht, dateTime, formatAddressLines, ORDER_STATUS_LABEL, ORDER_STATUS_STYLE, PAYMENT_STATUS_STYLE } from '../../lib/format';
-import type { Order, OrderStatus, PaymentStatus } from '../../lib/types';
+import { ORDER_STATUSES, type Order, type OrderStatus, type PaymentStatus } from '../../lib/types';
 import Modal from '../common/Modal';
+import Pager, { PAGE_SIZE } from './Pager';
 
 const CARRIERS = ['Thailand Post (EMS)', 'Kerry Express', 'Flash Express', 'J&T Express', 'Lalamove', 'Other'];
 
@@ -16,8 +17,8 @@ interface Props {
 const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const [status, setStatus] = useState<OrderStatus | ''>(initialFilter === 'paid' ? 'paid' : '');
+  // The Overview opens this tab filtered by an Order Status, or by 'attention'.
+  const [status, setStatus] = useState<OrderStatus | ''>(() => ((ORDER_STATUSES as readonly string[]).includes(initialFilter || '') ? (initialFilter as OrderStatus) : ''));
   const [payment, setPayment] = useState<PaymentStatus | ''>('');
   const [attention, setAttention] = useState(initialFilter === 'attention');
   const [search, setSearch] = useState('');
@@ -25,10 +26,10 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
   const [ship, setShip] = useState({ carrier: CARRIERS[0], tracking_number: '' });
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
-  const limit = 20;
+  const [page, setPage] = useState(1);
 
   const fetchOrders = useCallback(async () => {
-    const q = new URLSearchParams({ page: String(page), limit: String(limit) });
+    const q = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
     if (status) q.set('status', status);
     if (payment) q.set('payment_status', payment);
     if (attention) q.set('needs_attention', 'true');
@@ -122,7 +123,6 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
   };
 
   const select = 'border border-line rounded-lg px-3 py-2 text-sm bg-paper outline-none focus:ring-2 focus:ring-accent-strong/40';
-  const pages = Math.max(1, Math.ceil(total / limit));
 
   return (
     <div>
@@ -187,13 +187,7 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
         </table>
       </div>
 
-      {pages > 1 && (
-        <div className="flex justify-end items-center gap-3 mt-4 text-sm">
-          <button disabled={page <= 1} onClick={() => setPage(page - 1)} className="px-3 py-1 rounded border disabled:opacity-40">Prev</button>
-          <span className="text-muted">Page {page} / {pages}</span>
-          <button disabled={page >= pages} onClick={() => setPage(page + 1)} className="px-3 py-1 rounded border disabled:opacity-40">Next</button>
-        </div>
-      )}
+      <Pager page={page} total={total} onPage={setPage} />
 
       <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? `Order ${selected.order_number}` : ''} maxWidth="3xl">
         {selected && (

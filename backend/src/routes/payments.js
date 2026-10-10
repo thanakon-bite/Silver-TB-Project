@@ -2,6 +2,7 @@ const express = require('express');
 const supabase = require('../config/supabase');
 const stripe = require('../config/stripe');
 const { authenticate } = require('../middleware/auth');
+const { frontendBase } = require('../lib/frontend');
 const { asyncHandler, unwrap, notFound, conflict } = require('../lib/http');
 const { isPayable } = require('../lib/orderStatus');
 const v = require('../lib/validate');
@@ -15,7 +16,6 @@ const router = express.Router();
 const SESSION_TTL_MS = 31 * 60 * 1000;
 const MAX_HOLD_MS = 2 * 60 * 60 * 1000;
 
-const frontendBase = () => (process.env.FRONTEND_URL || 'http://localhost:3000').split(',')[0].trim().replace(/\/$/, '');
 const satang = (n) => Math.round(Number(n) * 100);
 
 /**

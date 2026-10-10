@@ -177,7 +177,7 @@ test('a Pending order whose Reservation has run out says it will be cancelled an
   expect(await screen.findByRole('heading', { level: 1, name: 'รอชำระเงิน' })).toBeInTheDocument();
   const notice = screen.getByRole('status');
   expect(notice).toHaveTextContent('หมดเวลาชำระ');
-  expect(within(notice).getByRole('link', { name: 'เลือกสินค้าต่อ' })).toHaveAttribute('href', '/products');
+  expect(within(notice).getByRole('link', { name: 'เลือกสินค้าต่อ' })).toHaveAttribute('href', '/');
   expect(screen.queryByRole('button', { name: /ชำระ ฿/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'ยกเลิกคำสั่งซื้อ' })).not.toBeInTheDocument();
 });

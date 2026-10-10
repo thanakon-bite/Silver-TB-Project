@@ -12,7 +12,6 @@ import { RequireAuth, RequireAdmin } from './component/auth/RouteGuards';
 import Navbar from './component/layout/Navbar';
 import Footer from './component/layout/Footer';
 import Cart from './pages/Cart';
-import Home from './pages/Home';
 import Products from './pages/Products';
 import Login from './pages/Login';
 import ResetPassword from './pages/ResetPassword';
@@ -35,6 +34,9 @@ const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (loading) return null;
   return user ? <Navigate to="/" replace /> : <>{children}</>;
 };
+
+/** The shop moved to the front page; old /products links (and their filters) still land on it. */
+const ShopRedirect: React.FC = () => <Navigate to={{ pathname: '/', search: useLocation().search }} replace />;
 
 /** Checkout renders its own <main> between its focused header and footer, so it must not be nested in ours. */
 const Main: React.FC<{ focused: boolean; children: React.ReactNode }> = ({ focused, children }) =>
@@ -92,9 +94,9 @@ export function AppShell() {
         {!focused && <Navbar />}
         <Main focused={focused}>
           <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/favorites" element={<Favorites />} />
+            <Route path="/" element={<Products />} />
+            <Route path="/products" element={<ShopRedirect />} />
+            <Route path="/favorites" element={<RequireAuth><Favorites /></RequireAuth>} />
             <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/about" element={<About />} />

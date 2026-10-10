@@ -68,6 +68,7 @@ router.get(
     let query = supabase.from('products').select('*', { count: 'exact' }).order('created_at', { ascending: false });
     if (req.query.search) query = query.ilike('name', v.likePattern(req.query.search));
     if (req.query.low_stock === 'true') query = query.lte('stock', 2);
+    if (req.query.active === 'true' || req.query.active === 'false') query = query.eq('is_active', req.query.active === 'true');
     const { data, error, count } = await query.range(from, to);
     if (error) throw error;
     res.json({ products: data, total: count, page, limit });

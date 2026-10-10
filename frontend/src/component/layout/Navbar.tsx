@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Heart, User, Menu, X, LogOut, Package, Sun, Moon } from 'lucide-react';
+import { ShoppingBag, Heart, User, Menu, X, LogOut, Sun, Moon } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import BeetleMark from '../brand/BeetleMark';
 import { useAuth } from '../../contexts/AuthContext';
@@ -9,11 +9,21 @@ import { useFavorites } from '../../contexts/FavoritesContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { iconButton } from '../ui/buttonStyles';
 
-const NAV = [
-  { to: '/', key: 'home', end: true },
-  { to: '/products', key: 'shop', end: false },
+interface NavItem {
+  to: string;
+  key: string;
+  end: boolean;
+  /** Who sees the entry; everyone when absent. */
+  only?: 'member' | 'admin';
+}
+
+/** The shop is the front page, so there is no separate "home" entry; the logo also leads there. */
+const NAV: NavItem[] = [
+  { to: '/', key: 'shop', end: true },
   { to: '/about', key: 'about', end: false },
   { to: '/contact', key: 'contact', end: false },
+  { to: '/admin', key: 'nav.admin', end: false, only: 'admin' },
+  { to: '/orders', key: 'nav.orders', end: false, only: 'member' },
 ];
 
 /** Count badge on an icon button. Hidden from assistive tech: the button's label carries the number. */
@@ -47,6 +57,7 @@ const Navbar: React.FC = () => {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const isThai = (i18n.language || 'th').startsWith('th');
+  const nav = NAV.filter((n) => !n.only || (n.only === 'admin' ? isAdmin : !!user));
 
   // A route change closes the mobile menu.
   useEffect(() => setIsOpen(false), [location.pathname]);
@@ -71,7 +82,7 @@ const Navbar: React.FC = () => {
         </Link>
 
         <nav aria-label={t('nav.main')} className="hidden items-center gap-7 lg:flex">
-          {NAV.map((n) => (
+          {nav.map((n) => (
             <NavLink key={n.to} to={n.to} end={n.end} className={desktopLink}>
               {t(n.key)}
             </NavLink>
@@ -79,14 +90,19 @@ const Navbar: React.FC = () => {
         </nav>
 
         <div className="hidden items-center gap-1 lg:flex">
-          <Link to="/favorites" className={`${iconButton} relative`} aria-label={favLabel} title={t('favorites')}>
-            <Heart className="h-5 w-5" aria-hidden />
-            <Badge n={favorites.length} />
-          </Link>
-          <button type="button" onClick={openCart} className={`${iconButton} relative`} aria-label={cartLabel} title={t('cart')}>
-            <ShoppingBag className="h-5 w-5" aria-hidden />
-            <Badge n={totalItems} />
-          </button>
+          {/* Cart and Favorites belong to signed-in Customers (CONTEXT.md); guests are not offered them. */}
+          {user && (
+            <>
+              <Link to="/favorites" className={`${iconButton} relative`} aria-label={favLabel} title={t('favorites')}>
+                <Heart className="h-5 w-5" aria-hidden />
+                <Badge n={favorites.length} />
+              </Link>
+              <button type="button" onClick={openCart} className={`${iconButton} relative`} aria-label={cartLabel} title={t('cart')}>
+                <ShoppingBag className="h-5 w-5" aria-hidden />
+                <Badge n={totalItems} />
+              </button>
+            </>
+          )}
           <button type="button" onClick={toggleTheme} className={iconButton} aria-label={themeLabel} title={themeLabel}>
             {theme === 'dark' ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
           </button>
@@ -104,14 +120,6 @@ const Navbar: React.FC = () => {
 
           {user ? (
             <div className="flex items-center gap-1">
-              {isAdmin && (
-                <NavLink to="/admin" className={({ isActive }) => `rounded-lg px-2.5 py-2 text-sm font-medium ${isActive ? 'text-ink' : 'text-accent-strong hover:text-ink'}`}>
-                  {t('nav.admin')}
-                </NavLink>
-              )}
-              <Link to="/orders" className={iconButton} aria-label={t('nav.my_orders')} title={t('nav.my_orders')}>
-                <Package className="h-5 w-5" aria-hidden />
-              </Link>
               <Link
                 to="/account"
                 className="max-w-[9rem] truncate rounded-lg px-2.5 py-2 text-sm font-medium text-ink hover:bg-sunken"
@@ -134,12 +142,14 @@ const Navbar: React.FC = () => {
           )}
         </div>
 
-        {/* Phones: cart stays one tap away; everything else is in the menu. */}
+        {/* Phones: a signed-in Customer's cart stays one tap away; everything else is in the menu. */}
         <div className="flex items-center gap-1 lg:hidden">
-          <button type="button" onClick={openCart} className={`${iconButton} relative h-11 w-11`} aria-label={cartLabel}>
-            <ShoppingBag className="h-5 w-5" aria-hidden />
-            <Badge n={totalItems} />
-          </button>
+          {user && (
+            <button type="button" onClick={openCart} className={`${iconButton} relative h-11 w-11`} aria-label={cartLabel}>
+              <ShoppingBag className="h-5 w-5" aria-hidden />
+              <Badge n={totalItems} />
+            </button>
+          )}
           <button
             type="button"
             onClick={() => setIsOpen((o) => !o)}
@@ -156,29 +166,21 @@ const Navbar: React.FC = () => {
       {isOpen && (
         <div id="mobile-menu" className="max-h-[calc(100dvh-4rem)] overflow-y-auto border-t border-line bg-paper lg:hidden">
           <nav aria-label={t('nav.main')} className="mx-auto max-w-7xl space-y-1 px-4 py-3">
-            {NAV.map((n) => (
+            {nav.map((n) => (
               <NavLink key={n.to} to={n.to} end={n.end} className={mobileLink}>
                 {t(n.key)}
               </NavLink>
             ))}
-            <NavLink to="/favorites" className={mobileLink}>
-              {t('favorites')}
-              {favorites.length > 0 && <span className="ml-2 font-mono text-sm tabular-nums text-muted">{favorites.length}</span>}
-            </NavLink>
             {user && (
               <>
-                <NavLink to="/orders" className={mobileLink}>
-                  {t('nav.my_orders')}
+                <NavLink to="/favorites" className={mobileLink}>
+                  {t('favorites')}
+                  {favorites.length > 0 && <span className="ml-2 font-mono text-sm tabular-nums text-muted">{favorites.length}</span>}
                 </NavLink>
                 <NavLink to="/account" className={mobileLink}>
                   {t('nav.my_account')}
                 </NavLink>
               </>
-            )}
-            {isAdmin && (
-              <NavLink to="/admin" className={mobileLink}>
-                {t('nav.admin')}
-              </NavLink>
             )}
           </nav>
           <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2 border-t border-line px-4 py-3">

@@ -21,6 +21,11 @@
   --accent-ink: 99% 0.004 85;
   --success: 50% 0.12 150;
   --danger: 52% 0.18 28;
+  /* Chart series, categorical slots in fixed order (colour-blind separation checked per mode). Marks only, never text. */
+  --series-1: 57.5% 0.163 255.5;
+  --series-2: 67.1% 0.175 40.6;
+  --series-3: 66.9% 0.141 162.1;
+  --series-4: 76.4% 0.161 75.1;
 }
 
 .dark {
@@ -35,6 +40,10 @@
   --accent-ink: 20% 0.02 55;
   --success: 74% 0.13 150;
   --danger: 70% 0.16 28;
+  --series-1: 62.2% 0.161 255.1;
+  --series-2: 62.2% 0.173 40.1;
+  --series-3: 62.1% 0.128 163.1;
+  --series-4: 67% 0.143 73.2;
 }
 
 html,
@@ -116,4 +125,12 @@ body {
 .swal2-actions .swal2-styled:focus-visible {
   outline: 2px solid oklch(var(--accent-strong)) !important;
   outline-offset: 2px;
+}
+
+/* Scrolls sideways (touch, trackpad, keyboard) without showing a scrollbar, e.g. the admin tabs. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

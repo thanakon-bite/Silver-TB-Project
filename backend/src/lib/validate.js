@@ -7,6 +7,7 @@ const { badRequest } = require('./http');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PHONE_RE = /^(\+66|0)[0-9]{8,9}$/;
 const POSTAL_RE = /^[0-9]{5}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const isMissing = (v) => v === undefined || v === null || (typeof v === 'string' && v.trim() === '');
 
@@ -72,6 +73,11 @@ function phone(value, field = 'phone', { required = true } = {}) {
   const v = value.replace(/[\s-]/g, '');
   if (!PHONE_RE.test(v)) throw badRequest(`${field} must be a Thai phone number, e.g. 0812345678`);
   return v;
+}
+
+/** An email address, trimmed and lower-cased (Supabase Auth compares them case-insensitively). */
+function email(value, field = 'email') {
+  return str(value, field, { max: 254, pattern: EMAIL_RE, message: `${field} must be an email address` }).toLowerCase();
 }
 
 function postalCode(value, field = 'postal_code') {
@@ -172,6 +178,7 @@ module.exports = {
   bool,
   uuid,
   phone,
+  email,
   postalCode,
   oneOf,
   cartItems,

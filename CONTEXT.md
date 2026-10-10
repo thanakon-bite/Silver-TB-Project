@@ -38,8 +38,12 @@ _Avoid_: Hold, lock
 ### Ordering
 
 **Cart**:
-The products a shopper has picked but not yet ordered (ตะกร้า), kept on their own device. A Cart holds no stock; a **Reservation** starts only when the customer continues to payment and an Order is created.
+The products a signed-in Customer has picked but not yet ordered (ตะกร้า), kept on their own device under their account, so people sharing a device never see each other's Cart. Guests have no Cart. A Cart holds no stock; a **Reservation** starts only when the customer continues to payment and an Order is created.
 _Avoid_: Basket, bag; never call an Order a cart
+
+**Favorite**:
+A product a signed-in Customer has marked to come back to (รายการโปรด), kept with their account. Guests have no Favorites.
+_Avoid_: Wishlist, saved item
 
 **Order**:
 A customer's purchase of one or more products, shipped to one address.
@@ -100,6 +104,10 @@ _Avoid_: Return (which is the parcel coming back, not the money)
 **Customer**:
 A signed-in shopper with the `user` role.
 _Avoid_: Client, buyer, account
+
+**Member**:
+Anyone with an account, whatever their role: every Customer and every Admin. The admin's member list shows Members, not only Customers.
+_Avoid_: Customer (when admins are included), user (when meaning the person rather than the role)
 
 **Admin**:
 A person with the `admin` role who runs the shop.

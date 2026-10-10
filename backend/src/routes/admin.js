@@ -1,7 +1,8 @@
 const express = require('express');
 const supabase = require('../config/supabase');
 const { authenticate, requireAdmin } = require('../middleware/auth');
-const { asyncHandler, unwrap, badRequest, notFound } = require('../lib/http');
+const { asyncHandler, unwrap, badRequest, conflict, notFound, HttpError } = require('../lib/http');
+const { frontendBase } = require('../lib/frontend');
 const v = require('../lib/validate');
 
 const router = express.Router();
@@ -18,20 +19,25 @@ router.get(
     const since = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000);
     since.setUTCHours(0, 0, 0, 0);
 
-    const [statusRows, paidRecent, lowStock, attention, customers] = await Promise.all([
+    const [statusRows, paidRecent, lowStock, attention, customers, catalogue] = await Promise.all([
       supabase.from('orders').select('status, payment_status, total'),
       supabase.from('orders').select('total, paid_at').eq('payment_status', 'paid').gte('paid_at', since.toISOString()),
       supabase
         .from('products')
-        .select('id, name, stock')
+        .select('id, name, name_th, category, stock')
         .eq('is_active', true)
         .lte('stock', LOW_STOCK)
         .order('stock', { ascending: true })
         .limit(20),
       supabase.from('orders').select('id', { count: 'exact', head: true }).eq('needs_attention', true),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user'),
+      supabase.from('products').select('category').eq('is_active', true),
     ]);
-    for (const r of [statusRows, paidRecent, lowStock]) if (r.error) throw r.error;
+    for (const r of [statusRows, paidRecent, lowStock, catalogue]) if (r.error) throw r.error;
+
+    // Every Category appears, even with no products, so the chart's axis never shifts.
+    const byCategory = Object.fromEntries(v.PRODUCT_CATEGORIES.map((c) => [c, 0]));
+    for (const p of catalogue.data) byCategory[p.category] = (byCategory[p.category] || 0) + 1;
 
     const byStatus = Object.fromEntries(['pending', 'paid', 'shipped', 'delivered', 'cancelled'].map((s) => [s, 0]));
     let revenue = 0;
@@ -57,6 +63,7 @@ router.get(
     res.json({
       revenue_total: revenue,
       orders_by_status: byStatus,
+      products_by_category: byCategory,
       to_fulfil: byStatus.paid,
       needs_attention: attention.count || 0,
       customers: customers.count || 0,
@@ -101,6 +108,43 @@ router.get(
       page,
       limit,
     });
+  })
+);
+
+// POST /api/admin/customers — create a Member by invitation: Supabase emails them a link to set their own
+// password, so the admin never knows it. The profile row comes from the on_auth_user_created trigger.
+router.post(
+  '/customers',
+  asyncHandler(async (req, res) => {
+    const full_name = v.str(req.body.full_name, 'full_name', { max: 120 });
+    const email = v.email(req.body.email);
+    const phone = v.phone(req.body.phone, 'phone', { required: false });
+    const role = v.oneOf(req.body.role ?? 'user', 'role', ['user', 'admin']);
+
+    const emailTaken = () => conflict('A member with this email already exists', 'EMAIL_TAKEN');
+    const existing = unwrap(await supabase.from('profiles').select('id').eq('email', email).maybeSingle());
+    if (existing) throw emailTaken();
+
+    const { data, error } = await supabase.auth.admin.inviteUserByEmail(email, {
+      data: { full_name, phone },
+      redirectTo: `${frontendBase()}/reset-password`,
+    });
+    if (error) {
+      if (/already|registered|exists/i.test(error.message)) throw emailTaken();
+      // Auth or email delivery failed: not the admin's input, so not a 400.
+      console.error('inviteUserByEmail:', error.message);
+      throw new HttpError(502, 'Could not send the invitation email. Try again later.', 'INVITE_FAILED');
+    }
+
+    const profile = unwrap(
+      await supabase
+        .from('profiles')
+        .upsert({ id: data.user.id, full_name, phone, email, role }, { onConflict: 'id' })
+        .select('id, full_name, email, phone, role, created_at')
+        .single()
+    );
+    console.log(`MEMBER CREATED: ${req.user.id} invited ${profile.id} as ${role}`);
+    res.status(201).json({ ...profile, orders: 0, total_spent: 0 });
   })
 );
 

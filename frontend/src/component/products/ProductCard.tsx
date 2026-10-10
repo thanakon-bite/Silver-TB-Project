@@ -4,6 +4,7 @@ import { Check, ChevronLeft, ChevronRight, Heart, Plus, Star } from 'lucide-reac
 import BeetleMark from '../brand/BeetleMark';
 import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
+import { useRequireSignIn } from '../auth/RouteGuards';
 import { baht } from '../../lib/format';
 import type { Product } from '../../lib/types';
 import { compactButton } from '../ui/buttonStyles';
@@ -16,7 +17,8 @@ export const useProductText = () => {
   const { t, i18n } = useTranslation();
   const isThai = (i18n.language || 'th').startsWith('th');
   return {
-    name: (p: ShopProduct) => (isThai && p.name_th ? p.name_th : p.name),
+    /** Works for Cart items too, so their names follow the language like the shop's. */
+    name: (p: { name: string; name_th?: string | null }) => (isThai && p.name_th ? p.name_th : p.name),
     description: (p: ShopProduct) => (isThai && p.description_th ? p.description_th : p.description) || '',
     category: (p: ShopProduct) => (p.category === 'beetle' && p.attributes?.family ? t(p.attributes.family) : t(p.category)),
   };
@@ -28,20 +30,20 @@ export const useProductText = () => {
  */
 export const useAddToCart = () => {
   const { addItem } = useCart();
-  const text = useProductText();
+  const requireSignIn = useRequireSignIn();
   const [added, setAdded] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const add = useCallback(
     (p: ShopProduct) => {
-      if (p.stock <= 0) return;
-      addItem({ product_id: p.id, name: text.name(p), price: p.price, image: p.images?.[0] || '', max_quantity: p.stock });
+      if (p.stock <= 0 || !requireSignIn()) return;
+      addItem({ product_id: p.id, name: p.name, name_th: p.name_th, price: p.price, image: p.images?.[0] || '', max_quantity: p.stock });
       setAdded(p.id);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setAdded(null), 1600);
     },
-    [addItem, text]
+    [addItem, requireSignIn]
   );
   return { add, isJustAdded: (id: string) => added === id };
 };
@@ -101,13 +103,14 @@ export const ProductImages: React.FC<{ images: string[]; alt: string; size?: 'ca
 export const FavoriteButton: React.FC<{ product: ShopProduct; className?: string }> = ({ product, className = '' }) => {
   const { t } = useTranslation();
   const { toggle, isFavorite } = useFavorites();
+  const requireSignIn = useRequireSignIn();
   const on = isFavorite(product.id);
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        toggle(product.id);
+        if (requireSignIn()) toggle(product.id);
       }}
       aria-pressed={on}
       aria-label={on ? t('product_card.unfavorite') : t('product_card.favorite')}
@@ -140,9 +143,9 @@ const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded })
   const soldOut = product.stock <= 0;
 
   return (
-    <article className="group flex flex-col">
+    <article className="group flex flex-col rounded-xl border border-line bg-paper p-3 transition-colors hover:border-muted motion-reduce:transition-none">
       <div
-        className={`relative aspect-[4/3] overflow-hidden rounded-xl border border-line bg-sunken ${onOpen ? 'cursor-pointer' : ''}`}
+        className={`relative aspect-[4/3] overflow-hidden rounded-lg bg-sunken ${onOpen ? 'cursor-pointer' : ''}`}
         onClick={onOpen ? () => onOpen(product) : undefined}
       >
         <ProductImages images={product.images} alt={name} />

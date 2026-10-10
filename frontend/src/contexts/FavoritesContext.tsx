@@ -1,6 +1,4 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import Swal from 'sweetalert2';
-import i18n from '../i18n';
 import { storage } from '../lib/format';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
@@ -50,18 +48,8 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const toggle = useCallback(
     (product_id: string) => {
-      if (!userId) {
-        Swal.fire({
-          title: i18n.t('favorites_login.title'),
-          text: i18n.t('favorites_login.text'),
-          showCancelButton: true,
-          confirmButtonText: i18n.t('login'),
-          cancelButtonText: i18n.t('favorites_login.later'),
-        }).then((r) => {
-          if (r.isConfirmed) window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
-        });
-        return;
-      }
+      // Guests have no Favorites; the heart sends them to login first (useRequireSignIn).
+      if (!userId) return;
       const wasFavorite = favorites.includes(product_id);
       setFavorites((prev) => (wasFavorite ? prev.filter((id) => id !== product_id) : [...prev, product_id]));
       const request = wasFavorite

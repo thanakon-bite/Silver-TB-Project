@@ -1,4 +1,5 @@
-export type OrderStatus = 'pending' | 'paid' | 'shipped' | 'delivered' | 'cancelled';
+export const ORDER_STATUSES = ['pending', 'paid', 'shipped', 'delivered', 'cancelled'] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
 export type PaymentStatus = 'unpaid' | 'paid' | 'failed' | 'refunded';
 
 export type ProductCategory = 'beetle' | 'food' | 'log' | 'gear';

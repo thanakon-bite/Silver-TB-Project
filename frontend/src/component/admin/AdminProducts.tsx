@@ -1,17 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, Edit2, Trash2, Upload, X, Minus, Search, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Plus, Edit2, Upload, X, Minus, Search, ArrowLeft, ArrowRight } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import { baht, uuidv4 } from '../../lib/format';
 import { BEETLE_SEXES, BEETLE_STAGES, PRODUCT_CATEGORIES, type BeetleAttributes, type Product, type ProductCategory } from '../../lib/types';
 import Modal from '../common/Modal';
+import Pager, { PAGE_SIZE } from './Pager';
 
 const BUCKET = 'product-images';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const DEFAULT_FAMILIES = ['Rhinoceros', 'Stag', 'Flower'];
-const CATEGORY_LABELS: Record<ProductCategory, string> = { beetle: 'Beetle', food: 'Food', log: 'Logs & substrate', gear: 'Gear' };
+export const CATEGORY_LABELS: Record<ProductCategory, string> = { beetle: 'Beetle', food: 'Food', log: 'Logs & substrate', gear: 'Gear' };
 
 type Attrs = { family: string; species: string; locality: string; sex: string; stage: string; size_mm: string };
 const emptyAttrs = (): Attrs => ({ family: '', species: '', locality: '', sex: '', stage: '', size_mm: '' });
@@ -44,10 +45,39 @@ const emptyForm = (): Form => ({
   is_active: true,
 });
 
+type ActiveFilter = '' | 'true' | 'false';
+
+/** On/off for one product: on means shoppers can see and buy it. */
+const ActiveSwitch: React.FC<{ product: Product; onToggle: (p: Product) => void }> = ({ product, onToggle }) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={product.is_active}
+    aria-label={`Show ${product.name} in the shop`}
+    onClick={() => onToggle(product)}
+    className="inline-flex items-center gap-2 text-xs font-semibold"
+  >
+    <span
+      aria-hidden
+      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors motion-reduce:transition-none ${product.is_active ? 'bg-success' : 'bg-line'}`}
+    >
+      <span
+        className={`absolute top-0.5 h-4 w-4 rounded-full bg-paper shadow transition-transform motion-reduce:transition-none ${
+          product.is_active ? 'translate-x-[1.125rem]' : 'translate-x-0.5'
+        }`}
+      />
+    </span>
+    <span className={product.is_active ? 'text-success' : 'text-muted'}>{product.is_active ? 'Active' : 'Inactive'}</span>
+  </button>
+);
+
 const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
   const [search, setSearch] = useState('');
   const [lowOnly, setLowOnly] = useState(initialFilter === 'low');
+  const [active, setActive] = useState<ActiveFilter>('');
   const [editing, setEditing] = useState<Product | 'new' | null>(null);
   const [form, setForm] = useState<Form>(emptyForm());
   const [saving, setSaving] = useState(false);
@@ -55,16 +85,18 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
   const fileInput = useRef<HTMLInputElement>(null);
 
   const fetchProducts = useCallback(async () => {
-    const q = new URLSearchParams({ limit: '200' });
+    const q = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
     if (search) q.set('search', search);
     if (lowOnly) q.set('low_stock', 'true');
+    if (active) q.set('active', active);
     try {
-      const data = await api.get<{ products: Product[] }>(`/products/admin/all?${q}`);
+      const data = await api.get<{ products: Product[]; total: number }>(`/products/admin/all?${q}`);
       setProducts(data.products || []);
+      setTotal(data.total || 0);
     } catch (err: any) {
       Swal.fire('Error', err.message, 'error');
     }
-  }, [search, lowOnly]);
+  }, [page, search, lowOnly, active]);
 
   useEffect(() => {
     const t = setTimeout(fetchProducts, 250);
@@ -194,19 +226,15 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
     }
   };
 
-  const deactivate = async (p: Product) => {
-    const r = await Swal.fire({
-      title: `Deactivate ${p.name}?`,
-      text: 'It disappears from the shop but stays in order history. You can reactivate it later.',
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonText: 'Deactivate',
-    });
-    if (!r.isConfirmed) return;
+  // Saves at once; the row flips back if the server refuses, so the list never lies about what shoppers see.
+  const toggleActive = async (p: Product) => {
+    const is_active = !p.is_active;
+    const flip = (value: boolean) => setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, is_active: value } : x)));
+    flip(is_active);
     try {
-      await api.delete(`/products/${p.id}`);
-      fetchProducts();
+      await api.patch(`/products/${p.id}`, { is_active });
     } catch (err: any) {
+      flip(!is_active);
       Swal.fire('Error', err.message, 'error');
     }
   };
@@ -216,15 +244,29 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-3 justify-between mb-4">
-        <div className="flex gap-3 items-center flex-1">
+        <div className="flex flex-wrap gap-3 items-center flex-1">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products" className={`${input} pl-9`} />
+            <input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value); }} placeholder="Search products" aria-label="Search products" className={`${input} pl-9`} />
           </div>
           <label className="flex items-center gap-2 text-sm text-muted whitespace-nowrap">
-            <input type="checkbox" className="accent-accent-strong" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} />
+            <input type="checkbox" className="accent-accent-strong" checked={lowOnly} onChange={(e) => { setPage(1); setLowOnly(e.target.checked); }} />
             Low stock only
           </label>
+          <label htmlFor="product-status" className="text-sm text-muted">Status</label>
+          <select
+            id="product-status"
+            value={active}
+            onChange={(e) => {
+              setPage(1);
+              setActive(e.target.value as ActiveFilter);
+            }}
+            className="border border-line rounded-lg px-3 py-2 text-sm bg-paper outline-none focus:ring-2 focus:ring-accent-strong/40"
+          >
+            <option value="">All statuses</option>
+            <option value="true">Active</option>
+            <option value="false">Inactive</option>
+          </select>
         </div>
         <button onClick={() => open('new')} className="flex items-center justify-center gap-2 px-4 py-2 bg-accent-strong text-accent-ink font-bold rounded-lg hover:opacity-90">
           <Plus className="w-4 h-4" /> Add product
@@ -274,20 +316,13 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                   </div>
                 </td>
                 <td className="p-3">
-                  <span className={`px-2 py-1 text-xs rounded-md font-semibold ${p.is_active ? 'bg-success/10 text-success' : 'bg-sunken text-muted'}`}>
-                    {p.is_active ? 'Active' : 'Inactive'}
-                  </span>
+                  <ActiveSwitch product={p} onToggle={toggleActive} />
                 </td>
                 <td className="p-3">
                   <div className="flex gap-1">
-                    <button aria-label="Edit" onClick={() => open(p)} className="p-2 text-ink hover:bg-sunken rounded-lg">
+                    <button aria-label={`Edit ${p.name}`} onClick={() => open(p)} className="p-2 text-ink hover:bg-sunken rounded-lg">
                       <Edit2 className="w-4 h-4" />
                     </button>
-                    {p.is_active && (
-                      <button aria-label="Deactivate" onClick={() => deactivate(p)} className="p-2 text-danger hover:bg-danger/10 rounded-lg">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                 </td>
               </tr>
@@ -300,6 +335,8 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
           </tbody>
         </table>
       </div>
+
+      <Pager page={page} total={total} onPage={setPage} />
 
       <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? 'Add product' : 'Edit product'} maxWidth="2xl">
         <form onSubmit={save} className="space-y-4">

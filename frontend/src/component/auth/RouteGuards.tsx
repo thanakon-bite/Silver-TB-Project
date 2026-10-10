@@ -1,5 +1,5 @@
-import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
+import React, { useCallback } from 'react';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
 
 const Spinner = () => (
@@ -18,6 +18,21 @@ export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children 
     return <Navigate to={`/login?redirect=${redirect}`} replace />;
   }
   return <>{children}</>;
+};
+
+/**
+ * For actions that need an account (Cart, Favorites belong to signed-in Customers). Returns true when the action may go
+ * ahead; for a guest it goes straight to /login and returns false, so they come back here afterwards.
+ */
+export const useRequireSignIn = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  return useCallback(() => {
+    if (user) return true;
+    navigate(`/login?redirect=${encodeURIComponent(location.pathname + location.search)}`);
+    return false;
+  }, [user, navigate, location.pathname, location.search]);
 };
 
 /**

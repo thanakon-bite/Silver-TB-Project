@@ -13,6 +13,7 @@ import AddressForm, { emptyAddress, validateAddress, pruneErrors, toAddressPaylo
 import PaymentStep from '../component/checkout/PaymentStep';
 import { CheckoutHeader, CheckoutFooter } from '../component/checkout/FocusedChrome';
 import OrderSummary from '../component/checkout/OrderSummary';
+import { useProductText } from '../component/products/ProductCard';
 import { primaryButton } from '../component/ui/buttonStyles';
 
 const REQUEST_KEY = 'stb_checkout_request';
@@ -51,6 +52,7 @@ const optionClass = (active: boolean) =>
 
 const Checkout = () => {
   const { t } = useTranslation();
+  const text = useProductText();
   const { items, totalPrice } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -68,9 +70,10 @@ const Checkout = () => {
   const [reservationExpired, setReservationExpired] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
+  // The Cart belongs to the signed-in Customer, so it is only known to be empty once they are.
   useEffect(() => {
-    if (items.length === 0 && !order) navigate('/products', { replace: true });
-  }, [items.length, order, navigate]);
+    if (user && items.length === 0 && !order) navigate('/', { replace: true });
+  }, [user, items.length, order, navigate]);
 
   useEffect(() => {
     api
@@ -176,7 +179,7 @@ const Checkout = () => {
       />
     ) : (
       <OrderSummary
-        lines={items.map((i) => ({ key: i.product_id, name: i.name, quantity: i.quantity, amount: i.price * i.quantity, image: i.image }))}
+        lines={items.map((i) => ({ key: i.product_id, name: text.name(i), quantity: i.quantity, amount: i.price * i.quantity, image: i.image }))}
         shippingFee={shippingFee}
         total={totalPrice + (shippingFee || 0)}
         totalLabel={t('checkout_page.estimated_total')}

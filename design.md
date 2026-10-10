@@ -28,6 +28,7 @@ Never inline hex/OKLCH in components; add a token first.
 | accent-strong | 54% 0.16 48 | 74% 0.16 55 | buttons, links, focus, active step |
 | accent-ink | 99% 0.004 85 | 20% 0.02 55 | text on accent-strong (5.2:1 / 7.5:1) |
 | success / danger | 50% .12 150 · 52% .18 28 | 74% .13 150 · 70% .16 28 | "free", errors |
+| series-1…4 | blue · orange · aqua · yellow | same hues stepped for dark | admin chart marks only (Order Status), never text; colour-blind separation checked |
 
 Type (Google Fonts, only these weights): display **Noto Serif Thai 700** (`font-display`),
 body **IBM Plex Sans Thai 400–700** (`font-sans`, default), data **IBM Plex Mono 400/500**
@@ -51,7 +52,7 @@ Radius · 12 px (`rounded-xl`) controls and notices · 16 px (`rounded-2xl`) the
 - `component/ui/fieldStyles.ts` · `fieldClass(err)`, `fieldLabel`, `fieldError`, `fieldHint`. Every input has a visible `<label>`.
 - `component/ui/Feedback.tsx` · `PageHeader` (one `font-display` h1 + line, hairline under), `Notice`, `ErrorBox`, `EmptyState`.
 - `component/products/ProductCard.tsx` · the one product tile (Products and Favorites), photos, heart, stock line.
-- `component/brand/social.tsx` · the shop's channels, phone, email, map link (Home, About, footer).
+- `component/brand/social.tsx` · the shop's channels, phone, email, map link (shop hero, About, footer).
 - `component/common/Modal.tsx` · dialog with Escape, focus in/out, bottom sheet on phones, never taller than the viewport.
 
 ## Layout
@@ -60,9 +61,10 @@ Radius · 12 px (`rounded-xl`) controls and notices · 16 px (`rounded-2xl`) the
   summary folds into a bar showing the total.
 - Feedback is inline: errors in a `danger` box above the action with the next step; notices
   (`role=status`) in `sunken`. No SweetAlert popups and no success toasts on customer pages; adding to the
-  cart answers on the button ("เพิ่มแล้ว") and by opening the Cart drawer. SweetAlert remains only for admin tools,
-  the session-expiry notice and the guest "sign in to save favorites" prompt; `index.css` themes it with the tokens.
-- Product grids: 2 columns on phones, 3 at `lg`, 4 at `xl`; photos 4:3 in a `line`-bordered frame, text below on paper (no card).
+  cart answers on the button ("เพิ่มแล้ว") and by opening the Cart drawer. SweetAlert remains only for admin tools
+  and the session-expiry notice (a guest tapping the heart or "add" goes straight to login); `index.css` themes it with the tokens.
+- Product grids: 2 columns on phones, 3 at `lg`, 4 at `xl`; each product is a `line`-bordered card
+  (`rounded-xl`, `p-3`, border darkens on hover) with the 4:3 photo on top and text below.
 - Shop nav shows in full from `lg` (1024 px); below that, cart + menu button. Active link: `ink` with an accent-strong underline.
 - Status chips (`ORDER_STATUS_STYLE`): `rounded-md`, neutral by default; accent-strong only for "waiting on the customer",
   success for delivered/paid, danger for failed.

@@ -4,16 +4,16 @@ import { LayoutDashboard, Package, ShoppingBag, Users, Settings } from 'lucide-r
 import AdminOverview from '../component/admin/AdminOverview';
 import AdminProducts from '../component/admin/AdminProducts';
 import AdminOrders from '../component/admin/AdminOrders';
-import AdminCustomers from '../component/admin/AdminCustomers';
+import AdminMembers from '../component/admin/AdminMembers';
 import AdminSettings from '../component/admin/AdminSettings';
 
-type Tab = 'overview' | 'products' | 'orders' | 'customers' | 'settings';
+type Tab = 'overview' | 'products' | 'orders' | 'members' | 'settings';
 
 const TABS: { key: Tab; label: string; icon: React.FC<{ className?: string }> }[] = [
   { key: 'overview', label: 'Overview', icon: LayoutDashboard },
   { key: 'orders', label: 'Orders', icon: ShoppingBag },
   { key: 'products', label: 'Products & stock', icon: Package },
-  { key: 'customers', label: 'Customers', icon: Users },
+  { key: 'members', label: 'Members', icon: Users },
   { key: 'settings', label: 'Payments & LINE', icon: Settings },
 ];
 
@@ -33,7 +33,8 @@ const AdminDashboard = () => {
     <div className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
       <h1 className="font-display text-3xl font-bold text-ink">Admin</h1>
 
-      <div role="tablist" aria-label="Admin sections" className="-mx-4 mt-6 flex gap-1 overflow-x-auto border-b border-line px-4 sm:mx-0 sm:px-0">
+      {/* Still swipes sideways on narrow screens; only the scrollbar is hidden. */}
+      <div role="tablist" aria-label="Admin sections" className="no-scrollbar -mx-4 mt-6 flex gap-1 overflow-x-auto border-b border-line px-4 sm:mx-0 sm:px-0">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
@@ -56,7 +57,7 @@ const AdminDashboard = () => {
         {tab === 'overview' && <AdminOverview goTo={goTo} />}
         {tab === 'orders' && <AdminOrders key={filter || 'all'} initialFilter={filter} initialOrderId={deepLinkOrder} />}
         {tab === 'products' && <AdminProducts key={filter || 'all'} initialFilter={filter} />}
-        {tab === 'customers' && <AdminCustomers />}
+        {tab === 'members' && <AdminMembers />}
         {tab === 'settings' && <AdminSettings />}
       </div>
     </div>
