@@ -168,8 +168,8 @@
   "checkout_page": {
     "step_address": "ที่อยู่จัดส่ง",
     "step_payment": "การชำระเงิน",
-    "address_title": "1. ที่อยู่จัดส่ง",
-    "payment_title": "2. ชำระเงิน",
+    "address_title": "ที่อยู่จัดส่ง",
+    "payment_title": "ชำระเงิน",
     "loading_addresses": "กำลังโหลดที่อยู่ของคุณ…",
     "default_address": "ค่าเริ่มต้น",
     "new_address": "จัดส่งไปที่อยู่ใหม่",
@@ -192,12 +192,13 @@
     "expired_text": "การจองสินค้าหมดเวลาแล้ว กรุณาสั่งซื้ออีกครั้ง",
     "reserved_for": "จองสินค้าไว้ให้คุณอีก",
     "opening_payment": "กำลังเปิดหน้าชำระเงินที่ปลอดภัย…",
-    "pay_button": "ชำระ {{amount}} · บัตร / พร้อมเพย์",
+    "pay_button": "ชำระ {{amount}}",
     "pay_note": "คุณจะชำระเงินบนหน้าที่ปลอดภัยของ Stripe แล้วกลับมาที่นี่ เราไม่เห็นข้อมูลบัตรของคุณ",
     "edit_cart": "แก้ไขตะกร้า",
     "contact_shop": "ติดต่อร้าน",
     "show_summary": "แสดงสรุปคำสั่งซื้อ",
-    "hide_summary": "ซ่อนสรุปคำสั่งซื้อ"
+    "hide_summary": "ซ่อนสรุปคำสั่งซื้อ",
+    "pay_methods": "บัตรเครดิต/เดบิต หรือ พร้อมเพย์"
   },
   "address_form": {
     "recipient": "ชื่อผู้รับ",

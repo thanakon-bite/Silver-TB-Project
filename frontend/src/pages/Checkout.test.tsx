@@ -140,3 +140,21 @@ test('on small screens the summary folds into a bar that shows the total and ope
 
   expect(screen.getByRole('button', { name: /ซ่อนสรุปคำสั่งซื้อ/ })).toHaveAttribute('aria-expanded', 'true');
 });
+
+test('paying opens the Stripe page for this Order', async () => {
+  const assign = jest.fn();
+  const realLocation = window.location;
+  Object.defineProperty(window, 'location', { configurable: true, value: { ...realLocation, assign } });
+  backend({ '/addresses': [home] });
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders' ? Promise.resolve(pendingOrder(30 * 60 * 1000)) : Promise.resolve({ url: 'https://checkout.stripe.com/c/pay/cs_test_1' })
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
+
+  userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
+  userEvent.click(await screen.findByRole('button', { name: 'ชำระ ฿3,200' }));
+
+  await waitFor(() => expect(assign).toHaveBeenCalledWith('https://checkout.stripe.com/c/pay/cs_test_1'));
+  expect(api.post).toHaveBeenCalledWith('/payments/checkout-session', { order_id: 'o1' });
+  Object.defineProperty(window, 'location', { configurable: true, value: realLocation });
+});

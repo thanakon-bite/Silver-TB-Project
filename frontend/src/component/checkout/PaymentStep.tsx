@@ -4,6 +4,7 @@ import { AlertCircle, Clock, Lock } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
 import { baht } from '../../lib/format';
 import type { Order } from '../../lib/types';
+import { primaryButton } from '../ui/buttonStyles';
 
 interface Props {
   order: Order;
@@ -57,28 +58,27 @@ const PaymentStep: React.FC<Props> = ({ order, onExpired }) => {
   return (
     <div className="space-y-5">
       {mins !== null && (
-        <div className="p-3 bg-orange/10 text-gray-800 dark:text-gray-200 rounded-xl flex items-center gap-2 text-sm">
-          <Clock className="w-4 h-4 text-orange shrink-0" />
+        <p className="flex items-center gap-2 text-sm text-muted">
+          <Clock className="h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
           {t('checkout_page.reserved_for')}{' '}
-          <strong>
+          <strong className="font-mono font-medium tabular-nums text-ink">
             {mins}:{String(secs).padStart(2, '0')}
           </strong>
-        </div>
+        </p>
       )}
       {error && (
-        <p role="alert" className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2">
+        <p role="alert" className="flex items-start gap-2 text-sm text-danger">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /> {error}
         </p>
       )}
-      <button
-        onClick={pay}
-        disabled={redirecting}
-        className="w-full py-3.5 bg-orange-gradient text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        <Lock className="w-4 h-4" />
-        {redirecting ? t('checkout_page.opening_payment') : t('checkout_page.pay_button', { amount: baht(order.total) })}
-      </button>
-      <p className="text-xs text-center text-gray-400 dark:text-gray-500">{t('checkout_page.pay_note')}</p>
+      <div>
+        <button type="button" onClick={pay} disabled={redirecting} className={primaryButton}>
+          <Lock className="h-4 w-4" aria-hidden />
+          {redirecting ? t('checkout_page.opening_payment') : t('checkout_page.pay_button', { amount: baht(order.total) })}
+        </button>
+        <p className="mt-2 text-sm text-muted">{t('checkout_page.pay_methods')}</p>
+      </div>
+      <p className="text-xs text-muted">{t('checkout_page.pay_note')}</p>
     </div>
   );
 };

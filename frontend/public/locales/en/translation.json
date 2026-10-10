@@ -168,8 +168,8 @@
   "checkout_page": {
     "step_address": "Shipping address",
     "step_payment": "Payment",
-    "address_title": "1. Shipping address",
-    "payment_title": "2. Payment",
+    "address_title": "Shipping address",
+    "payment_title": "Payment",
     "loading_addresses": "Loading your addresses…",
     "default_address": "Default",
     "new_address": "Ship to a new address",
@@ -192,12 +192,13 @@
     "expired_text": "Your reservation timed out. Please place the order again.",
     "reserved_for": "Your items are reserved for",
     "opening_payment": "Opening secure payment…",
-    "pay_button": "Pay {{amount}} · Card / PromptPay",
+    "pay_button": "Pay {{amount}}",
     "pay_note": "You will pay on Stripe’s secure page, then come back here. We never see your card details.",
     "edit_cart": "Edit cart",
     "contact_shop": "Contact the shop",
     "show_summary": "Show order summary",
-    "hide_summary": "Hide order summary"
+    "hide_summary": "Hide order summary",
+    "pay_methods": "Credit/debit card or PromptPay"
   },
   "address_form": {
     "recipient": "Recipient",
