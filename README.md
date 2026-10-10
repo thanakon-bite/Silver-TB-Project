@@ -122,6 +122,15 @@ frontend/src/
 4. Admin → **Payments & LINE** → *Send test message*.
 
 ### 4. Run
+From the repo root, one command starts both (backend :5000 with nodemon, frontend :3000):
+```bash
+npm run install-all   # first time only
+npm start
+```
+It refuses to start if port 3000 or 5000 is already taken. It also sets `NODE_EXTRA_CA_CERTS` to Avast's
+certificate when that file exists, because Avast Web Shield intercepts HTTPS to Supabase.
+
+Or each part on its own:
 ```bash
 cd backend  && npm install && cp .env.example .env   # fill in values
 npm run dev                                           # http://localhost:5000
