@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { Route } from 'react-router-dom';
 import Checkout from './Checkout';
@@ -115,4 +115,28 @@ test('"edit cart" goes back to the previous page with the Cart drawer open', asy
 
   expect(await screen.findByText('หน้าร้านค้า')).toBeInTheDocument();
   expect(screen.getByRole('heading', { name: 'ตะกร้าสินค้า' })).toBeInTheDocument();
+});
+
+test('the order summary shows each Cart item with its picture, quantity and price', async () => {
+  const hercules = { product_id: 'p2', name: 'Dynastes hercules', price: 4500, image: 'https://img.example/hercules.jpg', quantity: 2 };
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas, hercules] });
+
+  const summary = await screen.findByRole('region', { name: 'สรุปคำสั่งซื้อ' });
+  expect(within(summary).getByRole('img', { name: 'Chalcosoma atlas' })).toHaveAttribute('src', atlas.image);
+  expect(within(summary).getByRole('img', { name: 'Dynastes hercules' })).toHaveAttribute('src', hercules.image);
+  expect(within(summary).getByText('฿9,000')).toBeInTheDocument();
+  expect(within(summary).getByText('×2')).toBeInTheDocument();
+  expect(within(summary).getByText('ยอดรวมโดยประมาณ').parentElement).toHaveTextContent('฿12,200');
+});
+
+test('on small screens the summary folds into a bar that shows the total and opens on tap', async () => {
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
+
+  const toggle = await screen.findByRole('button', { name: /แสดงสรุปคำสั่งซื้อ/ });
+  expect(toggle).toHaveTextContent('฿3,200');
+  expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+  userEvent.click(toggle);
+
+  expect(screen.getByRole('button', { name: /ซ่อนสรุปคำสั่งซื้อ/ })).toHaveAttribute('aria-expanded', 'true');
 });

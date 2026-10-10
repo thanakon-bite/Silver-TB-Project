@@ -184,7 +184,7 @@
     "reserving": "Reserving your items…",
     "continue": "Continue to payment",
     "order_number": "Order {{number}}",
-    "change_address": "← Change shipping address",
+    "change_address": "Change address",
     "pay_later": "You can also finish paying later from",
     "my_orders": "My orders",
     "place_error": "Could not place order",
@@ -195,7 +195,9 @@
     "pay_button": "Pay {{amount}} · Card / PromptPay",
     "pay_note": "You will pay on Stripe’s secure page, then come back here. We never see your card details.",
     "edit_cart": "Edit cart",
-    "contact_shop": "Contact the shop"
+    "contact_shop": "Contact the shop",
+    "show_summary": "Show order summary",
+    "hide_summary": "Hide order summary"
   },
   "address_form": {
     "recipient": "Recipient",
