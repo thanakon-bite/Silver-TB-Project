@@ -40,6 +40,9 @@ Radius · 12 px (`rounded-xl`) controls and notices · 16 px (`rounded-2xl`) the
   label one line, short ("ชำระ ฿3,200", details on a line below) · hover darkens · no gradient, no glow.
   Shared as `primaryButton` (`frontend/src/component/ui/buttonStyles.ts`).
 - Secondary · text link in `accent-strong`, underline on hover (e.g. "เปลี่ยนที่อยู่").
+- Destructive · never a solid button. A quiet `muted` text link (hover `danger`) opens an inline
+  confirmation: one sentence saying what is lost, then [keep] bordered `line` and [confirm] bordered
+  `danger`, with focus on keep. Used for cancelling an order (it releases one-of-a-kind stock).
 
 ## Layout
 - One containment layer. No card-in-card; sections split by `line` hairlines.
@@ -47,6 +50,9 @@ Radius · 12 px (`rounded-xl`) controls and notices · 16 px (`rounded-2xl`) the
   summary folds into a bar showing the total.
 - Feedback is inline: errors in a `danger` box above the action with the next step; notices
   (`role=status`) in `sunken`. No SweetAlert popups and no success toasts on redesigned pages.
+- Record pages (an order) use the same two-column grid as the forms: details left, the summary right.
+  Their `h1` is the record's state in words (the Order Status in Thai); the reference number sits
+  under it in mono. Progress is a vertical list on a `line` rule, not a row of icons.
 
 ## Motion stance
 - Near-silent: one short slide between checkout steps; colour/press feedback on controls.
