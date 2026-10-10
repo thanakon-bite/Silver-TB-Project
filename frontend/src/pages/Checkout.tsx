@@ -158,7 +158,7 @@ const Checkout = () => {
 
   if (!user || (items.length === 0 && !order)) return null;
 
-  // Order items carry no picture; reuse the Cart's, which is still on this device during checkout.
+  // Order items keep the picture they had at checkout; fall back to the Cart's for older orders.
   const imageOf = (productId: string | null) => items.find((i) => i.product_id === productId)?.image;
   const summary =
     step === 2 && order ? (
@@ -168,7 +168,7 @@ const Checkout = () => {
           name: i.product_name,
           quantity: i.quantity,
           amount: i.line_total,
-          image: imageOf(i.product_id),
+          image: i.product_image || imageOf(i.product_id),
         }))}
         shippingFee={order.shipping_fee}
         total={order.total}
