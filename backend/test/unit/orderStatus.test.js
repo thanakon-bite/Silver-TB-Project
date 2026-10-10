@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { checkAdminTransition, isPayable } = require('../../src/lib/orderStatus');
+const { checkAdminTransition, checkCustomerCancel, isPayable } = require('../../src/lib/orderStatus');
 
 const order = (status, payment_status) => ({ status, payment_status });
 
@@ -31,4 +31,14 @@ test('isPayable respects expiry and status', () => {
   assert.equal(isPayable({ status: 'pending', payment_status: 'failed', expires_at: '2026-01-01T00:10:00Z' }, now), true);
   assert.equal(isPayable({ status: 'pending', payment_status: 'unpaid', expires_at: '2025-12-31T23:59:00Z' }, now), false);
   assert.equal(isPayable({ status: 'cancelled', payment_status: 'unpaid', expires_at: null }, now), false);
+});
+
+test('customers can cancel only their unpaid Pending orders', () => {
+  assert.equal(checkCustomerCancel(order('pending', 'unpaid')).ok, true);
+  assert.equal(checkCustomerCancel(order('pending', 'failed')).ok, true);
+  for (const o of [order('pending', 'paid'), order('paid', 'paid'), order('shipped', 'paid'), order('delivered', 'paid'), order('cancelled', 'unpaid')]) {
+    const r = checkCustomerCancel(o);
+    assert.equal(r.ok, false, `${o.status}/${o.payment_status}`);
+    assert.equal(r.code, 'ORDER_NOT_CANCELLABLE');
+  }
 });

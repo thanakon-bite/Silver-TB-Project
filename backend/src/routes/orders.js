@@ -4,7 +4,7 @@ const supabase = require('../config/supabase');
 const stripe = require('../config/stripe');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { asyncHandler, unwrap, badRequest, notFound, conflict, forbidden, fromDbError } = require('../lib/http');
-const { checkAdminTransition, ORDER_STATUSES, PAYMENT_STATUSES } = require('../lib/orderStatus');
+const { checkAdminTransition, checkCustomerCancel, ORDER_STATUSES, PAYMENT_STATUSES } = require('../lib/orderStatus');
 const { buildSnapshot } = require('../lib/thaiAddress');
 const v = require('../lib/validate');
 const addresses = require('../services/addresses');
@@ -174,9 +174,8 @@ router.post(
   asyncHandler(async (req, res) => {
     const order = await loadOrderFor(req);
     if (order.user_id !== req.user.id) throw forbidden();
-    if (order.status !== 'pending' || order.payment_status === 'paid') {
-      throw conflict('Only unpaid orders can be cancelled. Contact us for help with paid orders.');
-    }
+    const check = checkCustomerCancel(order);
+    if (!check.ok) throw conflict(check.reason, check.code);
     await orders.cancelUnpaidOrder(order, 'customer_cancelled');
     res.json(await orders.getOrderWithItems(order.id));
   })

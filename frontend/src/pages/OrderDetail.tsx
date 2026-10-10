@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
-import Swal from 'sweetalert2';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
 import { formatAddressLines } from '../lib/format';
@@ -11,6 +10,7 @@ import { useCart } from '../contexts/CartContext';
 import PaymentStep from '../component/checkout/PaymentStep';
 import OrderSummary from '../component/checkout/OrderSummary';
 import OrderJourney from '../component/orders/OrderJourney';
+import CancelOrder from '../component/orders/CancelOrder';
 
 const POLL_MS = 2000;
 const MAX_POLLS = 45; // ~90 seconds
@@ -72,24 +72,6 @@ const OrderDetail: React.FC = () => {
     }, POLL_MS);
     return () => clearInterval(timer);
   }, [waiting, load, clearCart, setParams]);
-
-  const cancel = async () => {
-    const r = await Swal.fire({
-      icon: 'warning',
-      title: 'Cancel this order?',
-      text: 'Your reserved items will be released.',
-      showCancelButton: true,
-      confirmButtonColor: '#FF922B',
-      confirmButtonText: 'Cancel order',
-      cancelButtonText: 'Keep it',
-    });
-    if (!r.isConfirmed) return;
-    try {
-      setOrder(await api.post<Order>(`/orders/${id}/cancel`, {}));
-    } catch (e: any) {
-      Swal.fire({ icon: 'error', title: 'Could not cancel', text: e.message });
-    }
-  };
 
   if (error) {
     return (
@@ -186,9 +168,7 @@ const OrderDetail: React.FC = () => {
             {isPayable(order) && !waiting && (
               <div className="space-y-4">
                 <PaymentStep order={order} onExpired={() => load()} />
-                <button onClick={cancel} className="text-sm text-muted hover:text-danger">
-                  Cancel order
-                </button>
+                <CancelOrder order={order} onCancelled={setOrder} onAlreadyPaid={() => load().catch(() => {})} />
               </div>
             )}
           </div>

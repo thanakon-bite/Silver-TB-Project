@@ -1,5 +1,6 @@
 import React from 'react';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import OrderDetail from './OrderDetail';
 import { renderPage } from '../test/renderPage';
 import { api, ApiError } from '../lib/api';
@@ -84,4 +85,37 @@ test('a shipped order shows its journey and the Tracking Number', async () => {
   expect(within(journey).getByText('จัดส่งแล้ว')).toBeInTheDocument();
   expect(within(journey).getByText('KEX123456789TH')).toBeInTheDocument();
   expect(within(journey).queryByText('ได้รับสินค้าแล้ว')).not.toBeInTheDocument();
+});
+
+test('cancelling is confirmed on the page: keeping the order changes nothing, confirming cancels it', async () => {
+  backend(anOrder());
+  (api.post as jest.Mock).mockResolvedValue(anOrder({ status: 'cancelled', cancelled_at: '2026-10-10T07:40:00Z' }));
+  visit();
+
+  userEvent.click(await screen.findByRole('button', { name: 'ยกเลิกคำสั่งซื้อ' }));
+  const keep = screen.getByRole('button', { name: 'เก็บไว้' });
+  expect(keep).toHaveFocus();
+  userEvent.click(keep);
+  expect(api.post).not.toHaveBeenCalled();
+  expect(screen.getByRole('heading', { level: 1, name: 'รอชำระเงิน' })).toBeInTheDocument();
+
+  userEvent.click(screen.getByRole('button', { name: 'ยกเลิกคำสั่งซื้อ' }));
+  userEvent.click(screen.getByRole('button', { name: 'ยืนยันยกเลิก' }));
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'ยกเลิกแล้ว' })).toBeInTheDocument();
+  expect(api.post).toHaveBeenCalledWith('/orders/o1/cancel', {});
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+});
+
+test('a refused cancellation is explained in Thai on the page, not in a popup', async () => {
+  backend(anOrder());
+  (api.post as jest.Mock).mockRejectedValue(new ApiError('Only unpaid orders can be cancelled.', 409, 'ORDER_NOT_CANCELLABLE'));
+  visit();
+
+  userEvent.click(await screen.findByRole('button', { name: 'ยกเลิกคำสั่งซื้อ' }));
+  userEvent.click(screen.getByRole('button', { name: 'ยืนยันยกเลิก' }));
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('ยกเลิกได้เฉพาะคำสั่งซื้อที่ยังไม่ได้ชำระ');
+  expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });

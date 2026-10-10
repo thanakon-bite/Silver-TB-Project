@@ -235,7 +235,8 @@
     "PAYMENT_PROCESSING": "Your payment is processing. Wait a moment, then check My orders.",
     "PAYMENT_IN_PROGRESS": "Payment is already being set up for this order. Please refresh.",
     "AMOUNT_MISMATCH": "The order total changed. Please place the order again.",
-    "PAYMENT_PROVIDER": "Payments are temporarily unavailable. Please try again shortly."
+    "PAYMENT_PROVIDER": "Payments are temporarily unavailable. Please try again shortly.",
+    "ORDER_NOT_CANCELLABLE": "Only unpaid orders can be cancelled. Contact the shop about a paid order."
   },
   "order_status": {
     "pending": "Awaiting payment",
@@ -259,6 +260,12 @@
     "step_delivered": "Delivered",
     "tracking_number": "Tracking number",
     "copy": "Copy",
-    "copied": "Copied"
+    "copied": "Copied",
+    "cancel": "Cancel order",
+    "cancel_question": "Cancel this order? The items reserved for you will be released for others to buy.",
+    "cancel_keep": "Keep it",
+    "cancel_confirm": "Yes, cancel",
+    "cancelling": "Cancelling…",
+    "cancel_error": "Could not cancel the order"
   }
 }

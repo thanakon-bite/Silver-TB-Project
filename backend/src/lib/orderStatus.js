@@ -42,6 +42,19 @@ function checkAdminTransition(order, next) {
   return { ok: true };
 }
 
+/**
+ * Customers may cancel their own order only while it is Pending and unpaid; paid orders go through the shop.
+ * @returns {{ ok: true } | { ok: false, reason: string, code: string }}
+ */
+function checkCustomerCancel(order) {
+  if (order.status === 'pending' && order.payment_status !== 'paid') return { ok: true };
+  return {
+    ok: false,
+    reason: 'Only unpaid orders can be cancelled. Contact us for help with paid orders.',
+    code: 'ORDER_NOT_CANCELLABLE',
+  };
+}
+
 function isPayable(order, now = new Date()) {
   if (order.status !== 'pending') return false;
   if (!['unpaid', 'failed'].includes(order.payment_status)) return false;
@@ -49,4 +62,4 @@ function isPayable(order, now = new Date()) {
   return true;
 }
 
-module.exports = { ORDER_STATUSES, PAYMENT_STATUSES, ADMIN_TRANSITIONS, checkAdminTransition, isPayable };
+module.exports = { ORDER_STATUSES, PAYMENT_STATUSES, ADMIN_TRANSITIONS, checkAdminTransition, checkCustomerCancel, isPayable };
