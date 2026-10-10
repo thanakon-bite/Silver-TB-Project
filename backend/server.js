@@ -80,6 +80,12 @@ app.use((err, req, res, next) => {
     console.error('Stripe error:', err.message);
     return res.status(400).json({ error: 'Payment provider rejected the request' });
   }
+  // Any other Stripe failure (bad key, rate limit, outage) is ours, not the customer's: never echo
+  // Stripe's message (it can include part of the API key) or its status (a 401 would look like a lost session).
+  if (typeof err.type === 'string' && err.type.startsWith('Stripe')) {
+    console.error('Stripe error:', err.type, err.message);
+    return res.status(502).json({ error: 'Payment provider is unavailable. Please try again shortly.', code: 'PAYMENT_PROVIDER' });
+  }
   if (status >= 500) {
     console.error(err.stack || err);
     return res.status(500).json({ error: 'Internal server error' });

@@ -10,6 +10,7 @@
  * focus) and passes 4.5:1 against accent-ink in both modes.
  */
 :root {
+  color-scheme: light; /* native controls (radios, checkboxes, scrollbars) follow the theme */
   --paper: 97.5% 0.008 85;
   --sunken: 94.5% 0.012 85;
   --ink: 24% 0.02 60;
@@ -23,6 +24,7 @@
 }
 
 .dark {
+  color-scheme: dark;
   --paper: 19% 0.012 60;
   --sunken: 23% 0.014 60;
   --ink: 93% 0.012 80;
