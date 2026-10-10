@@ -28,7 +28,7 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
     <button
       type="button"
       onClick={copy}
-      className="whitespace-nowrap rounded-lg px-2 py-1 text-sm font-medium text-accent-strong underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-strong"
+      className="whitespace-nowrap rounded-xl px-2 py-1 text-sm font-medium text-accent-strong underline-offset-4 hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-strong"
     >
       {copied ? t('order_page.copied') : t('order_page.copy')}
     </button>
@@ -68,7 +68,7 @@ const OrderJourney: React.FC<{ order: Order }> = ({ order }) => {
                 {order.carrier ? `${order.carrier} · ` : ''}
                 {t('order_page.tracking_number')}
               </span>
-              <span className="font-mono text-ink">{order.tracking_number}</span>
+              <span className="font-mono tabular-nums text-ink">{order.tracking_number}</span>
               <CopyButton text={order.tracking_number} />
             </div>
           )}

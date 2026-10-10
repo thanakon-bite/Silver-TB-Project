@@ -88,7 +88,7 @@ test('a shipped order shows its journey and the Tracking Number', async () => {
   );
   visit();
 
-  const journey = await screen.findByRole('list', { name: 'สถานะการจัดส่ง' });
+  const journey = await screen.findByRole('list', { name: 'ความคืบหน้าคำสั่งซื้อ' });
   expect(within(journey).getByText('จัดส่งแล้ว')).toBeInTheDocument();
   expect(within(journey).getByText('KEX123456789TH')).toBeInTheDocument();
   expect(within(journey).queryByText('ได้รับสินค้าแล้ว')).not.toBeInTheDocument();
@@ -180,4 +180,34 @@ test('a Pending order whose Reservation has run out says it will be cancelled an
   expect(within(notice).getByRole('link', { name: 'เลือกสินค้าต่อ' })).toHaveAttribute('href', '/products');
   expect(screen.queryByRole('button', { name: /ชำระ ฿/ })).not.toBeInTheDocument();
   expect(screen.queryByRole('button', { name: 'ยกเลิกคำสั่งซื้อ' })).not.toBeInTheDocument();
+});
+
+test('back from Stripe on an order that is no longer Pending: no waiting for a payment', async () => {
+  backend(anOrder({ status: 'cancelled', cancelled_at: '2026-10-10T08:00:00Z' }));
+  visit('/orders/o1?paid=1');
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'ยกเลิกแล้ว' })).toBeInTheDocument();
+  expect(screen.queryByText(/กำลังยืนยันการชำระเงิน/)).not.toBeInTheDocument();
+});
+
+test('back from Stripe and still unconfirmed after waiting: says not to pay again and offers no pay button', async () => {
+  jest.useFakeTimers();
+  try {
+    backend(anOrder());
+    visit('/orders/o1?paid=1');
+    expect(await screen.findByText(/กำลังยืนยันการชำระเงิน/)).toBeInTheDocument();
+
+    for (let i = 0; i < 45; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await act(async () => {
+        jest.advanceTimersByTime(2000);
+      });
+    }
+
+    expect(screen.getByText(/ร้านยังไม่ได้รับการยืนยันการชำระเงิน/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /ชำระ ฿/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'ยกเลิกคำสั่งซื้อ' })).not.toBeInTheDocument();
+  } finally {
+    jest.useRealTimers();
+  }
 });

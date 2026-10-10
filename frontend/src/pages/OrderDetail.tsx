@@ -17,7 +17,8 @@ const MAX_POLLS = 45; // ~90 seconds
 
 const reservationOver = (o: Order) => !!o.expires_at && new Date(o.expires_at) <= new Date();
 
-const isPayable = (o: Order) => o.status === 'pending' && ['unpaid', 'failed'].includes(o.payment_status) && !reservationOver(o);
+/** Pending and not paid: the order is still waiting on the customer or on Stripe. */
+const isUnpaidPending = (o: Order) => o.status === 'pending' && o.payment_status !== 'paid';
 
 /** A quiet status line on the sunken panel; errors use the danger box instead (design.md). */
 const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -40,6 +41,7 @@ const OrderDetail: React.FC = () => {
   const [error, setError] = useState('');
   const [waiting, setWaiting] = useState(justPaid);
   const [thanked, setThanked] = useState(false);
+  const [countdownEnded, setCountdownEnded] = useState(false);
 
   const load = useCallback(async () => {
     const o = await api.get<Order>(`/orders/${id}`);
@@ -51,24 +53,32 @@ const OrderDetail: React.FC = () => {
     load().catch((e) => setError(errorMessage(e, t)));
   }, [load, t]);
 
+  /** Re-read the order after something may have changed it; a failure leaves the page as it is. */
+  const reload = useCallback(() => {
+    load().catch(() => {});
+  }, [load]);
+
   // Back from Stripe (?paid=1): only the SERVER (verified webhook) makes an order Paid, so poll for it.
   useEffect(() => {
     if (!waiting) return;
     let polls = 0;
     const timer = setInterval(() => {
       polls += 1;
-      load().catch(() => {
-        /* keep polling */
-      });
+      reload(); // a failed poll just tries again next time
       if (polls >= MAX_POLLS) setWaiting(false);
     }, POLL_MS);
     return () => clearInterval(timer);
-  }, [waiting, load]);
+  }, [waiting, reload]);
 
   // Seeing this order Paid on the way back from Stripe ends the purchase, whenever the webhook landed:
   // empty the Cart once. Opening an old order without ?paid=1 never touches the Cart.
   useEffect(() => {
-    if (!justPaid || order?.payment_status !== 'paid') return;
+    if (!justPaid || !order) return;
+    if (order.payment_status !== 'paid') {
+      // Cancelled or otherwise past Pending: there is no payment left to wait for.
+      if (order.status !== 'pending') setWaiting(false);
+      return;
+    }
     setWaiting(false);
     setThanked(true);
     clearCart();
@@ -77,7 +87,13 @@ const OrderDetail: React.FC = () => {
     } catch {
       /* ignore */
     }
-    setParams({}, { replace: true });
+    setParams(
+      (p) => {
+        p.delete('paid');
+        return p;
+      },
+      { replace: true }
+    );
   }, [justPaid, order, clearCart, setParams]);
 
   if (error) {
@@ -109,6 +125,11 @@ const OrderDetail: React.FC = () => {
     );
   }
 
+  // Back from Stripe and not yet confirmed: offering to pay again could charge the customer twice.
+  const unconfirmed = justPaid && isUnpaidPending(order);
+  const expired = isUnpaidPending(order) && (countdownEnded || reservationOver(order));
+  const payable = isUnpaidPending(order) && !expired && !unconfirmed;
+
   return (
     <div className="bg-paper text-ink">
       <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 sm:px-6">
@@ -118,7 +139,7 @@ const OrderDetail: React.FC = () => {
 
         <div className="mb-8 mt-4">
           <h1 className="font-display text-3xl font-bold text-ink">{t(`order_status.${statusKey(order)}`)}</h1>
-          <p className="mt-1 font-mono text-sm text-muted">{t('order_page.order_number', { number: order.order_number })}</p>
+          <p className="mt-1 font-mono text-sm tabular-nums text-muted">{t('order_page.order_number', { number: order.order_number })}</p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
@@ -138,13 +159,13 @@ const OrderDetail: React.FC = () => {
           </div>
 
           <div className="min-w-0 space-y-8 lg:order-1">
-            {waiting && order.payment_status !== 'paid' && (
+            {unconfirmed && waiting && (
               <Notice>
                 <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-accent-strong motion-reduce:animate-none" aria-hidden />
                 <p>{t('order_page.confirming')}</p>
               </Notice>
             )}
-            {!waiting && justPaid && order.payment_status !== 'paid' && order.status === 'pending' && (
+            {unconfirmed && !waiting && (
               <Notice>
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
                 <p>
@@ -173,7 +194,7 @@ const OrderDetail: React.FC = () => {
               ))}
             </section>
 
-            {order.status === 'pending' && order.payment_status !== 'paid' && reservationOver(order) && !waiting && (
+            {expired && !unconfirmed && (
               <Notice>
                 <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
                 <p>
@@ -185,7 +206,7 @@ const OrderDetail: React.FC = () => {
               </Notice>
             )}
 
-            {isPayable(order) && !waiting && (
+            {payable && (
               <div className="space-y-5">
                 {order.payment_status === 'failed' && (
                   <Notice>
@@ -195,9 +216,15 @@ const OrderDetail: React.FC = () => {
                     </p>
                   </Notice>
                 )}
-                {/* When the countdown ends, reload: the order is then shown as expired instead of payable. */}
-                <PaymentStep order={order} onExpired={() => load().catch(() => {})} />
-                <CancelOrder order={order} onCancelled={setOrder} onAlreadyPaid={() => load().catch(() => {})} />
+                {/* The countdown ending hides paying at once; the reload then shows what the server says. */}
+                <PaymentStep
+                  order={order}
+                  onExpired={() => {
+                    setCountdownEnded(true);
+                    reload();
+                  }}
+                />
+                <CancelOrder order={order} onCancelled={setOrder} onAlreadyPaid={reload} />
               </div>
             )}
           </div>
