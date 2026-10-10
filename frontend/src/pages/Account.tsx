@@ -7,7 +7,7 @@ import { formatAddressLines } from '../lib/format';
 import type { Address } from '../lib/types';
 import { useAuth } from '../contexts/AuthContext';
 import Modal from '../component/common/Modal';
-import AddressForm, { addressToForm, emptyAddress, toAddressPayload, validateAddress, AddressFormValue } from '../component/address/AddressForm';
+import AddressForm, { addressToForm, emptyAddress, pruneErrors, toAddressPayload, validateAddress, AddressFormValue } from '../component/address/AddressForm';
 
 const Account: React.FC = () => {
   const { user, refreshProfile } = useAuth();
@@ -139,7 +139,15 @@ const Account: React.FC = () => {
 
       <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? 'Add address' : 'Edit address'} maxWidth="2xl">
         <form onSubmit={saveAddress} className="space-y-5">
-          <AddressForm value={form} onChange={setForm} errors={errors} showLabel />
+          <AddressForm
+            value={form}
+            onChange={(next) => {
+              setErrors((e) => pruneErrors(e, form, next));
+              setForm(next);
+            }}
+            errors={errors}
+            showLabel
+          />
           <button disabled={saving} className="w-full py-3 bg-orange-gradient text-white font-bold rounded-xl disabled:opacity-50">
             {saving ? 'Saving…' : 'Save address'}
           </button>

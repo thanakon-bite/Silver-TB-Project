@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { AlertCircle, Clock, Lock } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
 import { baht } from '../../lib/format';
@@ -26,6 +27,7 @@ function useCountdown(expiresAt: string | null) {
  * server-verified webhook. The redirect itself never marks the order paid.
  */
 const PaymentStep: React.FC<Props> = ({ order, onExpired }) => {
+  const { t } = useTranslation();
   const [redirecting, setRedirecting] = useState(false);
   const [error, setError] = useState('');
   const left = useCountdown(order.expires_at);
@@ -57,14 +59,14 @@ const PaymentStep: React.FC<Props> = ({ order, onExpired }) => {
       {mins !== null && (
         <div className="p-3 bg-orange/10 text-gray-800 dark:text-gray-200 rounded-xl flex items-center gap-2 text-sm">
           <Clock className="w-4 h-4 text-orange shrink-0" />
-          Your items are reserved for{' '}
+          {t('checkout_page.reserved_for')}{' '}
           <strong>
             {mins}:{String(secs).padStart(2, '0')}
           </strong>
         </div>
       )}
       {error && (
-        <p className="text-sm text-red-600 flex items-start gap-2">
+        <p role="alert" className="text-sm text-red-600 dark:text-red-400 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" /> {error}
         </p>
       )}
@@ -74,11 +76,9 @@ const PaymentStep: React.FC<Props> = ({ order, onExpired }) => {
         className="w-full py-3.5 bg-orange-gradient text-white font-bold rounded-xl shadow-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
       >
         <Lock className="w-4 h-4" />
-        {redirecting ? 'Opening secure payment…' : `Pay ${baht(order.total)} · Card / PromptPay`}
+        {redirecting ? t('checkout_page.opening_payment') : t('checkout_page.pay_button', { amount: baht(order.total) })}
       </button>
-      <p className="text-xs text-center text-gray-400">
-        You'll pay on Stripe's secure page, then come back here. We never see your card details.
-      </p>
+      <p className="text-xs text-center text-gray-400 dark:text-gray-500">{t('checkout_page.pay_note')}</p>
     </div>
   );
 };

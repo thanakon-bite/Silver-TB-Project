@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import type { GeoOption } from '../../lib/types';
+import { fieldClass, fieldLabel } from './fieldStyles';
 
 export interface ThaiAddressValue {
   province_id: number | null;
@@ -32,10 +34,7 @@ async function load(path: string): Promise<GeoOption[]> {
   return cache.get(path)!;
 }
 
-const selectClass = (err?: string) =>
-  `w-full px-3 py-2.5 rounded-xl border bg-white text-sm focus:outline-none focus:ring-2 focus:ring-orange/50 disabled:bg-gray-50 disabled:text-gray-400 ${
-    err ? 'border-red-400' : 'border-gray-200'
-  }`;
+const selectClass = fieldClass;
 
 /**
  * Cascading Province (จังหวัด) → District (อำเภอ/เขต) → Subdistrict (ตำบล/แขวง) selects.
@@ -43,6 +42,7 @@ const selectClass = (err?: string) =>
  * subdistricts and fills in the three dropdowns.
  */
 const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) => {
+  const { t } = useTranslation();
   const [provinces, setProvinces] = useState<GeoOption[]>([]);
   const [districts, setDistricts] = useState<GeoOption[]>([]);
   const [subdistricts, setSubdistricts] = useState<GeoOption[]>([]);
@@ -52,7 +52,7 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
   useEffect(() => {
     load('/geo/provinces')
       .then(setProvinces)
-      .catch(() => setLoadError('Could not load provinces. Please refresh the page.'));
+      .catch(() => setLoadError('address_form.provinces_error'));
   }, []);
 
   useEffect(() => {
@@ -90,14 +90,14 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
     setPostalMatches([]);
   };
 
-  const label = 'block text-sm font-medium text-gray-700 mb-1.5';
+  const label = fieldLabel;
 
   return (
     <div className="space-y-3">
-      {loadError && <p className="text-sm text-red-500">{loadError}</p>}
+      {loadError && <p className="text-sm text-red-500">{t(loadError)}</p>}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label className={label} htmlFor="addr-province">จังหวัด / Province</label>
+          <label className={label} htmlFor="addr-province">{t('address_form.province')}</label>
           <select
             id="addr-province"
             className={selectClass()}
@@ -106,7 +106,7 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
               onChange({ province_id: Number(e.target.value) || null, district_id: null, subdistrict_id: null, postal_code: '' })
             }
           >
-            <option value="">เลือกจังหวัด…</option>
+            <option value="">{t('address_form.choose_province')}</option>
             {provinces.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.name_th} ({p.name_en})
@@ -116,7 +116,7 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
         </div>
 
         <div>
-          <label className={label} htmlFor="addr-district">อำเภอ/เขต / District</label>
+          <label className={label} htmlFor="addr-district">{t('address_form.district')}</label>
           <select
             id="addr-district"
             className={selectClass()}
@@ -124,7 +124,7 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
             value={value.district_id ?? ''}
             onChange={(e) => onChange({ ...value, district_id: Number(e.target.value) || null, subdistrict_id: null, postal_code: '' })}
           >
-            <option value="">เลือกอำเภอ/เขต…</option>
+            <option value="">{t('address_form.choose_district')}</option>
             {districts.map((d) => (
               <option key={d.id} value={d.id}>
                 {d.name_th}
@@ -134,7 +134,7 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
         </div>
 
         <div>
-          <label className={label} htmlFor="addr-subdistrict">ตำบล/แขวง / Subdistrict</label>
+          <label className={label} htmlFor="addr-subdistrict">{t('address_form.subdistrict')}</label>
           <select
             id="addr-subdistrict"
             className={selectClass(errors.subdistrict_id)}
@@ -146,18 +146,18 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
               onChange({ ...value, subdistrict_id: id, postal_code: sub?.postal_code || '' });
             }}
           >
-            <option value="">เลือกตำบล/แขวง…</option>
+            <option value="">{t('address_form.choose_subdistrict')}</option>
             {subdistricts.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.name_th}
               </option>
             ))}
           </select>
-          {errors.subdistrict_id && <p className="text-red-500 text-xs mt-1">{errors.subdistrict_id}</p>}
+          {errors.subdistrict_id && <p role="alert" className="text-red-500 text-xs mt-1">{t(errors.subdistrict_id)}</p>}
         </div>
 
         <div>
-          <label className={label} htmlFor="addr-postal">รหัสไปรษณีย์ / Postal code</label>
+          <label className={label} htmlFor="addr-postal">{t('address_form.postal_code')}</label>
           <input
             id="addr-postal"
             inputMode="numeric"
@@ -168,20 +168,20 @@ const ThaiAddressPicker: React.FC<Props> = ({ value, onChange, errors = {} }) =>
             onChange={(e) => handlePostal(e.target.value)}
             className={selectClass(errors.postal_code)}
           />
-          {errors.postal_code && <p className="text-red-500 text-xs mt-1">{errors.postal_code}</p>}
+          {errors.postal_code && <p role="alert" className="text-red-500 text-xs mt-1">{t(errors.postal_code)}</p>}
         </div>
       </div>
 
       {postalMatches.length > 1 && (
         <div className="rounded-xl border border-orange/30 bg-orange/5 p-3">
-          <p className="text-xs font-semibold text-gray-600 mb-2">Choose your subdistrict for {value.postal_code}:</p>
+          <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">{t('address_form.choose_for_postal', { code: value.postal_code })}</p>
           <div className="flex flex-wrap gap-2">
             {postalMatches.map((m) => (
               <button
                 type="button"
                 key={m.subdistrict_id}
                 onClick={() => applyMatch(m, value.postal_code)}
-                className="text-xs px-3 py-1.5 rounded-full bg-white border border-gray-200 hover:border-orange hover:text-orange"
+                className="text-xs px-3 py-1.5 rounded-full bg-white text-gray-700 border border-gray-200 dark:bg-gray-900 dark:text-gray-200 dark:border-gray-600 hover:border-orange hover:text-orange"
               >
                 {m.subdistrict} · {m.district} · {m.province}
               </button>

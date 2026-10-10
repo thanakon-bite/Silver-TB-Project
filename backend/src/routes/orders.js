@@ -93,6 +93,11 @@ router.post(
   })
 );
 
+// GET /api/orders/shipping-fee — the flat fee checkout will add, so the cart can show it up front
+router.get('/shipping-fee', (req, res) => {
+  res.json({ shipping_fee: SHIPPING_FEE });
+});
+
 // GET /api/orders — my order history
 router.get(
   '/',

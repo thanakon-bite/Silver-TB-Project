@@ -139,7 +139,7 @@ npm start                                             # http://localhost:3000
 |---|---|---|
 | `SUPABASE_URL` | ✅ | |
 | `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Server only. Bypasses RLS. |
-| `STRIPE_SECRET_KEY` | ✅ | `sk_test_…` in dev, `sk_live_…` only in production |
+| `STRIPE_SECRET_KEY` | ✅ | `sk_test_…` in dev, `sk_live_…` only in production (the server refuses a live key unless `NODE_ENV=production` or `ALLOW_LIVE_STRIPE=1`) |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | `whsec_…` |
 | `FRONTEND_URL` | ✅ | CORS allow-list (comma-separated) and admin links in LINE messages |
 | `LINE_CHANNEL_ACCESS_TOKEN` | for LINE | |

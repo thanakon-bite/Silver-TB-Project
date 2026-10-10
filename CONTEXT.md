@@ -37,6 +37,10 @@ _Avoid_: Hold, lock
 
 ### Ordering
 
+**Cart**:
+The products a shopper has picked but not yet ordered (ตะกร้า), kept on their own device. A Cart holds no stock; a **Reservation** starts only when the customer continues to payment and an Order is created.
+_Avoid_: Basket, bag; never call an Order a cart
+
 **Order**:
 A customer's purchase of one or more products, shipped to one address.
 _Avoid_: Purchase, transaction, cart (the cart is pre-order)
@@ -44,6 +48,10 @@ _Avoid_: Purchase, transaction, cart (the cart is pre-order)
 **Order Item**:
 One product line in an order, with the price and name as they were at checkout.
 _Avoid_: Line item, cart item
+
+**Shipping Fee**:
+The flat delivery charge (ค่าจัดส่ง) added to every order's total. When it is zero, customers see "free" (ฟรี).
+_Avoid_: Shipping (alone, which can mean the address or the act of shipping), delivery cost
 
 **Order Number**:
 The human-readable order reference shown to customers and the owner (e.g. `STB-261010-00002`).
