@@ -117,7 +117,7 @@ test('"edit cart" goes back to the previous page with the Cart drawer open', asy
   expect(screen.getByRole('heading', { name: 'ตะกร้าสินค้า' })).toBeInTheDocument();
 });
 
-test('the order summary shows each Cart item with its picture, quantity and price', async () => {
+test('the order summary shows each product in the Cart with its picture, quantity and price', async () => {
   const hercules = { product_id: 'p2', name: 'Dynastes hercules', price: 4500, image: 'https://img.example/hercules.jpg', quantity: 2 };
   renderPage(<Checkout />, { path: '/checkout', cart: [atlas, hercules] });
 

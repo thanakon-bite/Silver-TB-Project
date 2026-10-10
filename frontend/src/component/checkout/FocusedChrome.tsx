@@ -47,10 +47,10 @@ export const CheckoutFooter: React.FC = () => {
   return (
     <footer className="border-t border-line bg-paper">
       <p className="mx-auto flex max-w-5xl flex-wrap items-center gap-x-4 gap-y-1 px-4 py-5 text-sm text-muted sm:px-6">
-        <span>© Silver Thief Bug</span>
         <Link to="/contact" className="whitespace-nowrap underline-offset-4 hover:text-ink hover:underline">
           {t('checkout_page.contact_shop')}
         </Link>
+        <span aria-hidden>·</span>
         <Link to="/shipping" className="whitespace-nowrap underline-offset-4 hover:text-ink hover:underline">
           {t('shipping_policy')}
         </Link>

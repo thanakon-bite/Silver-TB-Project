@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { MotionConfig } from 'framer-motion';
 import Swal from 'sweetalert2';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
@@ -34,6 +35,10 @@ const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   if (loading) return null;
   return user ? <Navigate to="/" replace /> : <>{children}</>;
 };
+
+/** Checkout renders its own <main> between its focused header and footer, so it must not be nested in ours. */
+const Main: React.FC<{ focused: boolean; children: React.ReactNode }> = ({ focused, children }) =>
+  focused ? <>{children}</> : <main className="flex-grow">{children}</main>;
 
 function AppShell() {
   const { user, logout } = useAuth();
@@ -75,33 +80,36 @@ function AppShell() {
   const focused = location.pathname === '/checkout';
 
   return (
-    <div className="min-h-screen flex flex-col bg-white dark:bg-gray-800 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
-      {!focused && <Navbar />}
-      <main className="flex-grow">
-        <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/products" element={<Products />} />
-          <Route path="/favorites" element={<Favorites />} />
-          <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/contact" element={<Placeholder title="Contact Us" />} />
-          <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
-          <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
-          <Route path="/orders/:id" element={<RequireAuth><OrderDetail /></RequireAuth>} />
-          <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
-          <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
-          <Route path="/shipping" element={<Placeholder title="Shipping Policy" />} />
-          <Route path="/terms" element={<Placeholder title="Terms of Service" />} />
-          <Route path="/privacy" element={<Placeholder title="Privacy Policy" />} />
-          <Route path="/faq" element={<Placeholder title="FAQs" />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </main>
-      {!focused && <Footer />}
-      {/* Cart slide-over renders on top of everything */}
-      <Cart />
-    </div>
+    // Framer animations (step slides, the Cart drawer) follow the system's reduced-motion setting.
+    <MotionConfig reducedMotion="user">
+      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-800 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
+        {!focused && <Navbar />}
+        <Main focused={focused}>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/products" element={<Products />} />
+            <Route path="/favorites" element={<Favorites />} />
+            <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/contact" element={<Placeholder title="Contact Us" />} />
+            <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
+            <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
+            <Route path="/orders/:id" element={<RequireAuth><OrderDetail /></RequireAuth>} />
+            <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
+            <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
+            <Route path="/shipping" element={<Placeholder title="Shipping Policy" />} />
+            <Route path="/terms" element={<Placeholder title="Terms of Service" />} />
+            <Route path="/privacy" element={<Placeholder title="Privacy Policy" />} />
+            <Route path="/faq" element={<Placeholder title="FAQs" />} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Main>
+        {!focused && <Footer />}
+        {/* Cart slide-over renders on top of everything */}
+        <Cart />
+      </div>
+    </MotionConfig>
   );
 }
 

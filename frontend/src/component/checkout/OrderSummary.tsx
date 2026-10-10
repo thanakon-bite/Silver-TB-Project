@@ -41,9 +41,9 @@ const OrderSummary: React.FC<Props> = ({ lines, shippingFee, total, totalLabel, 
         onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center justify-between gap-3 border-y border-line py-3 text-sm text-ink lg:hidden"
       >
-        <span className="inline-flex items-center gap-1.5 font-medium">
+        <span className="inline-flex items-center gap-1.5 whitespace-nowrap font-medium">
           {open ? t('checkout_page.hide_summary') : t('checkout_page.show_summary')}
-          <ChevronDown className={`h-4 w-4 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+          <ChevronDown className={`h-4 w-4 transition-transform motion-reduce:transition-none ${open ? 'rotate-180' : ''}`} aria-hidden />
         </span>
         <span className="font-mono font-medium tabular-nums">{baht(total)}</span>
       </button>

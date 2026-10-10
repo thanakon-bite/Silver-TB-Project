@@ -198,7 +198,8 @@
     "contact_shop": "Contact the shop",
     "show_summary": "Show order summary",
     "hide_summary": "Hide order summary",
-    "pay_methods": "Credit/debit card or PromptPay"
+    "pay_methods": "Card / PromptPay",
+    "place_error_hint": "Edit your cart and try again. If it still fails, contact the shop."
   },
   "address_form": {
     "recipient": "Recipient",

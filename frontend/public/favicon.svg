@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="#b54900">
+  <!-- Same drawing as src/component/brand/BeetleMark.tsx; colours are the accent-strong token (light / dark) as hex -->
   <style>@media (prefers-color-scheme: dark) { svg { fill: #f68c36; } path.legs { stroke: #f68c36; } }</style>
   <path d="M16 7.4c-.9-2.3-.6-4.4 1.5-5.8-.6 1.7-.4 3.5-.3 5.8z"/>
   <ellipse cx="16" cy="8.6" rx="2.2" ry="1.6"/>

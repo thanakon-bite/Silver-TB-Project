@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
-import { motion, MotionConfig } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { MapPin, CreditCard, Plus, AlertCircle, Clock } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -184,137 +184,137 @@ const Checkout = () => {
     );
 
   return (
-    // Step transitions slide, except for people who asked their system for less motion.
-    <MotionConfig reducedMotion="user">
-      <div className="bg-paper text-ink">
-        <CheckoutHeader />
-        <div className="mx-auto max-w-5xl px-4 pb-16 pt-8 sm:px-6">
-          <div className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
-            <h1 className="font-display text-3xl font-bold text-ink">{t('checkout')}</h1>
-            <ol className="flex items-center gap-3 text-sm">
-              <li
-                className={`flex items-center gap-1.5 ${step === 1 ? 'font-semibold text-accent-strong' : 'text-muted'}`}
-                aria-current={step === 1 ? 'step' : undefined}
-              >
-                <MapPin className="h-4 w-4" aria-hidden />
-                {t('checkout_page.step_address')}
-              </li>
-              <li aria-hidden className="h-px w-6 bg-line" />
-              <li
-                className={`flex items-center gap-1.5 ${step === 2 ? 'font-semibold text-accent-strong' : 'text-muted'}`}
-                aria-current={step === 2 ? 'step' : undefined}
-              >
-                <CreditCard className="h-4 w-4" aria-hidden />
-                {t('checkout_page.step_payment')}
-              </li>
-            </ol>
-          </div>
+    <div className="flex min-h-screen flex-col bg-paper text-ink">
+      <CheckoutHeader />
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 pb-16 pt-8 sm:px-6">
+        <div className="mb-8 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
+          <h1 className="font-display text-3xl font-bold text-ink">{t('checkout')}</h1>
+          <ol className="flex items-center gap-3 text-sm">
+            <li
+              className={`flex items-center gap-1.5 ${step === 1 ? 'font-semibold text-accent-strong' : 'text-muted'}`}
+              aria-current={step === 1 ? 'step' : undefined}
+            >
+              <MapPin className="h-4 w-4" aria-hidden />
+              {t('checkout_page.step_address')}
+            </li>
+            <li aria-hidden className="h-px w-6 bg-line" />
+            <li
+              className={`flex items-center gap-1.5 ${step === 2 ? 'font-semibold text-accent-strong' : 'text-muted'}`}
+              aria-current={step === 2 ? 'step' : undefined}
+            >
+              <CreditCard className="h-4 w-4" aria-hidden />
+              {t('checkout_page.step_payment')}
+            </li>
+          </ol>
+        </div>
 
-          <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
-            <div className="lg:order-2">{summary}</div>
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
+          <div className="lg:order-2">{summary}</div>
 
-            <div className="min-w-0 lg:order-1">
-              {step === 1 && (
-                <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
-                  <h2 className="mb-6 font-display text-xl font-bold text-ink">{t('checkout_page.address_title')}</h2>
-                  {reservationExpired && (
-                    <div role="status" className="mb-6 flex items-start gap-2 rounded-xl border border-line bg-sunken p-3 text-sm text-ink">
-                      <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" />
-                      <p>
-                        <strong className="font-semibold">{t('checkout_page.expired_title')}</strong> · {t('checkout_page.expired_text')}
-                      </p>
+          <div className="min-w-0 lg:order-1">
+            {step === 1 && (
+              <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+                <h2 className="mb-6 font-display text-xl font-bold text-ink">{t('checkout_page.address_title')}</h2>
+                {reservationExpired && (
+                  <div role="status" className="mb-6 flex items-start gap-2 rounded-xl border border-line bg-sunken p-3 text-sm text-ink">
+                    <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
+                    <p>
+                      <strong className="font-semibold">{t('checkout_page.expired_title')}</strong> · {t('checkout_page.expired_text')}
+                    </p>
+                  </div>
+                )}
+                <form ref={formRef} onSubmit={placeOrder} noValidate className="space-y-6">
+                  {addresses === null ? (
+                    <p className="text-sm text-muted">{t('checkout_page.loading_addresses')}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {addresses.map((a) => (
+                        <label key={a.id} className={optionClass(selected === a.id)}>
+                          <input type="radio" name="address" className="mt-1 accent-accent-strong" checked={selected === a.id} onChange={() => setSelected(a.id)} />
+                          <div className="text-sm text-muted">
+                            {a.label && <span className="mr-2 text-xs font-semibold text-accent-strong">{a.label}</span>}
+                            {a.is_default && (
+                              <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">{t('checkout_page.default_address')}</span>
+                            )}
+                            {formatAddressLines({ ...a, province_id: a.province_id }).map((l, i) => (
+                              <div key={i} className={i === 0 ? 'mt-1 font-semibold text-ink' : ''}>
+                                {l}
+                              </div>
+                            ))}
+                          </div>
+                        </label>
+                      ))}
+
+                      {addresses.length > 0 && (
+                        <label className={`${optionClass(selected === 'new')} items-center`}>
+                          <input type="radio" name="address" className="accent-accent-strong" checked={selected === 'new'} onChange={() => setSelected('new')} />
+                          <Plus className="h-4 w-4 text-accent-strong" aria-hidden />
+                          <span className="text-sm font-semibold text-ink">{t('checkout_page.new_address')}</span>
+                        </label>
+                      )}
+
+                      {selected === 'new' && (
+                        <div className="space-y-4 pt-2">
+                          <AddressForm value={form} onChange={updateForm} errors={errors} />
+                          <label className="flex items-center gap-2 text-sm text-muted">
+                            <input type="checkbox" className="accent-accent-strong" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
+                            {t('checkout_page.save_address')}
+                          </label>
+                        </div>
+                      )}
                     </div>
                   )}
-                  <form ref={formRef} onSubmit={placeOrder} noValidate className="space-y-6">
-                    {addresses === null ? (
-                      <p className="text-sm text-muted">{t('checkout_page.loading_addresses')}</p>
-                    ) : (
-                      <div className="space-y-3">
-                        {addresses.map((a) => (
-                          <label key={a.id} className={optionClass(selected === a.id)}>
-                            <input type="radio" name="address" className="mt-1 accent-accent-strong" checked={selected === a.id} onChange={() => setSelected(a.id)} />
-                            <div className="text-sm text-muted">
-                              {a.label && <span className="mr-2 text-xs font-semibold text-accent-strong">{a.label}</span>}
-                              {a.is_default && (
-                                <span className="rounded-full border border-line px-2 py-0.5 text-xs text-muted">{t('checkout_page.default_address')}</span>
-                              )}
-                              {formatAddressLines({ ...a, province_id: a.province_id }).map((l, i) => (
-                                <div key={i} className={i === 0 ? 'mt-1 font-semibold text-ink' : ''}>
-                                  {l}
-                                </div>
-                              ))}
-                            </div>
-                          </label>
-                        ))}
 
-                        {addresses.length > 0 && (
-                          <label className={`${optionClass(selected === 'new')} items-center`}>
-                            <input type="radio" name="address" className="accent-accent-strong" checked={selected === 'new'} onChange={() => setSelected('new')} />
-                            <Plus className="h-4 w-4 text-accent-strong" aria-hidden />
-                            <span className="text-sm font-semibold text-ink">{t('checkout_page.new_address')}</span>
-                          </label>
-                        )}
-
-                        {selected === 'new' && (
-                          <div className="space-y-4 pt-2">
-                            <AddressForm value={form} onChange={updateForm} errors={errors} />
-                            <label className="flex items-center gap-2 text-sm text-muted">
-                              <input type="checkbox" className="accent-accent-strong" checked={saveAddress} onChange={(e) => setSaveAddress(e.target.checked)} />
-                              {t('checkout_page.save_address')}
-                            </label>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {orderError && (
-                      <div role="alert" className="flex items-start gap-2 text-sm text-danger">
-                        <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {orderError && (
+                    <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger/40 bg-danger/5 p-3 text-sm text-danger">
+                      <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                      <div>
                         <p>
                           <strong className="font-semibold">{t('checkout_page.place_error')}</strong> · {orderError}
                         </p>
+                        <p className="mt-1 text-ink">{t('checkout_page.place_error_hint')}</p>
                       </div>
-                    )}
+                    </div>
+                  )}
 
-                    <button type="submit" disabled={submitting || addresses === null} className={primaryButton}>
-                      {submitting ? t('checkout_page.reserving') : t('checkout_page.continue')}
-                    </button>
-                  </form>
-                </motion.div>
-              )}
+                  <button type="submit" disabled={submitting || addresses === null} className={primaryButton}>
+                    {submitting ? t('checkout_page.reserving') : t('checkout_page.continue')}
+                  </button>
+                </form>
+              </motion.div>
+            )}
 
-              {step === 2 && order && (
-                <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
-                  <h2 className="mb-1 font-display text-xl font-bold text-ink">{t('checkout_page.payment_title')}</h2>
-                  <p className="mb-6 font-mono text-sm text-muted">{t('checkout_page.order_number', { number: order.order_number })}</p>
+            {step === 2 && order && (
+              <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+                <h2 className="mb-1 font-display text-xl font-bold text-ink">{t('checkout_page.payment_title')}</h2>
+                <p className="mb-6 font-mono text-sm text-muted">{t('checkout_page.order_number', { number: order.order_number })}</p>
 
-                  <div className="mb-6 border-y border-line py-4 text-sm text-muted">
-                    {formatAddressLines(order.shipping_address).map((l, i) => (
-                      <div key={i} className={i === 0 ? 'font-semibold text-ink' : ''}>
-                        {l}
-                      </div>
-                    ))}
-                    <button type="button" onClick={() => setStep(1)} className="mt-2 font-medium text-accent-strong underline-offset-4 hover:underline">
-                      {t('checkout_page.change_address')}
-                    </button>
-                  </div>
+                <div className="mb-6 border-y border-line py-4 text-sm text-muted">
+                  {formatAddressLines(order.shipping_address).map((l, i) => (
+                    <div key={i} className={i === 0 ? 'font-semibold text-ink' : ''}>
+                      {l}
+                    </div>
+                  ))}
+                  <button type="button" onClick={() => setStep(1)} className="mt-2 whitespace-nowrap font-medium text-accent-strong underline-offset-4 hover:underline">
+                    {t('checkout_page.change_address')}
+                  </button>
+                </div>
 
-                  <PaymentStep order={order} onExpired={handleExpired} />
+                <PaymentStep order={order} onExpired={handleExpired} />
 
-                  <p className="mt-4 text-xs text-muted">
-                    {t('checkout_page.pay_later')}{' '}
-                    <Link to="/orders" className="underline underline-offset-2">
-                      {t('checkout_page.my_orders')}
-                    </Link>
-                  </p>
-                </motion.div>
-              )}
-            </div>
+                <p className="mt-4 text-xs text-muted">
+                  {t('checkout_page.pay_later')}{' '}
+                  <Link to="/orders" className="underline underline-offset-2">
+                    {t('checkout_page.my_orders')}
+                  </Link>
+                </p>
+              </motion.div>
+            )}
           </div>
         </div>
-        <CheckoutFooter />
-      </div>
-    </MotionConfig>
+      </main>
+      <CheckoutFooter />
+    </div>
   );
 };
 
