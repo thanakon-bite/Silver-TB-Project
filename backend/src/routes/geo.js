@@ -7,8 +7,14 @@ const v = require('../lib/validate');
 const router = express.Router();
 
 // Geography data changes very rarely — let browsers/CDNs cache it for a day.
+// Empty results are never cached, so an unseeded table can't stick in browsers after seeding.
 router.use((req, res, next) => {
-  res.set('Cache-Control', 'public, max-age=86400');
+  const json = res.json.bind(res);
+  res.json = (body) => {
+    const empty = Array.isArray(body) && body.length === 0;
+    res.set('Cache-Control', empty || res.statusCode >= 400 ? 'no-store' : 'public, max-age=86400');
+    return json(body);
+  };
   next();
 });
 
