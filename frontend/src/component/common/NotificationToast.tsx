@@ -29,17 +29,17 @@ const ICONS: Record<ToastType, React.FC<{ className?: string }>> = {
 };
 
 const STYLES: Record<ToastType, string> = {
-  success: 'bg-white border-l-4 border-green-500',
-  error: 'bg-white border-l-4 border-red-500',
-  info: 'bg-white border-l-4 border-blue-500',
-  warning: 'bg-white border-l-4 border-orange',
+  success: 'bg-paper border border-line',
+  error: 'bg-paper border border-danger/40',
+  info: 'bg-paper border border-line',
+  warning: 'bg-paper border border-line',
 };
 
 const ICON_COLORS: Record<ToastType, string> = {
-  success: 'text-green-500',
-  error: 'text-red-500',
-  info: 'text-blue-500',
-  warning: 'text-orange',
+  success: 'text-success',
+  error: 'text-danger',
+  info: 'text-accent-strong',
+  warning: 'text-accent-strong',
 };
 
 export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -78,16 +78,16 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 animate={{ opacity: 1, x: 0, scale: 1 }}
                 exit={{ opacity: 0, x: 80, scale: 0.9 }}
                 transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-                className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl shadow-xl ${STYLES[toast.type]}`}
+                className={`pointer-events-auto flex items-start gap-3 p-4 rounded-xl shadow-[0_8px_24px_-8px_rgb(0_0_0/0.25)] ${STYLES[toast.type]}`}
               >
                 <Icon className={`w-5 h-5 flex-shrink-0 mt-0.5 ${ICON_COLORS[toast.type]}`} />
                 <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-gray-900 dark:text-gray-100 text-sm">{toast.title}</p>
-                  {toast.message && <p className="text-gray-500 dark:text-gray-400 text-xs mt-0.5 leading-relaxed">{toast.message}</p>}
+                  <p className="font-semibold text-ink text-sm">{toast.title}</p>
+                  {toast.message && <p className="text-muted text-xs mt-0.5 leading-relaxed">{toast.message}</p>}
                 </div>
                 <button
                   onClick={() => dismiss(toast.id)}
-                  className="text-gray-400 dark:text-gray-500 hover:text-gray-600 flex-shrink-0 transition-colors"
+                  className="text-muted hover:text-ink flex-shrink-0 transition-colors"
                 >
                   <X className="w-4 h-4" />
                 </button>

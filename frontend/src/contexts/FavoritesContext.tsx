@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import Swal from 'sweetalert2';
+import i18n from '../i18n';
 import { storage } from '../lib/format';
 import { supabase } from '../lib/supabaseClient';
 import { useAuth } from './AuthContext';
@@ -51,10 +52,13 @@ export const FavoritesProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     (product_id: string) => {
       if (!userId) {
         Swal.fire({
-          icon: 'warning',
-          title: 'Please Login',
-          text: 'You must be logged in to add products to your favorites.',
-          confirmButtonColor: '#FF922B',
+          title: i18n.t('favorites_login.title'),
+          text: i18n.t('favorites_login.text'),
+          showCancelButton: true,
+          confirmButtonText: i18n.t('login'),
+          cancelButtonText: i18n.t('favorites_login.later'),
+        }).then((r) => {
+          if (r.isConfirmed) window.location.assign(`/login?redirect=${encodeURIComponent(window.location.pathname)}`);
         });
         return;
       }

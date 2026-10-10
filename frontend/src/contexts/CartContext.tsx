@@ -70,6 +70,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const clearCart = useCallback(() => setItems([]), []);
+  const openCart = useCallback(() => setIsOpen(true), []);
+  const closeCart = useCallback(() => setIsOpen(false), []);
 
   const totalItems = items.reduce((sum, i) => sum + i.quantity, 0);
   const totalPrice = items.reduce((sum, i) => sum + i.price * i.quantity, 0);
@@ -85,8 +87,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeItem,
         updateQuantity,
         clearCart,
-        openCart: () => setIsOpen(true),
-        closeCart: () => setIsOpen(false),
+        openCart,
+        closeCart,
       }}
     >
       {children}

@@ -183,7 +183,6 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       inputValue: 1,
       inputAttributes: { min: '1', step: '1' },
       showCancelButton: true,
-      confirmButtonColor: '#FF922B',
     });
     const n = Number(value);
     if (!value || !Number.isInteger(n) || n <= 0) return;
@@ -201,7 +200,6 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       text: 'It disappears from the shop but stays in order history. You can reactivate it later.',
       icon: 'warning',
       showCancelButton: true,
-      confirmButtonColor: '#FF922B',
       confirmButtonText: 'Deactivate',
     });
     if (!r.isConfirmed) return;
@@ -213,22 +211,22 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
     }
   };
 
-  const input = 'w-full border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-orange/50 outline-none';
+  const input = 'w-full border border-line rounded-lg px-3 py-2 focus:ring-2 focus:ring-accent-strong/40 outline-none';
 
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-3 justify-between mb-4">
         <div className="flex gap-3 items-center flex-1">
           <div className="relative flex-1 max-w-sm">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search products" className={`${input} pl-9`} />
           </div>
-          <label className="flex items-center gap-2 text-sm text-gray-600 whitespace-nowrap">
-            <input type="checkbox" className="accent-orange" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} />
+          <label className="flex items-center gap-2 text-sm text-muted whitespace-nowrap">
+            <input type="checkbox" className="accent-accent-strong" checked={lowOnly} onChange={(e) => setLowOnly(e.target.checked)} />
             Low stock only
           </label>
         </div>
-        <button onClick={() => open('new')} className="flex items-center justify-center gap-2 px-4 py-2 bg-orange text-white font-bold rounded-lg hover:opacity-90">
+        <button onClick={() => open('new')} className="flex items-center justify-center gap-2 px-4 py-2 bg-accent-strong text-accent-ink font-bold rounded-lg hover:opacity-90">
           <Plus className="w-4 h-4" /> Add product
         </button>
       </div>
@@ -236,7 +234,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-sm">
           <thead>
-            <tr className="border-b-2 border-gray-100 bg-gray-50/50 text-gray-600">
+            <tr className="border-b border-line bg-sunken text-muted">
               <th className="p-3 font-semibold">Product</th>
               <th className="p-3 font-semibold">Category</th>
               <th className="p-3 font-semibold text-right">Price</th>
@@ -247,46 +245,46 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
           </thead>
           <tbody>
             {products.map((p) => (
-              <tr key={p.id} className="border-b border-gray-100 hover:bg-gray-50/50">
+              <tr key={p.id} className="border-b border-line hover:bg-sunken">
                 <td className="p-3">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-gray-100 overflow-hidden flex items-center justify-center shrink-0">
+                    <div className="w-10 h-10 rounded-lg bg-sunken overflow-hidden flex items-center justify-center shrink-0">
                       {p.images?.[0] ? <img src={p.images[0]} alt="" className="w-full h-full object-cover" /> : '🪲'}
                     </div>
                     <div>
-                      <div className="font-semibold text-gray-800">{p.name}</div>
-                      {p.is_best_seller && <div className="text-xs text-orange">Best seller</div>}
+                      <div className="font-semibold text-ink">{p.name}</div>
+                      {p.is_best_seller && <div className="text-xs text-accent-strong">Best seller</div>}
                     </div>
                   </div>
                 </td>
-                <td className="p-3 text-gray-600">
+                <td className="p-3 text-muted">
                   {CATEGORY_LABELS[p.category] || p.category}
-                  {p.attributes?.family && <div className="text-xs text-gray-400">{p.attributes.family}</div>}
+                  {p.attributes?.family && <div className="text-xs text-muted">{p.attributes.family}</div>}
                 </td>
-                <td className="p-3 text-gray-800 text-right">{baht(p.price)}</td>
+                <td className="p-3 text-ink text-right">{baht(p.price)}</td>
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-1">
-                    <button aria-label="Remove stock" onClick={() => adjustStock(p, -1)} className="p-1 rounded border border-gray-200 hover:border-orange" disabled={p.stock === 0}>
+                    <button aria-label="Remove stock" onClick={() => adjustStock(p, -1)} className="p-1 rounded border border-line hover:border-accent-strong" disabled={p.stock === 0}>
                       <Minus className="w-3 h-3" />
                     </button>
-                    <span className={`w-10 text-center font-semibold ${p.stock === 0 ? 'text-red-600' : p.stock <= 2 ? 'text-orange-dark' : 'text-gray-800'}`}>{p.stock}</span>
-                    <button aria-label="Add stock" onClick={() => adjustStock(p, 1)} className="p-1 rounded border border-gray-200 hover:border-orange">
+                    <span className={`w-10 text-center font-semibold ${p.stock === 0 ? 'text-danger' : p.stock <= 2 ? 'text-accent-strong' : 'text-ink'}`}>{p.stock}</span>
+                    <button aria-label="Add stock" onClick={() => adjustStock(p, 1)} className="p-1 rounded border border-line hover:border-accent-strong">
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
                 </td>
                 <td className="p-3">
-                  <span className={`px-2 py-1 text-xs rounded-full font-semibold ${p.is_active ? 'bg-green-100 text-green-700' : 'bg-gray-200 text-gray-600'}`}>
+                  <span className={`px-2 py-1 text-xs rounded-md font-semibold ${p.is_active ? 'bg-success/10 text-success' : 'bg-sunken text-muted'}`}>
                     {p.is_active ? 'Active' : 'Inactive'}
                   </span>
                 </td>
                 <td className="p-3">
                   <div className="flex gap-1">
-                    <button aria-label="Edit" onClick={() => open(p)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg">
+                    <button aria-label="Edit" onClick={() => open(p)} className="p-2 text-ink hover:bg-sunken rounded-lg">
                       <Edit2 className="w-4 h-4" />
                     </button>
                     {p.is_active && (
-                      <button aria-label="Deactivate" onClick={() => deactivate(p)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                      <button aria-label="Deactivate" onClick={() => deactivate(p)} className="p-2 text-danger hover:bg-danger/10 rounded-lg">
                         <Trash2 className="w-4 h-4" />
                       </button>
                     )}
@@ -296,7 +294,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
             ))}
             {products.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-gray-400">No products found.</td>
+                <td colSpan={6} className="p-8 text-center text-muted">No products found.</td>
               </tr>
             )}
           </tbody>
@@ -307,35 +305,35 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
         <form onSubmit={save} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-gray-700">Name</label>
+              <label className="block text-sm font-medium mb-1 text-ink">Name</label>
               <input required maxLength={200} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-gray-700">Name (Thai)</label>
+              <label className="block text-sm font-medium mb-1 text-ink">Name (Thai)</label>
               <input maxLength={200} value={form.name_th} onChange={(e) => setForm({ ...form, name_th: e.target.value })} className={input} />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-gray-700">Description</label>
+              <label className="block text-sm font-medium mb-1 text-ink">Description</label>
               <textarea maxLength={5000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${input} min-h-[100px]`} />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-gray-700">Description (Thai)</label>
+              <label className="block text-sm font-medium mb-1 text-ink">Description (Thai)</label>
               <textarea maxLength={5000} value={form.description_th} onChange={(e) => setForm({ ...form, description_th: e.target.value })} className={`${input} min-h-[80px]`} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Price (฿)</label>
+              <label className="block text-sm font-medium mb-1 text-ink">Price (฿)</label>
               <input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className={input} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">{editing === 'new' ? 'Initial stock' : 'Stock'}</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{editing === 'new' ? 'Initial stock' : 'Stock'}</label>
               {editing === 'new' ? (
                 <input required type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className={input} />
               ) : (
-                <p className="py-2 text-sm text-gray-500">{form.stock} — adjust with +/− in the table</p>
+                <p className="py-2 text-sm text-muted">{form.stock} — adjust with +/− in the table</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-700">Category</label>
+              <label className="block text-sm font-medium mb-1 text-ink">Category</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })} className={input}>
                 {PRODUCT_CATEGORIES.map((c) => (
                   <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
@@ -343,22 +341,22 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
               </select>
             </div>
             <div className="flex items-center gap-4 mt-6">
-              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
-                <input type="checkbox" checked={form.is_best_seller} onChange={(e) => setForm({ ...form, is_best_seller: e.target.checked })} className="accent-orange w-4 h-4" />
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-ink">
+                <input type="checkbox" checked={form.is_best_seller} onChange={(e) => setForm({ ...form, is_best_seller: e.target.checked })} className="accent-accent-strong w-4 h-4" />
                 Best seller
               </label>
-              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
-                <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="accent-orange w-4 h-4" />
+              <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-ink">
+                <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="accent-accent-strong w-4 h-4" />
                 Available in shop
               </label>
             </div>
           </div>
 
           {form.category === 'beetle' && (
-            <fieldset className="grid grid-cols-2 gap-4 rounded-xl border border-gray-100 p-4">
-              <legend className="px-1 text-sm font-semibold text-gray-700">Beetle details</legend>
+            <fieldset className="grid grid-cols-2 gap-4 rounded-xl border border-line p-4">
+              <legend className="px-1 text-sm font-semibold text-ink">Beetle details</legend>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Family</label>
+                <label className="block text-sm font-medium mb-1 text-ink">Family</label>
                 <input list="beetle-families" maxLength={50} value={form.attrs.family} onChange={(e) => setAttr('family', e.target.value)} className={input} />
                 <datalist id="beetle-families">
                   {families.map((f) => (
@@ -367,19 +365,19 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                 </datalist>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Species</label>
+                <label className="block text-sm font-medium mb-1 text-ink">Species</label>
                 <input maxLength={120} value={form.attrs.species} onChange={(e) => setAttr('species', e.target.value)} placeholder="Dynastes hercules" className={input} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Locality</label>
+                <label className="block text-sm font-medium mb-1 text-ink">Locality</label>
                 <input maxLength={120} value={form.attrs.locality} onChange={(e) => setAttr('locality', e.target.value)} className={input} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Size (mm)</label>
+                <label className="block text-sm font-medium mb-1 text-ink">Size (mm)</label>
                 <input type="number" min="0.1" max="300" step="0.1" value={form.attrs.size_mm} onChange={(e) => setAttr('size_mm', e.target.value)} className={input} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Sex</label>
+                <label className="block text-sm font-medium mb-1 text-ink">Sex</label>
                 <select value={form.attrs.sex} onChange={(e) => setAttr('sex', e.target.value)} className={input}>
                   <option value="">—</option>
                   {BEETLE_SEXES.map((s) => (
@@ -388,7 +386,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-700">Stage</label>
+                <label className="block text-sm font-medium mb-1 text-ink">Stage</label>
                 <select value={form.attrs.stage} onChange={(e) => setAttr('stage', e.target.value)} className={input}>
                   <option value="">—</option>
                   {BEETLE_STAGES.map((s) => (
@@ -400,10 +398,10 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-2 text-gray-700">Images (first image is the cover)</label>
+            <label className="block text-sm font-medium mb-2 text-ink">Images (first image is the cover)</label>
             <div className="flex flex-wrap gap-3">
               {form.images.map((url, i) => (
-                <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden border border-gray-200 group">
+                <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden border border-line group">
                   <img src={url} alt="" className="w-full h-full object-cover" />
                   <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/50 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
                     <button type="button" aria-label="Move left" onClick={() => moveImage(i, -1)} className="p-1 text-white"><ArrowLeft className="w-3 h-3" /></button>
@@ -416,17 +414,17 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                 type="button"
                 onClick={() => fileInput.current?.click()}
                 disabled={uploading || form.images.length >= 10}
-                className="w-24 h-24 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-orange hover:text-orange disabled:opacity-50"
+                className="w-24 h-24 rounded-lg border-2 border-dashed border-line flex flex-col items-center justify-center text-muted hover:border-accent-strong hover:text-accent-strong disabled:opacity-50"
               >
                 <Upload className="w-5 h-5" />
                 <span className="text-xs mt-1">{uploading ? 'Uploading…' : 'Upload'}</span>
               </button>
               <input ref={fileInput} type="file" accept={IMAGE_TYPES.join(',')} multiple hidden onChange={(e) => uploadImages(e.target.files)} />
             </div>
-            <p className="text-xs text-gray-400 mt-2">JPG, PNG or WebP · up to 5 MB each · max 10 images</p>
+            <p className="text-xs text-muted mt-2">JPG, PNG or WebP · up to 5 MB each · max 10 images</p>
           </div>
 
-          <button type="submit" disabled={saving || uploading} className="w-full mt-2 py-3 bg-orange text-white font-bold rounded-xl hover:opacity-90 disabled:opacity-50">
+          <button type="submit" disabled={saving || uploading} className="w-full mt-2 py-3 bg-accent-strong text-accent-ink font-bold rounded-xl hover:opacity-90 disabled:opacity-50">
             {saving ? 'Saving…' : editing === 'new' ? 'Create product' : 'Save changes'}
           </button>
         </form>

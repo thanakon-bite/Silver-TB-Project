@@ -1,148 +1,157 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { X, Plus, Minus, ShoppingBag, Trash2 } from 'lucide-react';
+import { X, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useCart } from '../contexts/CartContext';
+import { baht } from '../lib/format';
+import BeetleMark from '../component/brand/BeetleMark';
+import { iconButton, primaryButton, primaryButtonInline, quietLink } from '../component/ui/buttonStyles';
 
+const stepper =
+  'flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:border-muted disabled:pointer-events-none disabled:opacity-30 motion-reduce:transition-none';
+
+/** The Cart is a drawer over the current page, never a page of its own (CONTEXT.md). */
 const Cart: React.FC = () => {
   const { t } = useTranslation();
-
   const { items, isOpen, closeCart, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
+  const closeRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const opener = document.activeElement as HTMLElement | null;
+    closeRef.current?.focus();
+    document.body.style.overflow = 'hidden';
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeCart();
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = '';
+      document.removeEventListener('keydown', onKey);
+      opener?.focus?.();
+    };
+  }, [isOpen, closeCart]);
 
   return (
     <AnimatePresence>
       {isOpen && (
-        <>
-          {/* Backdrop */}
+        <div className="fixed inset-0 z-[60]">
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
             onClick={closeCart}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="absolute inset-0 bg-ink/40"
+            aria-hidden
           />
 
-          {/* Slide-over panel */}
           <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cart-title"
             initial={{ x: '100%' }}
             animate={{ x: 0 }}
             exit={{ x: '100%' }}
-            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
-            className="fixed right-0 top-0 h-full w-full max-w-md bg-white dark:bg-gray-800 shadow-2xl z-50 flex flex-col"
+            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+            className="absolute right-0 top-0 flex h-full w-full max-w-md flex-col border-l border-line bg-paper shadow-[-12px_0_40px_-16px_rgb(0_0_0/0.35)]"
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-5 border-b border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-3">
-                <ShoppingBag className="w-6 h-6 text-orange" />
-                <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100">{t('shopping_cart')}</h2>
-                {totalItems > 0 && (
-                  <span className="bg-orange text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
-                    {totalItems}
-                  </span>
-                )}
+            <div className="flex items-center justify-between gap-4 border-b border-line py-3 pl-5 pr-3">
+              <div className="flex items-baseline gap-2">
+                <h2 id="cart-title" className="font-display text-xl font-bold text-ink">
+                  {t('shopping_cart')}
+                </h2>
+                {totalItems > 0 && <span className="font-mono text-sm tabular-nums text-muted">{t('cart_page.items', { count: totalItems })}</span>}
               </div>
-              <button
-                onClick={closeCart}
-                className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500 dark:text-gray-400"
-              >
-                <X className="w-5 h-5" />
+              <button ref={closeRef} type="button" onClick={closeCart} className={iconButton} aria-label={t('close')}>
+                <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
 
-            {/* Items */}
-            <div className="flex-1 overflow-y-auto px-6 py-4">
+            <div className="flex-1 overflow-y-auto overscroll-contain px-5">
               {items.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-center py-16">
-                  <ShoppingBag className="w-16 h-16 text-gray-200 mb-4" />
-                  <p className="text-gray-400 dark:text-gray-500 font-medium">{t('cart_empty')}</p>
-                  <p className="text-gray-300 text-sm mt-1">Add some beetles to get started!</p>
-                  <Link
-                    to="/products"
-                    onClick={closeCart}
-                    className="mt-6 px-6 py-2.5 bg-orange-gradient text-white rounded-full font-semibold text-sm hover:opacity-90 transition-opacity"
-                  >{t('shop_now')}</Link>
+                <div className="flex h-full flex-col items-center justify-center py-16 text-center">
+                  <ShoppingBag className="h-10 w-10 text-muted" aria-hidden />
+                  <p className="mt-4 font-display text-lg font-bold text-ink">{t('cart_empty')}</p>
+                  <p className="mt-1 text-sm text-muted">{t('cart_page.empty_hint')}</p>
+                  <Link to="/products" onClick={closeCart} className={`${primaryButtonInline} mt-6`}>
+                    {t('shop_now')}
+                  </Link>
                 </div>
               ) : (
-                <ul className="space-y-4">
-                  <AnimatePresence>
-                    {items.map((item) => (
-                      <motion.li
-                        key={item.product_id}
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: 'auto' }}
-                        exit={{ opacity: 0, height: 0 }}
-                        className="flex gap-4 py-3 border-b border-gray-50"
-                      >
-                        <div className="w-20 h-20 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 flex-shrink-0">
-                          {item.image ? (
-                            <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-100 flex items-center justify-center text-2xl">
-                              🪲
-                            </div>
-                          )}
+                <ul className="divide-y divide-line">
+                  {items.map((item) => (
+                    <li key={item.product_id} className="flex gap-4 py-4">
+                      <div className="h-20 w-20 shrink-0 overflow-hidden rounded-lg border border-line bg-sunken">
+                        {item.image ? (
+                          <img src={item.image} alt="" className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center">
+                            <BeetleMark className="h-8 w-8 text-line" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex items-start justify-between gap-3">
+                          <p className="min-w-0 text-sm font-medium text-ink">{item.name}</p>
+                          <p className="shrink-0 font-mono text-sm tabular-nums text-ink">{baht(item.price * item.quantity)}</p>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">{item.name}</p>
-                          <p className="text-orange font-bold mt-1">฿{item.price.toLocaleString()}</p>
-                          <div className="flex items-center gap-2 mt-2">
+                        <p className="font-mono text-xs tabular-nums text-muted">{baht(item.price)}</p>
+                        <div className="mt-auto flex items-center justify-between pt-2">
+                          <div className="flex items-center gap-1" role="group" aria-label={`${t('quantity')} · ${item.name}`}>
                             <button
+                              type="button"
                               onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
-                              className="p-1 rounded-full border border-gray-200 dark:border-gray-700 hover:border-orange hover:text-orange transition-colors"
+                              aria-label={t('cart_page.decrease')}
+                              className={stepper}
                             >
-                              <Minus className="w-3 h-3" />
+                              <Minus className="h-3.5 w-3.5" aria-hidden />
                             </button>
-                            <span className="w-6 text-center font-semibold text-sm">{item.quantity}</span>
+                            <span className="w-8 text-center font-mono text-sm tabular-nums" aria-live="polite">
+                              {item.quantity}
+                            </span>
                             <button
+                              type="button"
                               onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
                               disabled={item.max_quantity !== undefined && item.quantity >= item.max_quantity}
-                              aria-label="Increase quantity"
-                              className="p-1 rounded-full border border-gray-200 dark:border-gray-700 hover:border-orange hover:text-orange transition-colors disabled:opacity-30 disabled:pointer-events-none"
+                              aria-label={t('cart_page.increase')}
+                              className={stepper}
                             >
-                              <Plus className="w-3 h-3" />
+                              <Plus className="h-3.5 w-3.5" aria-hidden />
                             </button>
                           </div>
-                        </div>
-                        <div className="flex flex-col items-end justify-between">
                           <button
+                            type="button"
                             onClick={() => removeItem(item.product_id)}
-                            className="p-1.5 rounded-full text-gray-300 hover:text-red-400 hover:bg-red-50 transition-colors"
+                            className="min-h-[36px] px-1 text-sm text-muted underline-offset-4 hover:text-danger hover:underline"
                           >
-                            <Trash2 className="w-4 h-4" />
+                            {t('remove')}
+                            <span className="sr-only"> {item.name}</span>
                           </button>
-                          <p className="font-bold text-gray-800 dark:text-gray-200 text-sm">
-                            ฿{(item.price * item.quantity).toLocaleString()}
-                          </p>
                         </div>
-                      </motion.li>
-                    ))}
-                  </AnimatePresence>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               )}
             </div>
 
-            {/* Footer */}
             {items.length > 0 && (
-              <div className="border-t border-gray-100 dark:border-gray-700 px-6 py-6 bg-gray-50/80">
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-gray-600 dark:text-gray-400 font-medium">{t('subtotal')}</span>
-                  <span className="text-2xl font-bold text-gray-900 dark:text-gray-100">฿{totalPrice.toLocaleString()}</span>
+              <div className="border-t border-line bg-sunken px-5 pb-6 pt-4">
+                <div className="flex items-baseline justify-between">
+                  <span className="text-sm font-semibold text-ink">{t('subtotal')}</span>
+                  <span className="font-mono text-xl font-medium tabular-nums text-ink">{baht(totalPrice)}</span>
                 </div>
-                <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">Shipping calculated at checkout</p>
-                <Link
-                  to="/checkout"
-                  onClick={closeCart}
-                  className="block w-full py-3.5 bg-orange-gradient text-white font-bold text-center rounded-xl shadow-lg hover:opacity-90 transition-opacity"
-                >{t('checkout')}</Link>
-                <button
-                  onClick={closeCart}
-                  className="block w-full py-2.5 mt-2 text-gray-500 dark:text-gray-400 text-sm font-medium text-center hover:text-gray-700 transition-colors"
-                >{t('continue_shopping')}</button>
+                <p className="mt-1 text-xs text-muted">{t('cart_page.shipping_note')}</p>
+                <Link to="/checkout" onClick={closeCart} className={`${primaryButton} mt-4`}>
+                  {t('checkout')}
+                </Link>
+                <button type="button" onClick={closeCart} className={`${quietLink} mt-3 block w-full py-1 text-center text-sm`}>
+                  {t('continue_shopping')}
+                </button>
               </div>
             )}
           </motion.div>
-        </>
+        </div>
       )}
     </AnimatePresence>
   );

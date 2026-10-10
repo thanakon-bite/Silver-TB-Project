@@ -3,7 +3,7 @@
   "home": "Home",
   "shop": "Shop",
   "products": "Products",
-  "about": "About",
+  "about": "About us",
   "contact": "Contact",
   "favorites": "Favorites",
   "login": "Login",
@@ -104,10 +104,10 @@
   "in_stock": "in stock",
   "available": "available",
   "views": "Views:",
-  "health_guarantee": "Health Guarantee",
-  "health_guarantee_desc": "Every beetle comes with a 30-day live arrival guarantee.",
-  "express_shipping": "Express Shipping",
-  "express_shipping_desc": "Secure, climate-controlled packaging for safe delivery.",
+  "health_guarantee": "Live Arrival Guarantee",
+  "health_guarantee_desc": "If a beetle dies in transit, we replace or refund it. Film the unboxing and tell us within 2 hours.",
+  "express_shipping": "Shipped on beetle-safe days",
+  "express_shipping_desc": "Live beetles ship Monday to Wednesday, never sitting in a depot over a weekend.",
   "expert_bred": "Expert Bred",
   "expert_bred_desc": "Professional breeding stock sourced from top collectors.",
   "understanding_beetle": "Understanding your beetle is the key to successful keeping. Here's what every enthusiast should know.",
@@ -123,15 +123,14 @@
   "community_desc": "Stay updated on new arrivals, live sales, and beetle care tips.",
   "ready_to_start_desc": "Browse our curated selection of premium exotic beetles, from rare rhinoceros beetles to stunning stag beetles.",
   "footer_desc": "The premium destination for exotic beetle enthusiasts. Quality breeding and rare specimens from around the world.",
-  "shop_all_beetle": "Shop All Bettle",
+  "shop_all_beetle": "Shop all products",
   "our_story": "Our Story",
   "membership": "Membership",
   "support": "Support",
   "terms_of_service": "Terms of Service",
   "contact_us": "Contact Us",
-  "address_123": "Silver Thief Bug Farm, Lamnarai, Chaibadan, Lopburi 15130",
   "hero_desc_long": "The premier destination for exotic beetle enthusiasts. Professionally bred, health-guaranteed, and shipped safely across Thailand.",
-  "all_rights_reserved": "SILVER THIEF BUG. ALL RIGHTS RESERVED.",
+  "all_rights_reserved": "Silver Thief Bug. All rights reserved.",
   "fb_main_page": "Main Page",
   "fb_main_desc": "Follow for breeding updates & new arrivals",
   "fb_community": "Community Group",
@@ -277,5 +276,425 @@
     "keep_shopping": "Keep shopping",
     "failed_title": "The last payment didn't go through",
     "failed_text": "You can try again by card or PromptPay."
+  },
+  "close": "Close",
+  "ig_desc": "Follow our official Instagram for photos",
+  "tiktok_desc": "Watch our beetles in action",
+  "about_subtitle": "We provide the best exotic beetles and pet insects for enthusiasts everywhere.",
+  "connect_with_us": "Follow us",
+  "our_location": "Where the farm is",
+  "hq_name": "Silver Thief Bug Farm",
+  "address_full": "1 Lam Narai, Chai Badan, Lopburi 15130",
+  "open_in_google_maps": "Open in Google Maps",
+  "nav": {
+    "main": "Main menu",
+    "cart_count_one": "Cart, {{count}} item",
+    "cart_count_other": "Cart, {{count}} items",
+    "favorites_count_one": "Favorites, {{count}} saved",
+    "favorites_count_other": "Favorites, {{count}} saved",
+    "light_mode": "Light mode",
+    "dark_mode": "Dark mode",
+    "admin": "Admin",
+    "my_orders": "My orders",
+    "my_account": "My account",
+    "open_menu": "Open menu",
+    "close_menu": "Close menu"
+  },
+  "product_card": {
+    "prev_photo": "Previous photo",
+    "next_photo": "Next photo",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "added": "Added",
+    "guarantee_line": "Film the unboxing and tell us within 2 hours if the beetle died in transit."
+  },
+  "products_page": {
+    "clear_search": "Clear search",
+    "sort_label": "Sort by",
+    "sort_default": "Recommended",
+    "sort_price_asc": "Price: low to high",
+    "sort_price_desc": "Price: high to low",
+    "sort_name_asc": "Name A–Z",
+    "family": "Beetle type",
+    "count_one": "{{count}} product",
+    "count_other": "{{count}} products",
+    "loading": "Loading products…",
+    "load_error": "Couldn't load products",
+    "retry": "Try again",
+    "empty_filtered": "Try another search, or look in every category.",
+    "empty_shop": "Nothing is listed right now. Check back soon.",
+    "views": "Views"
+  },
+  "favorites_page": {
+    "title": "Favorites",
+    "count_one": "{{count}} saved",
+    "count_other": "{{count}} saved",
+    "empty_title": "No favorites yet",
+    "empty_text": "Tap the heart on anything you like and it will wait for you here.",
+    "browse": "Browse the shop",
+    "unavailable": "The products you saved are no longer for sale."
+  },
+  "cart_page": {
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "empty_hint": "Pick a beetle or some supplies and add them to your cart.",
+    "decrease": "Decrease quantity",
+    "increase": "Increase quantity",
+    "shipping_note": "Shipping is calculated at checkout."
+  },
+  "home_page": {
+    "promises": "What the shop guarantees",
+    "opens_new_tab": "opens in a new tab",
+    "guarantee_terms": "Read the terms"
+  },
+  "about_page": {
+    "map_title": "Map of the Silver Thief Bug farm"
+  },
+  "login_page": {
+    "err_email_required": "Enter your email",
+    "err_email_format": "That email doesn't look right, e.g. you@example.com",
+    "err_password_required": "Enter your password",
+    "err_password_short": "Use at least 8 characters",
+    "err_name_required": "Enter your full name",
+    "reset_sent": "If an account uses this email, a reset link is on its way. Check your inbox (and spam).",
+    "confirm_sent": "We sent a confirmation link to {{email}}. Open it, then sign in here.",
+    "err_generic": "Something went wrong. Try again.",
+    "signup_title": "Start collecting with us",
+    "forgot_title": "Forgot your password",
+    "login_title": "Welcome back",
+    "signup_submit": "Create account",
+    "forgot_submit": "Send reset link",
+    "login_submit": "Sign in",
+    "forgot_text": "Enter the email you signed up with and we'll send a link to choose a new password.",
+    "mode": "Sign in or create an account",
+    "tab_login": "Sign in",
+    "tab_signup": "Create account",
+    "forgot_link": "Forgot password?",
+    "hide_password": "Hide password",
+    "show_password": "Show password",
+    "password_hint": "At least 8 characters",
+    "optional": "optional",
+    "err_title": "That didn't work",
+    "wait": "Please wait…",
+    "back_to_login": "Back to sign in",
+    "back_to_store": "Back to the shop"
+  },
+  "reset_page": {
+    "err_mismatch": "The two passwords don't match",
+    "title": "Choose a new password",
+    "invalid": "This reset link is invalid or has expired.",
+    "request_new": "Request a new one",
+    "new_password": "New password",
+    "confirm_password": "Confirm new password",
+    "submit": "Save new password"
+  },
+  "orders_page": {
+    "load_error": "Couldn't load your orders",
+    "loading": "Loading your orders…",
+    "empty_title": "No orders yet",
+    "empty_text": "Once you order, you can follow its status and tracking number here."
+  },
+  "account_page": {
+    "delete_question": "Delete this address? This can't be undone.",
+    "deleting": "Deleting…",
+    "delete_confirm": "Delete",
+    "edit": "Edit",
+    "make_default": "Make default",
+    "delete": "Delete",
+    "profile_saved": "Profile saved",
+    "profile": "Profile",
+    "profile_text": "Used as the starting point for new addresses.",
+    "save_error": "Couldn't save",
+    "saving": "Saving…",
+    "save_profile": "Save profile",
+    "addresses": "Shipping addresses",
+    "addresses_full": "You can save up to 10 addresses. Delete one to add another.",
+    "addresses_text": "Ready to pick at checkout.",
+    "no_addresses": "No saved addresses yet. Add one here or during checkout.",
+    "add_address": "Add address",
+    "edit_address": "Edit address",
+    "save_address": "Save address"
+  },
+  "session_expired": {
+    "title": "You've been signed out",
+    "text": "After 15 minutes without activity we sign you out for safety. Please sign in again."
+  },
+  "favorites_login": {
+    "title": "Sign in to save favorites",
+    "text": "Favorites are kept with your account, so they follow you to any device.",
+    "later": "Not now"
+  },
+  "contact_page": {
+    "description": "Ask about a beetle, its care or your order on any channel below."
+  },
+  "policy": {
+    "updated": "Last updated {{date}}"
+  },
+  "shipping_page": {
+    "description": "What shipping costs, when live beetles ship, and what the shop does if a beetle dies on the way.",
+    "fee_title": "Shipping Fee",
+    "fee_free": "Free on every order, anywhere in Thailand.",
+    "fee_amount": "{{amount}} per order, one rate anywhere in Thailand.",
+    "fee_unknown": "The Shipping Fee is shown at checkout before you pay. We ship anywhere in Thailand.",
+    "when_title": "When we ship",
+    "when": [
+      "We ship within 1–3 working days of receiving payment.",
+      "Live beetles ship Monday to Wednesday only, so no parcel waits in a depot over a weekend.",
+      "Food, logs/substrate and gear ship on any working day.",
+      "Live beetles go by Kerry or Flash.",
+      "In extreme heat or heavy rain we may postpone a shipment for the beetle's safety, and we always tell you first.",
+      "Once shipped, your tracking number is under \"My orders\"."
+    ],
+    "guarantee_title": "Live Arrival Guarantee",
+    "guarantee_intro": "If a beetle dies in transit, we send a replacement of the same species and pay its postage. If none is in stock, we refund the beetle's price in full.",
+    "claim_title": "How to claim",
+    "claim": [
+      "Film one continuous video from before you open the box until the beetle is clearly visible, with no cuts.",
+      "Tell us within 2 hours of receiving the parcel, with the video and your order number, through any channel on the Contact page."
+    ],
+    "not_covered_title": "Not covered",
+    "not_covered": [
+      "A parcel delayed or returned because no one was there to receive it, or it was collected late.",
+      "A wrong address or phone number entered at checkout.",
+      "No unboxing video, a video with cuts, or a report after 2 hours.",
+      "A beetle that dies after unboxing; the guarantee covers transit only."
+    ],
+    "refund_title": "Cancellations and refunds",
+    "refund": [
+      "Before paying, you can cancel the order yourself on its order page; the reserved items go back on sale.",
+      "Paid but not yet shipped: contact us to cancel and we refund in full.",
+      "Refunds go back to the card or PromptPay you paid with, through Stripe.",
+      "Live beetles are not returnable or refundable for a change of mind.",
+      "Unopened gear in its original packaging can be returned within 7 days of delivery; you pay return postage and we refund once it reaches us.",
+      "Food and logs/substrate can't be returned, as they spoil and for hygiene.",
+      "If anything arrives damaged or wrong, we replace or refund it and cover every cost."
+    ],
+    "help": "A problem with a parcel or an order?"
+  },
+  "faq_page": {
+    "description": "Answers about ordering, shipping and your account. Can't find yours? Message the shop.",
+    "read_more": "Read the full terms",
+    "groups": [
+      {
+        "id": "order",
+        "title": "Ordering and payment",
+        "items": [
+          {
+            "q": "How can I pay?",
+            "a": "Credit/debit card or PromptPay. You pay on Stripe's secure page and come back to the shop; we never see your card details."
+          },
+          {
+            "q": "Can someone else buy a beetle that's in my cart?",
+            "a": "Yes. Your cart doesn't reserve stock, and many beetles are one of a kind. We reserve items only when you press \"Continue to payment\"."
+          },
+          {
+            "q": "How long are items reserved for me?",
+            "a": "At least 30 minutes after you continue to payment; the payment page shows the time left. If it runs out before you pay, the order is cancelled automatically and the items go back on sale."
+          },
+          {
+            "q": "Do I need an account to order?",
+            "a": "Yes, so you can follow your order's status and tracking number later."
+          },
+          {
+            "q": "Can I cancel an order?",
+            "a": "Before paying, cancel it yourself on the order's page. After paying, contact the shop.",
+            "link": "/shipping#refund"
+          }
+        ]
+      },
+      {
+        "id": "shipping",
+        "title": "Shipping and guarantee",
+        "items": [
+          {
+            "q": "Which days do beetles ship?",
+            "a": "Live beetles ship only on certain weekdays, so no parcel waits in a depot over a weekend.",
+            "link": "/shipping#when"
+          },
+          {
+            "q": "Where's my tracking number?",
+            "a": "Under \"My orders\", once we've shipped."
+          },
+          {
+            "q": "What if my beetle dies on the way?",
+            "a": "We guarantee live arrival. Always film the unboxing and tell us quickly.",
+            "link": "/shipping#guarantee"
+          },
+          {
+            "q": "Can I return something?",
+            "a": "It depends on the product: live beetles, gear, and food or logs each have their own rule.",
+            "link": "/shipping#refund"
+          }
+        ]
+      },
+      {
+        "id": "account",
+        "title": "Account",
+        "items": [
+          {
+            "q": "Why do I need to sign in to save favorites?",
+            "a": "Favorites are kept with your account, so they follow you to any device."
+          },
+          {
+            "q": "I forgot my password",
+            "a": "On the sign-in page, press \"Forgot password?\" and enter your email; we'll send a link to set a new one.",
+            "link": "/login"
+          }
+        ]
+      }
+    ],
+    "care": {
+      "id": "care",
+      "title": "Care",
+      "items": [
+        {
+          "q": "My beetle has arrived. What first?",
+          "a": "Film the unboxing, check that it moves, then move it into a prepared enclosure with moist substrate somewhere shaded and quiet. Let it rest a day before handling."
+        },
+        {
+          "q": "What do beetles eat?",
+          "a": "Adults eat beetle jelly; larvae eat fermented oak flakes and rotting wood. Change the jelly every 2–3 days."
+        },
+        {
+          "q": "What temperature and humidity?",
+          "a": "About 25–28°C and 70–80% humidity. Don't let the substrate dry out or get waterlogged."
+        }
+      ]
+    }
+  },
+  "terms_page": {
+    "description": "The terms for buying from Silver Thief Bug.",
+    "sections": [
+      {
+        "id": "seller",
+        "title": "The seller",
+        "text": [
+          "This website is operated by [Seller name], 1 Lam Narai, Chai Badan, Lopburi 15130, Thailand. Phone 095 681 2084, email silverthiefbug.official@gmail.com.",
+          "E-commerce registration number [Registration number]."
+        ]
+      },
+      {
+        "id": "ordering",
+        "title": "Ordering",
+        "items": [
+          "Prices and stock are checked again when you continue to payment; the price at that moment applies.",
+          "When you continue to payment, we reserve the items for you for at least 30 minutes (the payment page shows the time left). If you haven't paid by then, the order is cancelled automatically.",
+          "An order becomes \"Paid\" only when Stripe confirms the payment to us.",
+          "Order statuses: awaiting payment → paid → shipped → delivered, or cancelled."
+        ]
+      },
+      {
+        "id": "payment",
+        "title": "Payment",
+        "text": [
+          "Pay by credit/debit card or PromptPay on Stripe's payment page. All prices are in Thai baht."
+        ]
+      },
+      {
+        "id": "shipping",
+        "title": "Shipping, guarantee and refunds",
+        "text": [
+          "Shipping, the Live Arrival Guarantee, cancellations and refunds follow the shipping policy, which is part of these terms."
+        ],
+        "link": {
+          "to": "/shipping",
+          "label": "Shipping policy"
+        }
+      },
+      {
+        "id": "live-animals",
+        "title": "Live animals",
+        "text": [
+          "Beetles are live animals. Once unboxed, their care is the customer's responsibility. We guarantee live arrival as set out in the shipping policy, not lifespan or survival afterwards."
+        ]
+      },
+      {
+        "id": "account",
+        "title": "Your account",
+        "text": [
+          "You are responsible for a correct name, phone number and shipping address, and for keeping your password secret."
+        ]
+      },
+      {
+        "id": "law",
+        "title": "Governing law",
+        "text": [
+          "These terms are governed by the laws of the Kingdom of Thailand."
+        ]
+      },
+      {
+        "id": "changes",
+        "title": "Changes",
+        "text": [
+          "We may update these terms and show the date of the last update at the end of the page. A paid order follows the terms of the day it was placed."
+        ]
+      }
+    ]
+  },
+  "privacy_page": {
+    "description": "What we keep, why, who receives it, and how to see or delete it.",
+    "sections": [
+      {
+        "id": "controller",
+        "title": "Data controller",
+        "text": [
+          "[Seller name], 1 Lam Narai, Chai Badan, Lopburi 15130, Thailand. Contact us about personal data at silverthiefbug.official@gmail.com."
+        ]
+      },
+      {
+        "id": "collected",
+        "title": "What we keep",
+        "items": [
+          "Your account's name, email and phone number (if given).",
+          "The shipping addresses you save, and a copy of the address on each order.",
+          "Your order history, payment status and tracking numbers.",
+          "Your favorites."
+        ],
+        "text": [
+          "We never see or store your card details; payment data stays with Stripe."
+        ]
+      },
+      {
+        "id": "purposes",
+        "title": "What we use it for",
+        "items": [
+          "Taking, shipping and contacting you about your orders.",
+          "Making your account work, such as saved addresses and favorites.",
+          "Accounting and tax, as the law requires."
+        ]
+      },
+      {
+        "id": "processors",
+        "title": "Who receives it",
+        "items": [
+          "Supabase: the shop's database and sign-in system.",
+          "Stripe: payment processing.",
+          "LINE: a message to the shop owner for each paid order, with the order number, items, total and shipping address.",
+          "Carriers: the recipient's name, phone and address, to deliver the parcel.",
+          "Google Maps: the map on the About and Contact pages loads from Google."
+        ]
+      },
+      {
+        "id": "device",
+        "title": "On your device",
+        "text": [
+          "Your cart, theme and language are kept in your own browser. We use no advertising cookies or trackers."
+        ]
+      },
+      {
+        "id": "retention",
+        "title": "How long we keep it",
+        "text": [
+          "Order history is kept for 5 years for accounting and tax. Everything else in your account is deleted when you ask."
+        ]
+      },
+      {
+        "id": "rights",
+        "title": "Your rights",
+        "text": [
+          "Under Thailand's Personal Data Protection Act B.E. 2562 (2019), you can ask to see, copy, correct or delete your data, or object to its use, by emailing silverthiefbug.official@gmail.com. We reply within 30 days."
+        ]
+      }
+    ]
   }
 }

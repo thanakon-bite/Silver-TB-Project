@@ -30,19 +30,20 @@ export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
   cancelled: 'Cancelled',
 };
 
+/** Status chips: one neutral shape; colour only where the status asks the reader to act or reassures them. */
 export const ORDER_STATUS_STYLE: Record<OrderStatus, string> = {
-  pending: 'bg-yellow-100 text-yellow-800',
-  paid: 'bg-blue-100 text-blue-800',
-  shipped: 'bg-purple-100 text-purple-800',
-  delivered: 'bg-green-100 text-green-800',
-  cancelled: 'bg-gray-200 text-gray-700',
+  pending: 'border border-accent-strong/40 bg-accent-strong/10 text-accent-strong',
+  paid: 'border border-line bg-sunken text-ink',
+  shipped: 'border border-line bg-sunken text-ink',
+  delivered: 'border border-success/40 bg-success/10 text-success',
+  cancelled: 'border border-line text-muted',
 };
 
 export const PAYMENT_STATUS_STYLE: Record<PaymentStatus, string> = {
-  unpaid: 'bg-yellow-100 text-yellow-800',
-  paid: 'bg-green-100 text-green-800',
-  failed: 'bg-red-100 text-red-700',
-  refunded: 'bg-gray-200 text-gray-700',
+  unpaid: 'border border-accent-strong/40 bg-accent-strong/10 text-accent-strong',
+  paid: 'border border-success/40 bg-success/10 text-success',
+  failed: 'border border-danger/40 bg-danger/10 text-danger',
+  refunded: 'border border-line text-muted',
 };
 
 /** Read/write localStorage safely (private mode, blocked storage, SSR). */

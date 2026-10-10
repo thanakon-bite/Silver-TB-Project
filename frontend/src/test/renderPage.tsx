@@ -6,6 +6,9 @@ import { I18nextProvider, initReactI18next } from 'react-i18next';
 import th from '../../public/locales/th/translation.json';
 import { AuthProvider } from '../contexts/AuthContext';
 import { CartProvider, CartItem } from '../contexts/CartContext';
+import { FavoritesProvider } from '../contexts/FavoritesContext';
+import { ThemeProvider } from '../contexts/ThemeContext';
+import { AppShell } from '../App';
 
 /** A real i18n instance with the shipped Thai strings, so tests read what customers read. */
 export function makeI18n() {
@@ -49,6 +52,29 @@ export function renderPage(page: React.ReactElement, { path, url = path, cart = 
               {routes}
             </Routes>
             {outside}
+          </CartProvider>
+        </AuthProvider>
+      </MemoryRouter>
+    </I18nextProvider>
+  );
+}
+
+/**
+ * Renders the whole app shell (navbar, routes, footer, Cart drawer) at a URL, with the same real
+ * providers and Thai strings as the app. Use it for behaviour that spans pages: menus and links.
+ */
+export function renderApp(url: string, { cart = [], history = [] }: { cart?: CartItem[]; history?: string[] } = {}) {
+  localStorage.setItem('stb_cart_v1', JSON.stringify(cart));
+  return render(
+    <I18nextProvider i18n={makeI18n()}>
+      <MemoryRouter initialEntries={[...history, url]} initialIndex={history.length}>
+        <AuthProvider>
+          <CartProvider>
+            <FavoritesProvider>
+              <ThemeProvider>
+                <AppShell />
+              </ThemeProvider>
+            </FavoritesProvider>
           </CartProvider>
         </AuthProvider>
       </MemoryRouter>

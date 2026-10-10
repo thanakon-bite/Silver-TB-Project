@@ -23,8 +23,8 @@ interface PaymentEvent {
 
 const Check: React.FC<{ ok: boolean; children: React.ReactNode }> = ({ ok, children }) => (
   <li className="flex items-center gap-2">
-    {ok ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <XCircle className="w-4 h-4 text-red-500" />}
-    <span className={ok ? 'text-gray-700' : 'text-gray-900 font-medium'}>{children}</span>
+    {ok ? <CheckCircle2 className="w-4 h-4 text-success" /> : <XCircle className="w-4 h-4 text-danger" />}
+    <span className={ok ? 'text-ink' : 'text-ink font-medium'}>{children}</span>
   </li>
 );
 
@@ -52,10 +52,10 @@ const AdminSettings: React.FC = () => {
 
   return (
     <div className="grid lg:grid-cols-2 gap-6">
-      <div className="rounded-2xl border border-gray-100 p-5 space-y-4">
-        <h3 className="font-semibold text-gray-900">LINE OA admin notifications</h3>
+      <div className="rounded-2xl border border-line p-5 space-y-4">
+        <h3 className="font-semibold text-ink">LINE OA admin notifications</h3>
         {!line ? (
-          <p className="text-sm text-gray-500">Loading…</p>
+          <p className="text-sm text-muted">Loading…</p>
         ) : (
           <>
             <ul className="space-y-2 text-sm">
@@ -67,7 +67,7 @@ const AdminSettings: React.FC = () => {
               </Check>
             </ul>
             {line.source === 'none' && (
-              <p className="text-sm text-gray-600 bg-gray-50 rounded-lg p-3">
+              <p className="text-sm text-muted bg-sunken rounded-lg p-3">
                 Set <code className="text-xs">LINE_OWNER_USER_ID</code> on the server to your LINE user ID (LINE Developers console →
                 Basic settings → "Your user ID"), and add the Official Account as a friend on that LINE account.
               </p>
@@ -83,21 +83,21 @@ const AdminSettings: React.FC = () => {
         )}
       </div>
 
-      <div className="rounded-2xl border border-gray-100 p-5">
-        <h3 className="font-semibold text-gray-900 mb-3">Recent Stripe events</h3>
+      <div className="rounded-2xl border border-line p-5">
+        <h3 className="font-semibold text-ink mb-3">Recent Stripe events</h3>
         {events.length === 0 ? (
-          <p className="text-sm text-gray-500">No webhook events received yet.</p>
+          <p className="text-sm text-muted">No webhook events received yet.</p>
         ) : (
-          <ul className="divide-y divide-gray-100 text-sm max-h-96 overflow-y-auto">
+          <ul className="divide-y divide-line text-sm max-h-96 overflow-y-auto">
             {events.map((e) => (
               <li key={e.id} className="py-2 flex justify-between gap-3">
                 <div>
-                  <div className="font-medium text-gray-800">{e.type}</div>
-                  <div className="text-xs text-gray-400">
+                  <div className="font-medium text-ink">{e.type}</div>
+                  <div className="text-xs text-muted">
                     {dateTime(e.created_at)} · {e.orders?.order_number || '—'} · {e.result}
                   </div>
                 </div>
-                {e.amount != null && <span className="text-gray-700">{baht(e.amount / 100)}</span>}
+                {e.amount != null && <span className="text-ink">{baht(e.amount / 100)}</span>}
               </li>
             ))}
           </ul>

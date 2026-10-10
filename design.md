@@ -1,8 +1,9 @@
 # Design — Silver Thief Bug
 
 Locked design system. Future Hallmark runs read this file first; pages defer
-to it. Amend intentionally — the file is the rule. Redesign pages one at a time
-onto this system; pages not yet redesigned still use Tailwind `gray-*`.
+to it. Amend intentionally — the file is the rule. Every page (shop, account, admin) is on
+this system; the legacy `silver-*` / `orange-*` palette and gradients are removed from Tailwind,
+so an off-system colour no longer compiles into anything.
 
 ## System
 - Genre · editorial (a naturalist's field guide for beetle collectors)
@@ -44,12 +45,27 @@ Radius · 12 px (`rounded-xl`) controls and notices · 16 px (`rounded-2xl`) the
   confirmation: one sentence saying what is lost, then [keep] bordered `line` and [confirm] bordered
   `danger`, with focus on keep. Used for cancelling an order (it releases one-of-a-kind stock).
 
+## Shared pieces (use these, don't restyle per page)
+- `component/ui/buttonStyles.ts` · `primaryButton` (full width) / `primaryButtonInline` / `compactButton` (card actions) /
+  `secondaryButton` (bordered) / `iconButton` (40×40, always with aria-label) / `textLink` / `quietLink` / `chip(active)`.
+- `component/ui/fieldStyles.ts` · `fieldClass(err)`, `fieldLabel`, `fieldError`, `fieldHint`. Every input has a visible `<label>`.
+- `component/ui/Feedback.tsx` · `PageHeader` (one `font-display` h1 + line, hairline under), `Notice`, `ErrorBox`, `EmptyState`.
+- `component/products/ProductCard.tsx` · the one product tile (Products and Favorites), photos, heart, stock line.
+- `component/brand/social.tsx` · the shop's channels, phone, email, map link (Home, About, footer).
+- `component/common/Modal.tsx` · dialog with Escape, focus in/out, bottom sheet on phones, never taller than the viewport.
+
 ## Layout
 - One containment layer. No card-in-card; sections split by `line` hairlines.
 - Forms: content left, sticky summary right at `lg` (`minmax(0,1fr) 22rem`); on small screens the
   summary folds into a bar showing the total.
 - Feedback is inline: errors in a `danger` box above the action with the next step; notices
-  (`role=status`) in `sunken`. No SweetAlert popups and no success toasts on redesigned pages.
+  (`role=status`) in `sunken`. No SweetAlert popups and no success toasts on customer pages; adding to the
+  cart answers on the button ("เพิ่มแล้ว") and by opening the Cart drawer. SweetAlert remains only for admin tools,
+  the session-expiry notice and the guest "sign in to save favorites" prompt; `index.css` themes it with the tokens.
+- Product grids: 2 columns on phones, 3 at `lg`, 4 at `xl`; photos 4:3 in a `line`-bordered frame, text below on paper (no card).
+- Shop nav shows in full from `lg` (1024 px); below that, cart + menu button. Active link: `ink` with an accent-strong underline.
+- Status chips (`ORDER_STATUS_STYLE`): `rounded-md`, neutral by default; accent-strong only for "waiting on the customer",
+  success for delivered/paid, danger for failed.
 - Record pages (an order) use the same two-column grid as the forms: details left, the summary right.
   Their `h1` is the record's state in words (the Order Status in Thai); the reference number sits
   under it in mono. Progress is a vertical list on a `line` rule, not a row of icons.

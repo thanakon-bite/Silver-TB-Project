@@ -44,7 +44,6 @@ const AdminCustomers: React.FC = () => {
       title: role === 'admin' ? `Make ${c.full_name} an admin?` : `Remove admin access from ${c.full_name}?`,
       text: role === 'admin' ? 'Admins can manage products, orders, refunds and customers.' : undefined,
       showCancelButton: true,
-      confirmButtonColor: '#FF922B',
     });
     if (!r.isConfirmed) return;
     try {
@@ -58,18 +57,18 @@ const AdminCustomers: React.FC = () => {
   return (
     <div>
       <div className="relative max-w-sm mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search name or email"
-          className="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-orange/50"
+          className="w-full border border-line rounded-lg pl-9 pr-3 py-2 text-sm outline-none focus:ring-2 focus:ring-accent-strong/40"
         />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-sm">
           <thead>
-            <tr className="border-b-2 border-gray-100 bg-gray-50/50 text-gray-600">
+            <tr className="border-b border-line bg-sunken text-muted">
               <th className="p-3 font-semibold">Customer</th>
               <th className="p-3 font-semibold">Phone</th>
               <th className="p-3 font-semibold text-right">Orders</th>
@@ -80,22 +79,22 @@ const AdminCustomers: React.FC = () => {
           </thead>
           <tbody>
             {customers.map((c) => (
-              <tr key={c.id} className="border-b border-gray-100">
+              <tr key={c.id} className="border-b border-line">
                 <td className="p-3">
-                  <div className="font-semibold text-gray-800">{c.full_name}</div>
-                  <div className="text-xs text-gray-400">{c.email}</div>
+                  <div className="font-semibold text-ink">{c.full_name}</div>
+                  <div className="text-xs text-muted">{c.email}</div>
                 </td>
-                <td className="p-3 text-gray-600">{c.phone || '—'}</td>
-                <td className="p-3 text-right text-gray-800">{c.orders}</td>
-                <td className="p-3 text-right font-semibold text-gray-900">{baht(c.total_spent)}</td>
-                <td className="p-3 text-gray-500">{dateTime(c.created_at)}</td>
+                <td className="p-3 text-muted">{c.phone || '—'}</td>
+                <td className="p-3 text-right text-ink">{c.orders}</td>
+                <td className="p-3 text-right font-semibold text-ink">{baht(c.total_spent)}</td>
+                <td className="p-3 text-muted">{dateTime(c.created_at)}</td>
                 <td className="p-3">
                   <button
                     onClick={() => toggleRole(c)}
                     disabled={c.id === user?.id}
                     title={c.id === user?.id ? 'You cannot change your own role' : 'Change role'}
-                    className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-semibold disabled:cursor-not-allowed ${
-                      c.role === 'admin' ? 'bg-orange/15 text-orange-dark' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-xs font-semibold disabled:cursor-not-allowed ${
+                      c.role === 'admin' ? 'bg-accent-strong/15 text-accent-strong' : 'bg-sunken text-muted hover:bg-sunken'
                     }`}
                   >
                     {c.role === 'admin' && <ShieldCheck className="w-3 h-3" />}
@@ -105,7 +104,7 @@ const AdminCustomers: React.FC = () => {
               </tr>
             ))}
             {customers.length === 0 && (
-              <tr><td colSpan={6} className="p-8 text-center text-gray-400">No customers found.</td></tr>
+              <tr><td colSpan={6} className="p-8 text-center text-muted">No customers found.</td></tr>
             )}
           </tbody>
         </table>

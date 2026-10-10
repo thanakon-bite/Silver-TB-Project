@@ -2,6 +2,7 @@ import React from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { MotionConfig } from 'framer-motion';
 import Swal from 'sweetalert2';
+import i18n from './i18n';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { CartProvider } from './contexts/CartContext';
 import { FavoritesProvider } from './contexts/FavoritesContext';
@@ -22,12 +23,11 @@ import Account from './pages/Account';
 import AdminDashboard from './pages/AdminDashboard';
 import Favorites from './pages/Favorites';
 import About from './pages/About';
-
-const Placeholder = ({ title }: { title: string }) => (
-  <div className="flex items-center justify-center min-h-[50vh]">
-    <h1 className="text-3xl font-bold text-gray-500 dark:text-gray-400">{title}</h1>
-  </div>
-);
+import Contact from './pages/Contact';
+import ShippingPolicy from './pages/ShippingPolicy';
+import Faq from './pages/Faq';
+import LegalPage from './pages/LegalPage';
+import { PUBLISHED } from './component/content/published';
 
 // Redirect logged-in users away from login page
 const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -40,7 +40,7 @@ const GuestRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const Main: React.FC<{ focused: boolean; children: React.ReactNode }> = ({ focused, children }) =>
   focused ? <>{children}</> : <main className="flex-grow">{children}</main>;
 
-function AppShell() {
+export function AppShell() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -56,9 +56,8 @@ function AppShell() {
         logout();
         Swal.fire({
           icon: 'info',
-          title: 'Session Expired',
-          text: 'You have been logged out due to 15 minutes of inactivity.',
-          confirmButtonColor: '#FF922B'
+          title: i18n.t('session_expired.title'),
+          text: i18n.t('session_expired.text'),
         }).then(() => {
           navigate('/login');
         });
@@ -76,13 +75,20 @@ function AppShell() {
     };
   }, [user, logout, navigate]);
 
+  // A new page starts at its top (footer links otherwise land mid-page); a #hash scrolls to that section.
+  React.useEffect(() => {
+    const target = location.hash ? document.getElementById(decodeURIComponent(location.hash.slice(1))) : null;
+    if (target) target.scrollIntoView?.();
+    else document.documentElement.scrollTop = 0;
+  }, [location.pathname, location.hash]);
+
   // Checkout brings its own focused header and footer (see FocusedChrome).
   const focused = location.pathname === '/checkout';
 
   return (
     // Framer animations (step slides, the Cart drawer) follow the system's reduced-motion setting.
     <MotionConfig reducedMotion="user">
-      <div className="min-h-screen flex flex-col bg-white dark:bg-gray-800 dark:bg-gray-900 text-gray-900 dark:text-gray-100 font-sans transition-colors duration-200">
+      <div className="flex min-h-screen flex-col bg-paper font-sans text-ink">
         {!focused && <Navbar />}
         <Main focused={focused}>
           <Routes>
@@ -92,16 +98,17 @@ function AppShell() {
             <Route path="/login" element={<GuestRoute><Login /></GuestRoute>} />
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Placeholder title="Contact Us" />} />
+            <Route path="/contact" element={<Contact />} />
             <Route path="/checkout" element={<RequireAuth><Checkout /></RequireAuth>} />
             <Route path="/orders" element={<RequireAuth><Orders /></RequireAuth>} />
             <Route path="/orders/:id" element={<RequireAuth><OrderDetail /></RequireAuth>} />
             <Route path="/account" element={<RequireAuth><Account /></RequireAuth>} />
             <Route path="/admin" element={<RequireAdmin><AdminDashboard /></RequireAdmin>} />
-            <Route path="/shipping" element={<Placeholder title="Shipping Policy" />} />
-            <Route path="/terms" element={<Placeholder title="Terms of Service" />} />
-            <Route path="/privacy" element={<Placeholder title="Privacy Policy" />} />
-            <Route path="/faq" element={<Placeholder title="FAQs" />} />
+            <Route path="/shipping" element={<ShippingPolicy />} />
+            {/* Drafts until the seller is named (component/content/published); the catch-all sends visitors home. */}
+            {PUBLISHED.terms && <Route path="/terms" element={<LegalPage doc="terms" />} />}
+            {PUBLISHED.privacy && <Route path="/privacy" element={<LegalPage doc="privacy" />} />}
+            <Route path="/faq" element={<Faq />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Main>
@@ -120,7 +127,7 @@ function App() {
         <FavoritesProvider>
           <ThemeProvider>
             <ToastProvider>
-            <React.Suspense fallback={<div className="flex h-screen items-center justify-center">Loading...</div>}>
+            <React.Suspense fallback={<div className="min-h-screen bg-paper" />}>
               <AppShell />
             </React.Suspense>
             </ToastProvider>

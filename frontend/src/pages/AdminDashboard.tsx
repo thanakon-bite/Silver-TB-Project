@@ -30,27 +30,29 @@ const AdminDashboard = () => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      <h1 className="text-3xl font-extrabold text-gray-900 border-l-8 border-orange pl-4 mb-8">Admin Dashboard</h1>
+    <div className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 lg:px-8">
+      <h1 className="font-display text-3xl font-bold text-ink">Admin</h1>
 
-      <div className="flex gap-2 mb-6 border-b border-gray-200 overflow-x-auto">
+      <div role="tablist" aria-label="Admin sections" className="-mx-4 mt-6 flex gap-1 overflow-x-auto border-b border-line px-4 sm:mx-0 sm:px-0">
         {TABS.map(({ key, label, icon: Icon }) => (
           <button
             key={key}
+            role="tab"
+            aria-selected={tab === key}
             onClick={() => {
               setFilter(undefined);
               setTab(key);
             }}
-            className={`flex items-center gap-2 px-5 py-3 font-semibold text-sm rounded-t-xl whitespace-nowrap transition-colors ${
-              tab === key ? 'bg-orange text-white' : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+            className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-3 text-sm font-semibold transition-colors motion-reduce:transition-none ${
+              tab === key ? 'border-accent-strong text-ink' : 'border-transparent text-muted hover:text-ink'
             }`}
           >
-            <Icon className="w-4 h-4" /> {label}
+            <Icon className="w-4 h-4" aria-hidden /> {label}
           </button>
         ))}
       </div>
 
-      <div className="bg-white rounded-2xl shadow border border-gray-100 p-6 min-h-[500px]">
+      <div role="tabpanel" className="min-h-[500px] pt-6">
         {tab === 'overview' && <AdminOverview goTo={goTo} />}
         {tab === 'orders' && <AdminOrders key={filter || 'all'} initialFilter={filter} initialOrderId={deepLinkOrder} />}
         {tab === 'products' && <AdminProducts key={filter || 'all'} initialFilter={filter} />}

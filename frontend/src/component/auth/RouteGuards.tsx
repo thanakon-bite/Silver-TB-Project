@@ -4,7 +4,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 const Spinner = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
-    <div className="w-10 h-10 border-4 border-orange/30 border-t-orange rounded-full animate-spin" aria-label="Loading" />
+    <div className="w-10 h-10 border-2 border-line border-t-accent-strong rounded-full animate-spin motion-reduce:animate-none" role="status" aria-label="Loading" />
   </div>
 );
 

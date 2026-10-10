@@ -4,6 +4,8 @@ import { Chart as ChartJS, BarElement, CategoryScale, LinearScale, Tooltip } fro
 import { AlertTriangle, Banknote, PackageOpen, Users, Table2, BarChart3 } from 'lucide-react';
 import { api } from '../../lib/api';
 import { baht } from '../../lib/format';
+import { tokenColor } from '../../lib/tokenColor';
+import { useTheme } from '../../contexts/ThemeContext';
 
 ChartJS.register(BarElement, CategoryScale, LinearScale, Tooltip);
 
@@ -17,7 +19,6 @@ interface Stats {
   daily: { date: string; revenue: number; orders: number }[];
 }
 
-const BAR_COLOR = '#E67E22'; // brand orange-dark; < 3:1 on white → tooltip + table view provided
 
 const Tile: React.FC<{ icon: React.FC<{ className?: string }>; label: string; value: string; tone?: 'warn'; onClick?: () => void }> = ({
   icon: Icon,
@@ -29,15 +30,15 @@ const Tile: React.FC<{ icon: React.FC<{ className?: string }>; label: string; va
   <button
     onClick={onClick}
     disabled={!onClick}
-    className={`text-left bg-white rounded-2xl border p-5 transition-colors ${
-      tone === 'warn' ? 'border-red-200' : 'border-gray-100'
-    } ${onClick ? 'hover:border-orange/40' : 'cursor-default'}`}
+    className={`text-left bg-paper rounded-xl border p-5 transition-colors ${
+      tone === 'warn' ? 'border-danger/40' : 'border-line'
+    } ${onClick ? 'hover:border-accent-strong/40' : 'cursor-default'}`}
   >
-    <div className="flex items-center gap-2 text-sm text-gray-500 mb-2">
-      <Icon className={`w-4 h-4 ${tone === 'warn' ? 'text-red-500' : 'text-gray-400'}`} />
+    <div className="flex items-center gap-2 text-sm text-muted mb-2">
+      <Icon className={`w-4 h-4 ${tone === 'warn' ? 'text-danger' : 'text-muted'}`} />
       {label}
     </div>
-    <div className="text-2xl font-extrabold text-gray-900">{value}</div>
+    <div className="font-mono text-2xl font-medium tabular-nums text-ink">{value}</div>
   </button>
 );
 
@@ -45,13 +46,20 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState('');
   const [asTable, setAsTable] = useState(false);
+  const { theme } = useTheme();
+  // Canvas cannot read CSS variables; re-read the tokens whenever the theme flips.
+  const chart = React.useMemo(
+    () => ({ bar: tokenColor('accent-strong', 0.85), barHover: tokenColor('accent-strong'), muted: tokenColor('muted'), line: tokenColor('line') }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- theme is the trigger: the values come from the DOM
+    [theme]
+  );
 
   useEffect(() => {
     api.get<Stats>('/admin/stats').then(setStats).catch((e) => setError(e.message));
   }, []);
 
-  if (error) return <p className="text-red-600">{error}</p>;
-  if (!stats) return <p className="text-gray-500">Loading…</p>;
+  if (error) return <p className="text-danger">{error}</p>;
+  if (!stats) return <p className="text-muted">Loading…</p>;
 
   const labels = stats.daily.map((d) => new Date(d.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
 
@@ -70,15 +78,15 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
         <Tile icon={Users} label="Customers" value={String(stats.customers)} />
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
+      <div className="bg-paper rounded-2xl border border-line p-5">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="font-semibold text-gray-900">Paid revenue, last 14 days</h3>
-            <p className="text-xs text-gray-400">Thai Baht per day (Asia/Bangkok)</p>
+            <h3 className="font-semibold text-ink">Paid revenue, last 14 days</h3>
+            <p className="text-xs text-muted">Thai Baht per day (Asia/Bangkok)</p>
           </div>
           <button
             onClick={() => setAsTable(!asTable)}
-            className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 hover:text-orange"
+            className="flex items-center gap-1.5 text-xs font-semibold text-muted hover:text-accent-strong"
             aria-pressed={asTable}
           >
             {asTable ? <BarChart3 className="w-4 h-4" /> : <Table2 className="w-4 h-4" />}
@@ -89,7 +97,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
         {asTable ? (
           <table className="w-full text-sm">
             <thead>
-              <tr className="text-left text-gray-500 border-b">
+              <tr className="text-left text-muted border-b">
                 <th className="py-2 font-medium">Date</th>
                 <th className="py-2 font-medium text-right">Orders</th>
                 <th className="py-2 font-medium text-right">Revenue</th>
@@ -97,10 +105,10 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
             </thead>
             <tbody>
               {stats.daily.map((d, i) => (
-                <tr key={d.date} className="border-b border-gray-50">
-                  <td className="py-1.5 text-gray-700">{labels[i]}</td>
-                  <td className="py-1.5 text-right text-gray-700">{d.orders}</td>
-                  <td className="py-1.5 text-right font-semibold text-gray-900">{baht(d.revenue)}</td>
+                <tr key={d.date} className="border-b border-line">
+                  <td className="py-1.5 text-ink">{labels[i]}</td>
+                  <td className="py-1.5 text-right text-ink">{d.orders}</td>
+                  <td className="py-1.5 text-right font-semibold text-ink">{baht(d.revenue)}</td>
                 </tr>
               ))}
             </tbody>
@@ -113,8 +121,8 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
                 datasets: [
                   {
                     data: stats.daily.map((d) => d.revenue),
-                    backgroundColor: BAR_COLOR,
-                    hoverBackgroundColor: '#C96A12',
+                    backgroundColor: chart.bar,
+                    hoverBackgroundColor: chart.barHover,
                     borderRadius: { topLeft: 4, topRight: 4 },
                     borderSkipped: 'bottom',
                     maxBarThickness: 24,
@@ -133,12 +141,12 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
                   },
                 },
                 scales: {
-                  x: { grid: { display: false }, ticks: { color: '#6B7280', maxRotation: 0, autoSkip: true } },
+                  x: { grid: { display: false }, ticks: { color: chart.muted, maxRotation: 0, autoSkip: true } },
                   y: {
                     beginAtZero: true,
                     border: { display: false },
-                    grid: { color: '#F1F2F4', lineWidth: 1 },
-                    ticks: { color: '#6B7280', callback: (v) => baht(Number(v)) },
+                    grid: { color: chart.line, lineWidth: 1 },
+                    ticks: { color: chart.muted, callback: (v) => baht(Number(v)) },
                   },
                 },
               }}
@@ -148,32 +156,32 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
-          <h3 className="font-semibold text-gray-900 mb-3">Orders by status</h3>
+        <div className="bg-paper rounded-2xl border border-line p-5">
+          <h3 className="font-semibold text-ink mb-3">Orders by status</h3>
           <ul className="space-y-1.5 text-sm">
             {Object.entries(stats.orders_by_status).map(([s, n]) => (
               <li key={s} className="flex justify-between">
-                <span className="capitalize text-gray-600">{s}</span>
-                <span className="font-semibold text-gray-900">{n}</span>
+                <span className="capitalize text-muted">{s}</span>
+                <span className="font-semibold text-ink">{n}</span>
               </li>
             ))}
           </ul>
         </div>
-        <div className="bg-white rounded-2xl border border-gray-100 p-5">
+        <div className="bg-paper rounded-2xl border border-line p-5">
           <div className="flex items-center justify-between mb-3">
-            <h3 className="font-semibold text-gray-900">Low stock (≤ 2)</h3>
-            <button onClick={() => goTo('products', 'low')} className="text-xs font-semibold text-orange hover:underline">
+            <h3 className="font-semibold text-ink">Low stock (≤ 2)</h3>
+            <button onClick={() => goTo('products', 'low')} className="text-xs font-semibold text-accent-strong hover:underline">
               Manage
             </button>
           </div>
           {stats.low_stock.length === 0 ? (
-            <p className="text-sm text-gray-500">All active products are well stocked.</p>
+            <p className="text-sm text-muted">All active products are well stocked.</p>
           ) : (
             <ul className="space-y-1.5 text-sm">
               {stats.low_stock.map((p) => (
                 <li key={p.id} className="flex justify-between">
-                  <span className="text-gray-700 truncate">{p.name}</span>
-                  <span className={`font-semibold ${p.stock === 0 ? 'text-red-600' : 'text-gray-900'}`}>
+                  <span className="text-ink truncate">{p.name}</span>
+                  <span className={`font-semibold ${p.stock === 0 ? 'text-danger' : 'text-ink'}`}>
                     {p.stock === 0 ? 'Sold out' : p.stock}
                   </span>
                 </li>

@@ -79,6 +79,22 @@ Ended without fulfilment. Reserved stock is returned; a Paid order must be refun
 **Tracking Number**:
 The carrier's parcel reference entered by the admin when shipping.
 
+### Shipping and after-sale
+
+**Shipping Day**:
+A day on which live beetles are handed to a carrier: Monday to Wednesday only, so no parcel sits in a depot over a weekend. Goods (food, logs, gear) ship on any working day. The shop may postpone a Shipping Day for extreme heat or heavy rain and tells the customer first.
+_Avoid_: Delivery day (the day the customer receives it)
+
+**Live Arrival Guarantee**:
+The shop's promise that a live beetle arrives alive (รับประกันถึงมือมีชีวิต). It covers death in transit only, proven by an uninterrupted unboxing video and reported within 2 hours of receiving the parcel. It is not a survival guarantee after arrival.
+The shop sends a replacement of the same species at its own cost, or refunds the beetle's price when none is in Stock.
+Not covered: a parcel delayed or returned because the customer was unavailable or gave a wrong address or phone, a late or broken unboxing video, or death after unboxing.
+_Avoid_: Health guarantee, 30-day guarantee, DOA (in customer-facing text)
+
+**Refund**:
+Money returned to the customer through the original Stripe payment. A Paid order not yet Shipped can be refunded in full; after Shipped, only under the Live Arrival Guarantee, for unopened gear returned within 7 days (customer pays the return postage, refunded once the shop receives it), or for goods that arrived damaged or wrong. Food and logs/substrate are not returnable otherwise. Live beetles are never refunded for a change of mind.
+_Avoid_: Return (which is the parcel coming back, not the money)
+
 ### Customers and addresses
 
 **Customer**:
