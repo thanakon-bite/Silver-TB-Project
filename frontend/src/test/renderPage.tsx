@@ -20,7 +20,10 @@ export function makeI18n() {
 }
 
 interface Options {
+  /** The route pattern the page is mounted at, e.g. /orders/:id. */
   path: string;
+  /** The URL being visited, when it differs from the pattern (params, query). */
+  url?: string;
   cart?: CartItem[];
   /** Pages visited before this one, oldest first (browser history). */
   history?: string[];
@@ -34,11 +37,11 @@ interface Options {
  * Renders a page the way the app does: real Auth and Cart providers, real Thai i18n, a router.
  * Only the network adapters (the API client and Supabase) are mocked, by each test file.
  */
-export function renderPage(page: React.ReactElement, { path, cart = [], history = [], routes, outside }: Options) {
+export function renderPage(page: React.ReactElement, { path, url = path, cart = [], history = [], routes, outside }: Options) {
   localStorage.setItem('stb_cart_v1', JSON.stringify(cart));
   return render(
     <I18nextProvider i18n={makeI18n()}>
-      <MemoryRouter initialEntries={[...history, path]} initialIndex={history.length}>
+      <MemoryRouter initialEntries={[...history, url]} initialIndex={history.length}>
         <AuthProvider>
           <CartProvider>
             <Routes>

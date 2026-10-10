@@ -58,23 +58,23 @@ The human-readable order reference shown to customers and the owner (e.g. `STB-2
 _Avoid_: Order ID (the internal UUID)
 
 **Order Status**:
-Where an order is in fulfilment: **Pending** → **Paid** → **Shipped** (→ **Delivered**), or **Cancelled**.
+Where an order is in fulfilment: **Pending** → **Paid** → **Shipped** (→ **Delivered**), or **Cancelled**. Customers see each status in Thai, named on each entry below.
 
 **Pending**:
-Created, stock reserved, waiting for payment.
+Created, stock reserved, waiting for payment. Customers see รอชำระเงิน.
 
 **Paid**:
-Stripe confirmed the payment through a verified webhook. Only Stripe can make an order Paid; a person never can.
+Stripe confirmed the payment through a verified webhook. Only Stripe can make an order Paid; a person never can. Customers see ชำระแล้ว.
 _Avoid_: Confirmed
 
 **Shipped**:
-Handed to a carrier; has a **Tracking Number**.
+Handed to a carrier; has a **Tracking Number**. Customers see จัดส่งแล้ว.
 
 **Delivered**:
-Optional final step after Shipped, set by the admin.
+Optional final step after Shipped, set by the admin. Customers see ได้รับสินค้าแล้ว.
 
 **Cancelled**:
-Ended without fulfilment. Reserved stock is returned; a Paid order must be refunded first.
+Ended without fulfilment. Reserved stock is returned; a Paid order must be refunded first. Customers see ยกเลิกแล้ว, or ยกเลิกและคืนเงินแล้ว when it was refunded.
 
 **Tracking Number**:
 The carrier's parcel reference entered by the admin when shipping.

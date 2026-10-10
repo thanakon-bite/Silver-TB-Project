@@ -1,12 +1,15 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Clock, Truck, PackageCheck, XCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Clock, Truck, PackageCheck, XCircle, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '../lib/api';
-import { baht, dateTime, formatAddressLines, ORDER_STATUS_LABEL, ORDER_STATUS_STYLE } from '../lib/format';
+import { errorMessage } from '../lib/errorMessage';
+import { dateTime, formatAddressLines } from '../lib/format';
 import type { Order } from '../lib/types';
 import { useCart } from '../contexts/CartContext';
 import PaymentStep from '../component/checkout/PaymentStep';
+import OrderSummary from '../component/checkout/OrderSummary';
 
 const POLL_MS = 2000;
 const MAX_POLLS = 45; // ~90 seconds
@@ -14,7 +17,11 @@ const MAX_POLLS = 45; // ~90 seconds
 const isPayable = (o: Order) =>
   o.status === 'pending' && ['unpaid', 'failed'].includes(o.payment_status) && (!o.expires_at || new Date(o.expires_at) > new Date());
 
+/** The Order Status as customers read it (CONTEXT.md); a refunded cancellation says so. */
+const statusKey = (o: Order) => (o.status === 'cancelled' && o.payment_status === 'refunded' ? 'cancelled_refunded' : o.status);
+
 const OrderDetail: React.FC = () => {
+  const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const [params, setParams] = useSearchParams();
   const { clearCart } = useCart();
@@ -23,7 +30,6 @@ const OrderDetail: React.FC = () => {
   const [order, setOrder] = useState<Order | null>(null);
   const [error, setError] = useState('');
   const [waiting, setWaiting] = useState(justPaid);
-  const [showPay, setShowPay] = useState(false);
   const polls = useRef(0);
 
   const load = useCallback(async () => {
@@ -33,8 +39,8 @@ const OrderDetail: React.FC = () => {
   }, [id]);
 
   useEffect(() => {
-    load().catch((e) => setError(e.message));
-  }, [load]);
+    load().catch((e) => setError(errorMessage(e, t)));
+  }, [load, t]);
 
   // After checkout we wait for the SERVER (Stripe webhook) to confirm the payment.
   useEffect(() => {
@@ -84,8 +90,34 @@ const OrderDetail: React.FC = () => {
     }
   };
 
-  if (error) return <div className="max-w-3xl mx-auto px-4 py-16 text-center text-red-600">{error}</div>;
-  if (!order) return <div className="max-w-3xl mx-auto px-4 py-16 text-center text-gray-500">Loading…</div>;
+  if (error) {
+    return (
+      <div className="bg-paper text-ink">
+        <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger/40 bg-danger/5 p-3 text-sm text-danger">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <div>
+              <p>
+                <strong className="font-semibold">{t('order_page.load_error')}</strong> · {error}
+              </p>
+              <Link to="/orders" className="mt-1 inline-block font-medium text-accent-strong underline-offset-4 hover:underline">
+                {t('order_page.my_orders')}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!order) {
+    return (
+      <div className="bg-paper">
+        <p role="status" className="mx-auto max-w-5xl px-4 py-16 text-sm text-muted sm:px-6">
+          {t('order_page.loading')}
+        </p>
+      </div>
+    );
+  }
 
   const steps = [
     { key: 'placed', label: 'Order placed', at: order.created_at, done: true, icon: Clock },
@@ -95,109 +127,98 @@ const OrderDetail: React.FC = () => {
   ];
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-12 space-y-6">
-      <Link to="/orders" className="text-sm text-gray-500 hover:text-orange">← My orders</Link>
+    <div className="bg-paper text-ink">
+      <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 sm:px-6">
+        <Link to="/orders" className="whitespace-nowrap text-sm text-muted underline-offset-4 hover:text-ink hover:underline">
+          {t('order_page.back_to_orders')}
+        </Link>
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-2xl font-bold text-gray-900 font-mono">{order.order_number}</h1>
-        <span className={`px-3 py-1 rounded-full text-sm font-semibold ${ORDER_STATUS_STYLE[order.status]}`}>
-          {ORDER_STATUS_LABEL[order.status]}
-        </span>
-      </div>
-
-      {waiting && order.payment_status !== 'paid' && (
-        <div className="p-4 rounded-xl bg-blue-50 text-blue-800 flex items-center gap-3">
-          <Loader2 className="w-5 h-5 animate-spin" />
-          Confirming your payment with the bank… this usually takes a few seconds.
+        <div className="mb-8 mt-4">
+          <h1 className="font-display text-3xl font-bold text-ink">{t(`order_status.${statusKey(order)}`)}</h1>
+          <p className="mt-1 font-mono text-sm text-muted">{t('order_page.order_number', { number: order.order_number })}</p>
         </div>
-      )}
-      {!waiting && justPaid && order.payment_status !== 'paid' && order.status === 'pending' && (
-        <div className="p-4 rounded-xl bg-yellow-50 text-yellow-800 text-sm">
-          We haven't received confirmation yet. If you completed the payment, this page will update shortly — no need to pay again.
-        </div>
-      )}
-      {order.payment_status === 'paid' && order.status === 'paid' && (
-        <div className="p-4 rounded-xl bg-green-50 text-green-800 flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5" /> Payment received — thank you! We're preparing your beetles.
-        </div>
-      )}
-      {order.status === 'cancelled' && (
-        <div className="p-4 rounded-xl bg-gray-100 text-gray-700 flex items-center gap-3">
-          <XCircle className="w-5 h-5" />
-          This order was cancelled{order.payment_status === 'refunded' ? ' and refunded' : ''}.
-        </div>
-      )}
 
-      {order.status !== 'cancelled' && (
-        <ol className="grid grid-cols-4 gap-2 bg-white rounded-2xl border border-gray-100 p-5">
-          {steps.map((s) => (
-            <li key={s.key} className="text-center">
-              <s.icon className={`w-6 h-6 mx-auto mb-1 ${s.done ? 'text-orange' : 'text-gray-300'}`} />
-              <p className={`text-xs font-semibold ${s.done ? 'text-gray-900' : 'text-gray-400'}`}>{s.label}</p>
-              {s.at && <p className="text-[11px] text-gray-400">{dateTime(s.at)}</p>}
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {order.tracking_number && (
-        <div className="bg-white rounded-2xl border border-gray-100 p-5 text-sm">
-          <p className="font-semibold text-gray-900 mb-1">Tracking</p>
-          <p className="text-gray-600">
-            {order.carrier}: <span className="font-mono">{order.tracking_number}</span>
-          </p>
-        </div>
-      )}
-
-      <div className="bg-white rounded-2xl border border-gray-100 p-5">
-        <h2 className="font-semibold text-gray-900 mb-3">Items</h2>
-        {order.order_items.map((i) => (
-          <div key={i.id} className="flex justify-between text-sm py-1.5 text-gray-700">
-            <span>{i.quantity}× {i.product_name}</span>
-            <span>{baht(i.line_total)}</span>
-          </div>
-        ))}
-        {Number(order.shipping_fee) > 0 && (
-          <div className="flex justify-between text-sm py-1.5 text-gray-700">
-            <span>Shipping</span>
-            <span>{baht(order.shipping_fee)}</span>
-          </div>
-        )}
-        <div className="flex justify-between font-bold border-t mt-2 pt-2">
-          <span>Total</span>
-          <span>{baht(order.total)}</span>
-        </div>
-      </div>
-
-      <div className="bg-white rounded-2xl border border-gray-100 p-5 text-sm text-gray-700">
-        <h2 className="font-semibold text-gray-900 mb-2">Shipping to</h2>
-        {formatAddressLines(order.shipping_address).map((l, i) => (
-          <div key={i}>{l}</div>
-        ))}
-      </div>
-
-      {isPayable(order) && !waiting && (
-        <div className="bg-white rounded-2xl border border-orange/30 p-5 space-y-4">
-          {!showPay ? (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <button onClick={() => setShowPay(true)} className="flex-1 py-3 bg-orange-gradient text-white font-bold rounded-xl">
-                Complete payment
-              </button>
-              <button onClick={cancel} className="flex-1 py-3 border border-gray-200 rounded-xl text-gray-600 hover:border-red-300 hover:text-red-500">
-                Cancel order
-              </button>
-            </div>
-          ) : (
-            <PaymentStep
-              order={order}
-              onExpired={() => {
-                setShowPay(false);
-                load();
-              }}
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
+          <div className="lg:order-2">
+            <OrderSummary
+              lines={order.order_items.map((i) => ({
+                key: i.id,
+                name: i.product_name,
+                quantity: i.quantity,
+                amount: i.line_total,
+                image: i.product_image || undefined,
+              }))}
+              shippingFee={order.shipping_fee}
+              total={order.total}
+              totalLabel={t('checkout_page.total')}
             />
-          )}
+          </div>
+
+          <div className="min-w-0 space-y-8 lg:order-1">
+            {waiting && order.payment_status !== 'paid' && (
+              <div className="p-4 rounded-xl bg-blue-50 text-blue-800 flex items-center gap-3">
+                <Loader2 className="w-5 h-5 animate-spin" />
+                Confirming your payment with the bank… this usually takes a few seconds.
+              </div>
+            )}
+            {!waiting && justPaid && order.payment_status !== 'paid' && order.status === 'pending' && (
+              <div className="p-4 rounded-xl bg-yellow-50 text-yellow-800 text-sm">
+                We haven't received confirmation yet. If you completed the payment, this page will update shortly — no need to pay again.
+              </div>
+            )}
+            {order.payment_status === 'paid' && order.status === 'paid' && (
+              <div className="p-4 rounded-xl bg-green-50 text-green-800 flex items-center gap-3">
+                <CheckCircle2 className="w-5 h-5" /> Payment received — thank you! We're preparing your beetles.
+              </div>
+            )}
+            {order.status === 'cancelled' && (
+              <div className="p-4 rounded-xl bg-gray-100 text-gray-700 flex items-center gap-3">
+                <XCircle className="w-5 h-5" />
+                This order was cancelled{order.payment_status === 'refunded' ? ' and refunded' : ''}.
+              </div>
+            )}
+
+            {order.status !== 'cancelled' && (
+              <ol className="grid grid-cols-4 gap-2">
+                {steps.map((s) => (
+                  <li key={s.key} className="text-center">
+                    <s.icon className={`w-6 h-6 mx-auto mb-1 ${s.done ? 'text-orange' : 'text-gray-300'}`} />
+                    <p className={`text-xs font-semibold ${s.done ? 'text-gray-900' : 'text-gray-400'}`}>{s.label}</p>
+                    {s.at && <p className="text-[11px] text-gray-400">{dateTime(s.at)}</p>}
+                  </li>
+                ))}
+              </ol>
+            )}
+
+            {order.tracking_number && (
+              <div className="text-sm">
+                <p className="font-semibold text-gray-900 mb-1">Tracking</p>
+                <p className="text-gray-600">
+                  {order.carrier}: <span className="font-mono">{order.tracking_number}</span>
+                </p>
+              </div>
+            )}
+
+            <section className="border-y border-line py-4 text-sm text-muted">
+              <h2 className="mb-2 font-display text-lg font-bold text-ink">{t('order_page.shipping_to')}</h2>
+              {formatAddressLines(order.shipping_address).map((l, i) => (
+                <div key={i} className={i === 0 ? 'font-semibold text-ink' : ''}>
+                  {l}
+                </div>
+              ))}
+            </section>
+
+            {isPayable(order) && !waiting && (
+              <div className="space-y-4">
+                <PaymentStep order={order} onExpired={() => load()} />
+                <button onClick={cancel} className="text-sm text-muted hover:text-danger">
+                  Cancel order
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 };

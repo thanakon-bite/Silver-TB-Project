@@ -236,5 +236,21 @@
     "PAYMENT_IN_PROGRESS": "Payment is already being set up for this order. Please refresh.",
     "AMOUNT_MISMATCH": "The order total changed. Please place the order again.",
     "PAYMENT_PROVIDER": "Payments are temporarily unavailable. Please try again shortly."
+  },
+  "order_status": {
+    "pending": "Awaiting payment",
+    "paid": "Paid",
+    "shipped": "Shipped",
+    "delivered": "Delivered",
+    "cancelled": "Cancelled",
+    "cancelled_refunded": "Cancelled and refunded"
+  },
+  "order_page": {
+    "order_number": "Order {{number}}",
+    "loading": "Loading your order…",
+    "load_error": "We couldn't open this order",
+    "my_orders": "My orders",
+    "back_to_orders": "← My orders",
+    "shipping_to": "Shipping to"
   }
 }

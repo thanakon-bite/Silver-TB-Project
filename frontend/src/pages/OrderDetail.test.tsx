@@ -1,0 +1,72 @@
+import React from 'react';
+import { screen, within } from '@testing-library/react';
+import OrderDetail from './OrderDetail';
+import { renderPage } from '../test/renderPage';
+import { api, ApiError } from '../lib/api';
+
+jest.mock('../lib/supabaseClient', () => ({
+  supabase: {
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: { access_token: 'test-token' } } }),
+      onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+    },
+  },
+}));
+
+jest.mock('../lib/api', () => {
+  const actual = jest.requireActual('../lib/api');
+  return { ...actual, api: { get: jest.fn(), post: jest.fn(), patch: jest.fn(), delete: jest.fn() } };
+});
+
+const customer = { id: 'u1', email: 'mali@example.com', full_name: 'มาลี ใจดี', phone: '', role: 'user' };
+const MINUTE = 60 * 1000;
+
+/** An Order as GET /orders/:id returns it: Pending, unpaid, Reservation running for 20 more minutes. */
+const anOrder = (overrides: Record<string, unknown> = {}) => ({
+  id: 'o1', order_number: 'STB-261010-00007', user_id: 'u1', status: 'pending', payment_status: 'unpaid',
+  subtotal: 3200, shipping_fee: 0, total: 3200, currency: 'thb',
+  shipping_address: {
+    recipient_name: 'มาลี ใจดี', phone: '0812345678', address_line: '99/1 ถนนทดสอบ',
+    subdistrict: 'ลำนารายณ์', district: 'ชัยบาดาล', province_id: 7, province: 'ลพบุรี', postal_code: '15130',
+  },
+  order_items: [
+    { id: 'i1', product_id: 'p1', product_name: 'Chalcosoma atlas', product_image: 'https://img.example/atlas.jpg', unit_price: 3200, quantity: 1, line_total: 3200 },
+  ],
+  stripe_payment_intent_id: null, expires_at: new Date(Date.now() + 20 * MINUTE).toISOString(),
+  paid_at: null, shipped_at: null, delivered_at: null, cancelled_at: null, cancel_reason: null,
+  carrier: null, tracking_number: null, created_at: '2026-10-10T07:30:00Z',
+  ...overrides,
+});
+
+/** The backend as this page sees it: the signed-in Customer and their Order (or a failure). */
+function backend(order: unknown) {
+  (api.get as jest.Mock).mockImplementation((path: string) => {
+    if (path === '/auth/me') return Promise.resolve(customer);
+    if (path === '/orders/o1') return order instanceof Error ? Promise.reject(order) : Promise.resolve(order);
+    return Promise.reject(new Error(`unexpected GET ${path}`));
+  });
+}
+
+const visit = (url = '/orders/o1') => renderPage(<OrderDetail />, { path: '/orders/:id', url });
+
+beforeEach(() => {
+  jest.clearAllMocks();
+});
+
+test('an order still awaiting payment says so in Thai and offers the pay button straight away', async () => {
+  backend(anOrder());
+  visit();
+
+  expect(await screen.findByRole('heading', { level: 1, name: 'รอชำระเงิน' })).toBeInTheDocument();
+  expect(screen.getByText(/STB-261010-00007/)).toBeInTheDocument();
+  expect(screen.getByRole('button', { name: 'ชำระ ฿3,200' })).toBeInTheDocument();
+});
+
+test('an order that cannot be loaded is explained in Thai with a way back to the order list', async () => {
+  backend(new ApiError('Order not found', 404, 'NOT_FOUND'));
+  visit();
+
+  const alert = await screen.findByRole('alert');
+  expect(alert).toHaveTextContent('เปิดคำสั่งซื้อนี้ไม่ได้');
+  expect(within(alert).getByRole('link', { name: 'คำสั่งซื้อของฉัน' })).toHaveAttribute('href', '/orders');
+});
