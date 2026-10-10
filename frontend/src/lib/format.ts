@@ -6,6 +6,10 @@ export const baht = (n: number | string | null | undefined) =>
 export const dateTime = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : '-';
 
+/** Dates as Thai customers read them: Thai months and the Buddhist year, e.g. "10 ต.ค. 2569 14:30". */
+export const thaiDateTime = (iso: string) =>
+  new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+
 export function formatAddressLines(a: ShippingSnapshot | string | null | undefined): string[] {
   if (!a) return [];
   if (typeof a === 'string') return [a];

@@ -70,3 +70,18 @@ test('an order that cannot be loaded is explained in Thai with a way back to the
   expect(alert).toHaveTextContent('เปิดคำสั่งซื้อนี้ไม่ได้');
   expect(within(alert).getByRole('link', { name: 'คำสั่งซื้อของฉัน' })).toHaveAttribute('href', '/orders');
 });
+
+test('a shipped order shows its journey and the Tracking Number', async () => {
+  backend(
+    anOrder({
+      status: 'shipped', payment_status: 'paid', expires_at: null,
+      paid_at: '2026-10-10T07:35:00Z', shipped_at: '2026-10-11T03:00:00Z', carrier: 'Kerry Express', tracking_number: 'KEX123456789TH',
+    })
+  );
+  visit();
+
+  const journey = await screen.findByRole('list', { name: 'สถานะการจัดส่ง' });
+  expect(within(journey).getByText('จัดส่งแล้ว')).toBeInTheDocument();
+  expect(within(journey).getByText('KEX123456789TH')).toBeInTheDocument();
+  expect(within(journey).queryByText('ได้รับสินค้าแล้ว')).not.toBeInTheDocument();
+});

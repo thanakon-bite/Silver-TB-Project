@@ -251,6 +251,14 @@
     "load_error": "We couldn't open this order",
     "my_orders": "My orders",
     "back_to_orders": "← My orders",
-    "shipping_to": "Shipping to"
+    "shipping_to": "Shipping to",
+    "journey": "Order progress",
+    "step_placed": "Ordered",
+    "step_paid": "Paid",
+    "step_shipped": "Shipped",
+    "step_delivered": "Delivered",
+    "tracking_number": "Tracking number",
+    "copy": "Copy",
+    "copied": "Copied"
   }
 }

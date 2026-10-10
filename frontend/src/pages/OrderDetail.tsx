@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { AlertCircle, CheckCircle2, Clock, Truck, PackageCheck, XCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
-import { dateTime, formatAddressLines } from '../lib/format';
+import { formatAddressLines } from '../lib/format';
 import type { Order } from '../lib/types';
 import { useCart } from '../contexts/CartContext';
 import PaymentStep from '../component/checkout/PaymentStep';
 import OrderSummary from '../component/checkout/OrderSummary';
+import OrderJourney from '../component/orders/OrderJourney';
 
 const POLL_MS = 2000;
 const MAX_POLLS = 45; // ~90 seconds
@@ -119,13 +120,6 @@ const OrderDetail: React.FC = () => {
     );
   }
 
-  const steps = [
-    { key: 'placed', label: 'Order placed', at: order.created_at, done: true, icon: Clock },
-    { key: 'paid', label: 'Payment confirmed', at: order.paid_at, done: !!order.paid_at, icon: CheckCircle2 },
-    { key: 'shipped', label: 'Shipped', at: order.shipped_at, done: !!order.shipped_at, icon: Truck },
-    { key: 'delivered', label: 'Delivered', at: order.delivered_at, done: !!order.delivered_at, icon: PackageCheck },
-  ];
-
   return (
     <div className="bg-paper text-ink">
       <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 sm:px-6">
@@ -178,26 +172,7 @@ const OrderDetail: React.FC = () => {
               </div>
             )}
 
-            {order.status !== 'cancelled' && (
-              <ol className="grid grid-cols-4 gap-2">
-                {steps.map((s) => (
-                  <li key={s.key} className="text-center">
-                    <s.icon className={`w-6 h-6 mx-auto mb-1 ${s.done ? 'text-orange' : 'text-gray-300'}`} />
-                    <p className={`text-xs font-semibold ${s.done ? 'text-gray-900' : 'text-gray-400'}`}>{s.label}</p>
-                    {s.at && <p className="text-[11px] text-gray-400">{dateTime(s.at)}</p>}
-                  </li>
-                ))}
-              </ol>
-            )}
-
-            {order.tracking_number && (
-              <div className="text-sm">
-                <p className="font-semibold text-gray-900 mb-1">Tracking</p>
-                <p className="text-gray-600">
-                  {order.carrier}: <span className="font-mono">{order.tracking_number}</span>
-                </p>
-              </div>
-            )}
+            {order.status !== 'cancelled' && <OrderJourney order={order} />}
 
             <section className="border-y border-line py-4 text-sm text-muted">
               <h2 className="mb-2 font-display text-lg font-bold text-ink">{t('order_page.shipping_to')}</h2>

@@ -251,6 +251,14 @@
     "load_error": "เปิดคำสั่งซื้อนี้ไม่ได้",
     "my_orders": "คำสั่งซื้อของฉัน",
     "back_to_orders": "← คำสั่งซื้อของฉัน",
-    "shipping_to": "จัดส่งถึง"
+    "shipping_to": "จัดส่งถึง",
+    "journey": "สถานะการจัดส่ง",
+    "step_placed": "สั่งซื้อ",
+    "step_paid": "ชำระแล้ว",
+    "step_shipped": "จัดส่งแล้ว",
+    "step_delivered": "ได้รับสินค้าแล้ว",
+    "tracking_number": "เลขพัสดุ",
+    "copy": "คัดลอก",
+    "copied": "คัดลอกแล้ว"
   }
 }
