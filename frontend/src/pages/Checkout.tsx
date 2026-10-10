@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate, Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { MapPin, CreditCard, Plus } from 'lucide-react';
-import Swal from 'sweetalert2';
+import { MapPin, CreditCard, Plus, AlertCircle, Clock } from 'lucide-react';
 import { useCart } from '../contexts/CartContext';
 import { useAuth } from '../contexts/AuthContext';
 import { api, ApiError } from '../lib/api';
@@ -62,6 +61,8 @@ const Checkout = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [shippingFee, setShippingFee] = useState<number | null>(null);
+  const [orderError, setOrderError] = useState('');
+  const [reservationExpired, setReservationExpired] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   useEffect(() => {
@@ -122,6 +123,8 @@ const Checkout = () => {
     };
 
     setSubmitting(true);
+    setOrderError('');
+    setReservationExpired(false);
     try {
       let created: Order;
       try {
@@ -137,7 +140,7 @@ const Checkout = () => {
       setOrder(created);
       setStep(2);
     } catch (err: any) {
-      Swal.fire({ icon: 'error', title: t('checkout_page.place_error'), text: err.message, confirmButtonColor: '#FF922B' });
+      setOrderError(err.message);
     } finally {
       setSubmitting(false);
     }
@@ -147,7 +150,7 @@ const Checkout = () => {
     resetRequestId();
     setOrder(null);
     setStep(1);
-    Swal.fire({ icon: 'info', title: t('checkout_page.expired_title'), text: t('checkout_page.expired_text'), confirmButtonColor: '#FF922B' });
+    setReservationExpired(true);
   };
 
   if (!user || (items.length === 0 && !order)) return null;
@@ -178,6 +181,14 @@ const Checkout = () => {
         {step === 1 && (
           <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
             <h2 className="text-xl font-bold mb-6 text-gray-800 dark:text-gray-100">{t('checkout_page.address_title')}</h2>
+            {reservationExpired && (
+              <div role="status" className="mb-6 flex items-start gap-2 rounded-xl border border-line bg-sunken p-3 text-sm text-ink">
+                <Clock className="w-4 h-4 mt-0.5 shrink-0 text-accent-strong" />
+                <p>
+                  <strong className="font-semibold">{t('checkout_page.expired_title')}</strong> · {t('checkout_page.expired_text')}
+                </p>
+              </div>
+            )}
             <form ref={formRef} onSubmit={placeOrder} noValidate className="space-y-6">
               {addresses === null ? (
                 <p className="text-sm text-gray-500 dark:text-gray-400">{t('checkout_page.loading_addresses')}</p>
@@ -244,6 +255,15 @@ const Checkout = () => {
                 </div>
                 <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{t('checkout_page.summary_note')}</p>
               </div>
+
+              {orderError && (
+                <div role="alert" className="flex items-start gap-2 text-sm text-danger">
+                  <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+                  <p>
+                    <strong className="font-semibold">{t('checkout_page.place_error')}</strong> · {orderError}
+                  </p>
+                </div>
+              )}
 
               <button
                 type="submit"
