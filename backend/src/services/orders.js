@@ -102,13 +102,31 @@ async function applyPayment({ orderId, paymentIntentId, amount, currency }) {
 }
 
 /**
+ * The order's Checkout Session, or null when Stripe no longer has it AND it can no longer be paid.
+ * Stripe answers "resource_missing" when the session was made with the other key mode (live vs test)
+ * or deleted. The reservation always outlives the session by at least two minutes (payments route),
+ * so once it has passed the session has expired at Stripe too. Before that we keep refusing.
+ */
+async function retrieveSessionOrNull(order) {
+  try {
+    return await stripe.checkout.sessions.retrieve(order.stripe_checkout_session_id);
+  } catch (err) {
+    const gone = err.code === 'resource_missing' && order.expires_at && new Date(order.expires_at).getTime() < Date.now();
+    if (!gone) throw err;
+    console.warn(`Checkout Session for order ${order.order_number || order.id} is unknown to this Stripe key and past its reservation; cancelling.`);
+    return null;
+  }
+}
+
+/**
  * Cancel an unpaid order: expire its Stripe Checkout Session / cancel its PaymentIntent first
  * (so it can't be paid later), then release reserved stock atomically.
  * If Stripe says the payment already succeeded, the order is marked paid instead.
  */
 async function cancelUnpaidOrder(order, reason) {
   if (order.stripe_checkout_session_id) {
-    let session = await stripe.checkout.sessions.retrieve(order.stripe_checkout_session_id);
+    let session = await retrieveSessionOrNull(order);
+    if (!session) return unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason }));
     if (session.status === 'open') {
       try {
         session = await stripe.checkout.sessions.expire(session.id);
@@ -155,7 +173,7 @@ async function cancelUnpaidOrder(order, reason) {
 async function releaseOtherPendingOrders(userId, keepRequestId) {
   const { data: pending, error } = await supabase
     .from('orders')
-    .select('id, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id, client_request_id')
+    .select('id, order_number, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id, client_request_id, expires_at')
     .eq('user_id', userId)
     .eq('status', 'pending')
     .in('payment_status', ['unpaid', 'failed']);
@@ -182,7 +200,7 @@ async function releaseOtherPendingOrders(userId, keepRequestId) {
 async function expireStaleOrders() {
   const { data: stale, error } = await supabase
     .from('orders')
-    .select('id, order_number, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id')
+    .select('id, order_number, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id, expires_at')
     .eq('status', 'pending')
     .in('payment_status', ['unpaid', 'failed'])
     .lt('expires_at', new Date().toISOString())
