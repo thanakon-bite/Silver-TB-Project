@@ -7,6 +7,7 @@ import Cart from './Cart';
 import { renderPage } from '../test/renderPage';
 import { useCart } from '../contexts/CartContext';
 import { api, ApiError } from '../lib/api';
+import { promotionChoiceKey } from '../lib/promotionChoice';
 
 jest.mock('../lib/supabaseClient', () => ({
   supabase: {
@@ -267,8 +268,8 @@ test('an Order whose Reservation runs out on the payment step puts its products 
   expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
 });
 
-test('the Promotion option picked in the Cart goes with the preview and the order; picks for other products stay behind', async () => {
-  localStorage.setItem('stb_line_choices', JSON.stringify({ p1: 'stack', gone: 'stack' }));
+test("the Order's Promotion picked in the Cart goes with the preview and the order", async () => {
+  localStorage.setItem(promotionChoiceKey('u1'), JSON.stringify('stack'));
   backend({ '/addresses': [home] });
   (api.post as jest.Mock).mockImplementation((path: string) =>
     path === '/orders/price-preview' ? Promise.resolve(preview()) : Promise.reject(new ApiError('stop here', 409, 'SOMETHING_NEW'))
@@ -277,7 +278,7 @@ test('the Promotion option picked in the Cart goes with the preview and the orde
 
   userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
   await screen.findByRole('alert');
-  expect(api.post).toHaveBeenCalledWith('/orders/price-preview', { items: [{ product_id: 'p1', quantity: 1 }], promotion_choices: { p1: 'stack' } });
-  expect(api.post).toHaveBeenCalledWith('/orders', expect.objectContaining({ items: [{ product_id: 'p1', quantity: 1 }], promotion_choices: { p1: 'stack' } }));
-  localStorage.removeItem('stb_line_choices');
+  expect(api.post).toHaveBeenCalledWith('/orders/price-preview', { items: [{ product_id: 'p1', quantity: 1 }], promotion_choice: 'stack' });
+  expect(api.post).toHaveBeenCalledWith('/orders', expect.objectContaining({ items: [{ product_id: 'p1', quantity: 1 }], promotion_choice: 'stack' }));
+  localStorage.removeItem(promotionChoiceKey('u1'));
 });

@@ -60,7 +60,7 @@ test('percent discounts round to the satang per unit', () => {
   assert.equal(r.lines[0].line_total, 278.97);
 });
 
-test('Promotions never stack: each line gets the single Promotion that saves the customer most', () => {
+test('Exclusive Promotions never stack: the Order uses the single one that saves the customer most', () => {
   const small = promo({ id: 'small', product_ids: ['food-a'], discount_tiers: [{ min_units: 1, type: 'percent', value: 5 }] });
   const big = promo({ id: 'big', applies_to_all: true, product_ids: [], discount_tiers: [{ min_units: 1, type: 'percent', value: 20 }] });
   const r = priceCart({ lines: [line('food-a', 100, 1), line('log-x', 50, 1)], promotions: [small, big], redemptions: noRedemptions });
@@ -96,15 +96,15 @@ test('the Free Shipping Threshold looks at the item total after discounts', () =
   assert.equal(r.shipping_fee, 50);
 });
 
-test('the best combination wins, even when the single biggest Promotion is not part of it', () => {
-  // Everything 10% at 3 units saves 30; 25% on a and 25% on b save 50 together
+test('one Promotion for the whole Order: the one saving most overall, never one per product', () => {
+  // Everything 10% at 3 units saves 30; 25% on a alone saves 25, as does 25% on b
   const all = promo({ id: 'all', applies_to_all: true, discount_tiers: [{ min_units: 3, type: 'percent', value: 10 }] });
   const onA = promo({ id: 'onA', product_ids: ['a'], discount_tiers: [{ min_units: 1, type: 'percent', value: 25 }] });
   const onB = promo({ id: 'onB', product_ids: ['b'], discount_tiers: [{ min_units: 1, type: 'percent', value: 25 }] });
   const r = priceCart({ lines: [line('a', 100, 1), line('b', 100, 1), line('c', 100, 1)], promotions: [all, onA, onB], redemptions: noRedemptions });
-  assert.deepEqual(r.lines.map((l) => [l.product_id, l.promotion_id]), [['a', 'onA'], ['b', 'onB'], ['c', null]]);
-  assert.equal(r.discount_total, 50);
-  assert.deepEqual([...r.redeem].sort(), ['onA', 'onB']);
+  assert.deepEqual(r.lines.map((l) => [l.product_id, l.promotion_id]), [['a', 'all'], ['b', 'all'], ['c', 'all']]);
+  assert.equal(r.discount_total, 30);
+  assert.deepEqual(r.redeem, ['all']);
 });
 
 test('per-Customer Redemptions are read from `redemptions`', () => {

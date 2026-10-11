@@ -13,7 +13,7 @@ import { chip, primaryButton, secondaryButton, textLink } from '../component/ui/
 import { fieldClass } from '../component/ui/fieldStyles';
 import { useCatalogue, useCategoryName } from '../lib/catalogue';
 import { badgeText, bestOptionKey, bestPromotion, promotionName, promotionOptions, promotionsFor, useActivePromotions } from '../lib/promotions';
-import { useLineChoices } from '../lib/lineChoices';
+import { usePromotionChoice } from '../lib/promotionChoice';
 import PromotionPicker from '../component/products/PromotionPicker';
 import { useFavorites } from '../contexts/FavoritesContext';
 
@@ -27,10 +27,10 @@ const Products: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isThai = (i18n.language || 'th').startsWith('th');
   const text = useProductText();
-  const { add, isJustAdded } = useAddToCart();
+  const { add, isJustAdded, isFull } = useAddToCart();
   const promotions = useActivePromotions();
-  // The Promotion option picked here is the one the Cart prices this product with
-  const { choices: lineChoices, choose: chooseOption } = useLineChoices();
+  // A Promotion picked here is the one the whole Order uses (ADR 0004)
+  const { choice: promotionChoice, choose: choosePromotion } = usePromotionChoice();
   const { favorites } = useFavorites();
   // The Admin's Categories and Families, in their order (ADR 0005)
   const catalogue = useCatalogue();
@@ -268,6 +268,7 @@ const Products: React.FC = () => {
                   onOpen={setSelected}
                   onAdd={add}
                   justAdded={isJustAdded(p.id)}
+                  cartFull={isFull(p.id)}
                   promotionBadge={bestBadge(p)}
                 />
               ))}
@@ -300,15 +301,16 @@ const Products: React.FC = () => {
                   <section aria-label={t('promotions.title')} className="mt-4">
                     {(() => {
                       const options = promotionOptions(selected.id, promotions);
-                      const stored = lineChoices[selected.id];
-                      const value = options.some((o) => o.key === stored) ? stored : bestOptionKey(selected, promotions);
+                      // The Order's pick when it is one of this product's; with no pick yet, its Best Promotion
+                      const value = promotionChoice ? (options.some((o) => o.key === promotionChoice) ? promotionChoice : null) : bestOptionKey(selected, promotions);
                       return (
                         <PromotionPicker
                           legend={options.length > 1 ? t('promotions.choose_legend') : t('promotions.title')}
                           name={`promotion-${selected.id}`}
                           options={options}
                           value={value}
-                          onChange={(key) => chooseOption(selected.id, key)}
+                          hint={options.length > 1 ? t('promotions.choose_hint') : undefined}
+                          onChange={choosePromotion}
                         />
                       );
                     })()}
@@ -360,8 +362,8 @@ const Products: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => {
-                      add(selected);
-                      setSelected(null);
+                      // A full Cart keeps the window open so the note below can be read
+                      if (add(selected) !== 'full') setSelected(null);
                     }}
                     disabled={selected.available <= 0}
                     className={`${primaryButton} mt-3`}
@@ -369,6 +371,9 @@ const Products: React.FC = () => {
                     <ShoppingBag className="h-5 w-5" aria-hidden />
                     {selected.available <= 0 ? t('sold_out') : t('add_to_cart')}
                   </button>
+                  <p aria-live="polite" className="mt-2 text-sm text-muted">
+                    {isFull(selected.id) && t('product_card.cart_full_note', { count: selected.available })}
+                  </p>
                 </div>
               </div>
             </div>

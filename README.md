@@ -6,7 +6,7 @@ Exotic beetle shop — React (CRA + TypeScript + Tailwind) storefront, Node/Expr
 - [x] **Phase 1: Foundation & Design System**
 - [x] **Phase 2: Database & Authentication** — Supabase Auth sessions, roles from the DB, RLS hardened (migration 001)
 - [x] **Phase 3: Core Features (User-Facing)** — cart & favourites persist across refreshes
-- [x] **Phase 4: Admin Dashboard** — overview + 14-day revenue chart, products (Storage image upload, atomic stock), orders & fulfilment, refunds, customers, payments log, LINE settings
+- [x] **Phase 4: Admin Dashboard** — overview + 14-day revenue chart, products (Storage image upload, atomic stock), orders & fulfilment, customers, payments log, LINE settings
 - [x] **Phase 5: Payment & External Integration** — Stripe Checkout (hosted; card / PromptPay), webhook-verified payments, LINE owner alerts
 - [x] **Shipping** — saved addresses + cascading จังหวัด → อำเภอ/เขต → ตำบล/แขวง with postal-code autofill
 - [ ] **Phase 6: Final Polish** — image optimisation, code splitting, responsive QA, real About/Contact/Policy pages
@@ -23,9 +23,9 @@ Browser (React) ──Supabase Auth (sign-in/up, reset)──▶ Supabase Auth
                                                  │   ├─ create_order()     atomic stock reservation
                                                  │   ├─ mark_order_paid()  only from Stripe webhook
                                                  │   └─ cancel_order()     releases stock
-                                                 ├──▶ Stripe (Checkout Sessions, refunds)
+                                                 ├──▶ Stripe (Checkout Sessions)
 Stripe ──signed webhook──▶ /api/payments/webhook ┘──▶ LINE Messaging API push → LINE_OWNER_USER_ID
-LINE   ──signed webhook──▶ /api/notifications/line/webhook (verified, acknowledged only)
+LINE   ──signed webhook──▶ /api/notifications/line/webhook (verified; lists 1:1 friends for Admins to tick)
 ```
 
 **Security model**
@@ -46,7 +46,7 @@ LINE   ──signed webhook──▶ /api/notifications/line/webhook (verified, 
 | `waiting_shipping` | `mark_order_paid` | Being packed |
 | `shipping` | Admin (carrier + tracking required) | Handed to the carrier |
 | `confirmed` | Customer, admin, or 7 days after shipping | Received; final step |
-| `cancelled` | Customer/admin (unpaid), expiry job, or admin refund | Stock released (refunds: optional) |
+| `cancelled` | Customer (unpaid), admin (before Shipping; a paid order is not refunded for now), or expiry job | Stock released |
 
 There is no separate payment status: `paid_at` and `refunded_at` record the money.
 
@@ -98,7 +98,8 @@ frontend/src/
    006 adds Admin-managed Categories and beetle Families (seeded from today's products), Stock History
    (one opening entry per product), Stackable / Exclusive Promotions (existing ones become Exclusive),
    the Confirmed and Promotion-announcement Notifications, and publishes `notifications` to Supabase
-   Realtime so the bell updates at once. Run it before deploying the matching backend and frontend. 003 moves Rhinoceros/Stag/Flower into `attributes.family` and turns other old categories into
+   Realtime so the bell updates at once, the LINE Recipients list (`line_contacts`) and a once-only LINE claim for a
+   customer's confirm (`orders.received_notified_at`). Run it before deploying the matching backend and frontend. 003 moves Rhinoceros/Stag/Flower into `attributes.family` and turns other old categories into
    `gear` — review those products afterwards.
    The Shipping Rule lives in the `shipping_tiers` table (one row per Shipping Tier) plus the
    `free_shipping_threshold` key in `app_settings`; edit it in Admin → Rules, which saves both at once
@@ -139,10 +140,20 @@ frontend/src/
 1. LINE Developers → your Messaging API channel: copy the **channel access token** and **channel secret** into the backend `.env`.
 2. Same channel → **Basic settings** → copy **Your user ID** (`U…`) into `LINE_OWNER_USER_ID`, and add the OA as a
    friend from that LINE account (push messages only reach friends).
-3. Optional: webhook URL `https://<api-host>/api/notifications/line/webhook` (signature-checked, nothing else happens
-   there). Alert recipients come only from env vars ([ADR 0002](docs/adr/0002-line-target-from-env-only.md)).
-   LINE Notify is discontinued and not used.
+3. Webhook URL `https://<api-host>/api/notifications/line/webhook`, with **Use webhook** on (signature-checked).
+   Whoever follows the OA, or messages it 1:1, is listed in Admin → **Payments & LINE**; an Admin ticks who gets
+   order alerts, as many as needed, on top of the env recipients ([ADR 0002](docs/adr/0002-line-target-from-env-only.md),
+   amended). Following alone never makes anyone a recipient; groups are ignored. LINE Notify is discontinued and not used.
 4. Admin → **Payments & LINE** → *Send test message*.
+
+### Demo data (optional)
+Hand-run scripts in `backend/src/db/scripts/`, for the Supabase SQL Editor after migration 006:
+- `clear_products.sql` deletes every product with its Stock History, Favorites and Promotion links. Past Orders keep
+  their copied names and prices; an optional block at the end also clears Orders. Product photos in Storage are not touched.
+- `seed_demo_products.sql` adds 100 demo products (64 live beetles, 12 food, 12 logs & substrate, 12 gear) with Thai
+  and English text and Wikimedia Commons photos. Safe to re-run. Credit the photos as listed in `demo_photo_credits.md`,
+  or replace them with the shop's own before selling.
+Both are tested against a migrated database by `npm run test:db` (`test/db/demoData.test.mjs`).
 
 ### 4. Run
 From the repo root, one command starts both (backend :5000 with nodemon, frontend :3000):
@@ -201,11 +212,13 @@ npm start                                             # http://localhost:3000
 | `GET/POST/PATCH/DELETE /api/addresses[/:id]`, `POST /api/addresses/:id/default` | user | address book |
 | `GET /api/geo/provinces`, `/provinces/:id/districts`, `/districts/:id/subdistricts`, `/postal/:code` | public | Thai address data |
 | `POST /api/orders`, `GET /api/orders[/:id]`, `POST /api/orders/:id/cancel` | user | checkout & history |
-| `GET /api/orders/admin/all`, `PATCH /api/orders/:id/status`, `PATCH /api/orders/:id/admin`, `POST /api/orders/:id/refund` | admin | fulfilment |
+| `GET /api/orders/admin/all`, `PATCH /api/orders/:id/status`, `PATCH /api/orders/:id/admin` | admin | fulfilment (cancelling a paid order does not refund it for now) |
 | `POST /api/payments/checkout-session` | user | one hosted Checkout Session per order → `{ url }` |
 | `POST /api/payments/webhook` | Stripe | signed |
 | `GET /api/admin/stats`, `/customers[/:id]`, `POST /customers` (invite a Member), `PATCH /customers/:id/role`, `GET /payments` | admin | dashboard & Members |
+| `GET /api/notifications`, `POST /read-all`, `POST /:id/read`, `DELETE /:id` | user | the Member's own bell |
 | `GET /api/notifications/line/status`, `POST /line/test`, `POST /broadcast` | admin | LINE |
+| `GET /api/notifications/line/contacts`, `POST /line/contacts/sync`, `PATCH /line/contacts/:lineUserId` | admin | LINE Recipients: list the OA's friends (sync pulls followers from LINE; verified/premium OAs only), tick `receives_alerts` |
 | `POST /api/notifications/line/webhook` | LINE | signed |
 
 Removed: `POST /api/auth/signup` and `/login` (Supabase Auth from the browser), `POST /api/payments/create-qr` and

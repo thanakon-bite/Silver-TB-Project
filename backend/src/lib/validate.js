@@ -129,14 +129,9 @@ function giftChoices(value) {
   return out;
 }
 
-/** The Customer's pick per Cart line: product id -> 'none' | 'stack' | an Exclusive Promotion's id. */
-function promotionChoices(value) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
-  const out = {};
-  for (const [product, pick] of Object.entries(value).slice(0, 50)) {
-    if (UUID_RE.test(product) && typeof pick === 'string' && (pick === 'none' || pick === 'stack' || UUID_RE.test(pick))) out[product] = pick;
-  }
-  return out;
+/** The Customer's pick of the Order's Promotion option: 'stack' or an Exclusive Promotion's id; anything else is no pick. */
+function promotionChoice(value) {
+  return typeof value === 'string' && (value === 'stack' || UUID_RE.test(value)) ? value : null;
 }
 
 /** Product images: only https URLs (Supabase Storage public URLs or other https hosts). */
@@ -215,7 +210,7 @@ module.exports = {
   oneOf,
   cartItems,
   giftChoices,
-  promotionChoices,
+  promotionChoice,
   imageUrls,
   pagination,
   likePattern,

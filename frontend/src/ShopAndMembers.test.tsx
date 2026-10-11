@@ -170,6 +170,30 @@ describe('Cart and Favorites belong to signed-in Customers', () => {
     await waitFor(() => expect(JSON.parse(localStorage.getItem(cartKey('u1')) || '[]')).toHaveLength(1));
   });
 
+  test('adding past Available says so on the button at once and leaves the Cart as it was', async () => {
+    // Both Available Atlas beetles are already in the Cart
+    localStorage.setItem(cartKey('u1'), JSON.stringify([{ product_id: 'b1', name: 'Atlas beetle', price: 3200, image: '', quantity: 2, max_quantity: 2 }]));
+    mockMember = customer;
+    renderApp('/');
+    await mainNav().findByRole('link', { name: 'รายการออเดอร์' });
+    userEvent.click((await screen.findAllByRole('button', { name: /^เพิ่ม.*ด้วงกว่างสามเขา/ }))[0]);
+    expect(await screen.findByRole('button', { name: /ครบจำนวนแล้ว.*ด้วงกว่างสามเขา/ })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog', { name: /ตะกร้า/ })).not.toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(cartKey('u1')) || '[]')[0].quantity).toBe(2);
+  });
+
+  test('the product window says so too, and stays open', async () => {
+    localStorage.setItem(cartKey('u1'), JSON.stringify([{ product_id: 'b1', name: 'Atlas beetle', price: 3200, image: '', quantity: 2, max_quantity: 2 }]));
+    mockMember = customer;
+    renderApp('/');
+    await mainNav().findByRole('link', { name: 'รายการออเดอร์' });
+    userEvent.click((await screen.findAllByRole('button', { name: 'ด้วงกว่างสามเขา' }))[0]);
+    const modal = within(await screen.findByRole('dialog', { name: /ด้วงกว่างสามเขา/ }));
+    userEvent.click(modal.getByRole('button', { name: 'เพิ่มลงตะกร้า' }));
+    expect(await modal.findByText('ในตะกร้ามีครบ 2 ชิ้นที่พร้อมขายแล้ว')).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem(cartKey('u1')) || '[]')[0].quantity).toBe(2);
+  });
+
   test("another Customer on the same device does not see that Cart", async () => {
     localStorage.setItem(cartKey('u1'), JSON.stringify([{ product_id: 'b1', name: 'Atlas beetle', price: 3200, image: '', quantity: 1 }]));
     mockMember = otherCustomer;

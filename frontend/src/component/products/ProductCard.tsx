@@ -26,28 +26,41 @@ export const useProductText = () => {
   };
 };
 
+/** What pressing "add" did: added one, found the Cart already holding all Available, or did nothing. */
+export type AddResult = 'added' | 'full' | 'none';
+
 /**
  * Adding to the cart answers on the button itself ("added" for a moment) while the Cart drawer opens:
- * no popup, no toast (design.md: feedback is inline).
+ * no popup, no toast (design.md: feedback is inline). When the Cart already holds every Available
+ * unit, the button says so instead and the Cart is left alone.
  */
 export const useAddToCart = () => {
-  const { addItem } = useCart();
+  const { addItem, items } = useCart();
   const requireSignIn = useRequireSignIn();
-  const [added, setAdded] = useState<string | null>(null);
+  const [said, setSaid] = useState<{ id: string; result: 'added' | 'full' } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(timer.current), []);
 
   const add = useCallback(
-    (p: ShopProduct) => {
-      if (p.available <= 0 || !requireSignIn()) return;
-      addItem({ product_id: p.id, name: p.name, name_th: p.name_th, price: p.price, image: p.images?.[0] || '', max_quantity: p.available });
-      setAdded(p.id);
+    (p: ShopProduct): AddResult => {
+      if (p.available <= 0 || !requireSignIn()) return 'none';
+      const inCart = items.find((i) => i.product_id === p.id)?.quantity ?? 0;
+      const result = inCart >= p.available ? 'full' : 'added';
+      if (result === 'added') {
+        addItem({ product_id: p.id, name: p.name, name_th: p.name_th, price: p.price, image: p.images?.[0] || '', max_quantity: p.available });
+      }
+      setSaid({ id: p.id, result });
       clearTimeout(timer.current);
-      timer.current = setTimeout(() => setAdded(null), 1600);
+      timer.current = setTimeout(() => setSaid(null), 1600);
+      return result;
     },
-    [addItem, requireSignIn]
+    [addItem, items, requireSignIn]
   );
-  return { add, isJustAdded: (id: string) => added === id };
+  return {
+    add,
+    isJustAdded: (id: string) => said?.id === id && said.result === 'added',
+    isFull: (id: string) => said?.id === id && said.result === 'full',
+  };
 };
 
 const arrow =
@@ -136,11 +149,13 @@ interface CardProps {
   onOpen?: (p: ShopProduct) => void;
   onAdd: (p: ShopProduct) => void;
   justAdded: boolean;
+  /** The last press found every Available unit already in the Cart. */
+  cartFull?: boolean;
   /** Short text for the Promotion this product is in, e.g. "ซื้อ 3 ลด 10%". */
   promotionBadge?: string | null;
 }
 
-const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded, promotionBadge }) => {
+const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded, cartFull, promotionBadge }) => {
   const { t } = useTranslation();
   const text = useProductText();
   const name = text.name(product);
@@ -197,8 +212,8 @@ const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded, p
             disabled={soldOut}
             className={`${compactButton} w-full sm:w-auto`}
           >
-            {justAdded ? <Check className="h-4 w-4" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
-            <span aria-live="polite">{justAdded ? t('product_card.added') : t('add_btn')}</span>
+            {justAdded || cartFull ? <Check className="h-4 w-4" aria-hidden /> : <Plus className="h-4 w-4" aria-hidden />}
+            <span aria-live="polite">{cartFull ? t('product_card.cart_full') : justAdded ? t('product_card.added') : t('add_btn')}</span>
             <span className="sr-only">: {name}</span>
           </button>
         </div>

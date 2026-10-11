@@ -25,6 +25,8 @@ interface AuthContextType {
   logout: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  /** Checks the current password (signing in again with it) before setting the new one. */
+  changePassword: (current: string, next: string) => Promise<void>;
   refreshProfile: () => Promise<void>;
 }
 
@@ -129,6 +131,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (error) throw new Error(error.message);
   };
 
+  const changePassword = async (current: string, next: string) => {
+    const email = user?.email;
+    if (!email) throw new Error('Not signed in');
+    const { error: wrong } = await supabase.auth.signInWithPassword({ email, password: current });
+    if (wrong) throw Object.assign(new Error('Wrong current password'), { code: 'WRONG_PASSWORD' });
+    await updatePassword(next);
+  };
+
   const refreshProfile = useCallback(() => loadProfile(session), [loadProfile, session]);
 
   return (
@@ -142,7 +152,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signup,
         logout,
         requestPasswordReset,
-        updatePassword,
+        updatePassword, changePassword,
         refreshProfile,
       }}
     >

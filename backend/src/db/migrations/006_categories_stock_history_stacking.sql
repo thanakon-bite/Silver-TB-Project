@@ -246,6 +246,9 @@ $$;
 -- 5. Notifications
 -- ---------------------------------------------------------------------------
 
+-- The Owner's LINE for a customer's confirm is sent once: the request that sets this sends it
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS received_notified_at TIMESTAMPTZ;
+
 ALTER TABLE public.notifications ADD COLUMN IF NOT EXISTS promotion_id UUID REFERENCES public.promotions(id) ON DELETE CASCADE;
 UPDATE public.notifications n
 SET promotion_id = (n.data ->> 'promotion_id')::UUID
@@ -368,7 +371,8 @@ BEGIN
       'promotion_id', v_promo.id, 'name_th', v_promo.name_th, 'name_en', v_promo.name_en,
       'starts_at', v_promo.starts_at, 'ends_at', v_promo.ends_at))
     FROM public.profiles p
-    WHERE p.role = 'user' AND p.deactivated_at IS NULL
+    -- Every active Member: Customers, and Admins too so they see what Customers were told
+    WHERE p.deactivated_at IS NULL
     ON CONFLICT (promotion_id, type, user_id) WHERE promotion_id IS NOT NULL DO NOTHING;
     IF v_type = 'promotion' THEN
       UPDATE public.promotions SET previewed_at = COALESCE(previewed_at, NOW()), announced_at = NOW() WHERE id = v_promo.id;
@@ -547,10 +551,14 @@ BEGIN
 END;
 $$;
 
+-- p_keep_payment: an Admin cancels a paid order without a refund (refunds paused, 2026-10-11). The old
+-- three-argument version goes, so a call naming only some arguments is never ambiguous.
+DROP FUNCTION IF EXISTS public.cancel_order(UUID, TEXT, BOOLEAN);
 CREATE OR REPLACE FUNCTION public.cancel_order(
-  p_order_id UUID,
-  p_reason   TEXT,
-  p_refunded BOOLEAN DEFAULT FALSE
+  p_order_id     UUID,
+  p_reason       TEXT,
+  p_refunded     BOOLEAN DEFAULT FALSE,
+  p_keep_payment BOOLEAN DEFAULT FALSE
 )
 RETURNS public.orders
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, pg_temp
@@ -565,7 +573,7 @@ BEGIN
   IF v_order.status IN ('shipping', 'confirmed') THEN
     RAISE EXCEPTION 'INVALID_STATUS' USING DETAIL = v_order.status;
   END IF;
-  IF v_order.paid_at IS NOT NULL AND v_order.refunded_at IS NULL AND NOT p_refunded THEN
+  IF v_order.paid_at IS NOT NULL AND v_order.refunded_at IS NULL AND NOT p_refunded AND NOT p_keep_payment THEN
     RAISE EXCEPTION 'REFUND_REQUIRED';
   END IF;
 
@@ -641,10 +649,10 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.create_order(UUID, JSONB, JSONB, UUID, NUMERIC, INTEGER, UUID[]) FROM PUBLIC, anon, authenticated;
-REVOKE ALL ON FUNCTION public.cancel_order(UUID, TEXT, BOOLEAN) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.cancel_order(UUID, TEXT, BOOLEAN, BOOLEAN) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.confirm_order(UUID, TEXT) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.create_order(UUID, JSONB, JSONB, UUID, NUMERIC, INTEGER, UUID[]) TO service_role;
-GRANT EXECUTE ON FUNCTION public.cancel_order(UUID, TEXT, BOOLEAN) TO service_role;
+GRANT EXECUTE ON FUNCTION public.cancel_order(UUID, TEXT, BOOLEAN, BOOLEAN) TO service_role;
 GRANT EXECUTE ON FUNCTION public.confirm_order(UUID, TEXT) TO service_role;
 
 
@@ -665,3 +673,24 @@ BEGIN
   END IF;
 END;
 $$;
+
+-- ---------------------------------------------------------------------------
+-- 7. LINE Recipients (ADR 0002, amended): the LINE friends of the Official Account, learnt from its
+-- webhook (a follow, or any 1:1 message). Following grants nothing: a friend gets order alerts only
+-- once an Admin ticks them. Groups are never stored, since anyone can invite the bot to one.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.line_contacts (
+  line_user_id   TEXT PRIMARY KEY CHECK (line_user_id ~ '^U[0-9a-f]{32}$'),
+  display_name   TEXT,
+  picture_url    TEXT,
+  followed_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  unfollowed_at  TIMESTAMPTZ,
+  receives_alerts BOOLEAN NOT NULL DEFAULT FALSE,
+  updated_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS line_contacts_recipients_idx ON public.line_contacts (line_user_id)
+  WHERE receives_alerts AND unfollowed_at IS NULL;
+
+-- Server only (service_role): never readable from the browser
+ALTER TABLE public.line_contacts ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.line_contacts FROM anon, authenticated;

@@ -2,22 +2,16 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from './api';
 import type { PricedCart } from './types';
 
-/**
- * The price-preview / order body: cart items, plus the gift picks and each line's Promotion option
- * when there are any. Picks for products no longer in the Cart are left out.
- */
+/** The price-preview / order body: cart items, plus the gift picks and the Order's Promotion pick when there are any. */
 export const pricingBody = (
   items: { product_id: string; quantity: number }[],
   giftChoices: Record<string, string> = {},
-  promotionChoices: Record<string, string> = {}
-) => {
-  const lineChoices = Object.fromEntries(Object.entries(promotionChoices).filter(([id]) => items.some((i) => i.product_id === id)));
-  return {
-    items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
-    ...(Object.keys(giftChoices).length ? { gift_choices: giftChoices } : {}),
-    ...(Object.keys(lineChoices).length ? { promotion_choices: lineChoices } : {}),
-  };
-};
+  promotionChoice: string | null = null
+) => ({
+  items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+  ...(Object.keys(giftChoices).length ? { gift_choices: giftChoices } : {}),
+  ...(promotionChoice ? { promotion_choice: promotionChoice } : {}),
+});
 
 /**
  * What the server says these Cart items cost today (Promotions, Gifts, Shipping Rule): the Cart and
@@ -27,13 +21,10 @@ export function usePricedCart(
   items: { product_id: string; quantity: number }[],
   enabled = true,
   giftChoices: Record<string, string> = {},
-  promotionChoices: Record<string, string> = {}
+  promotionChoice: string | null = null
 ) {
   const [priced, setPriced] = useState<PricedCart | null>(null);
-  const signature = useMemo(
-    () => JSON.stringify(pricingBody(items, giftChoices, promotionChoices)),
-    [items, giftChoices, promotionChoices]
-  );
+  const signature = useMemo(() => JSON.stringify(pricingBody(items, giftChoices, promotionChoice)), [items, giftChoices, promotionChoice]);
 
   useEffect(() => {
     if (!enabled || !items.length) {
@@ -42,7 +33,7 @@ export function usePricedCart(
     }
     let live = true;
     Promise.resolve()
-      .then(() => api.post<PricedCart>('/orders/price-preview', pricingBody(items, giftChoices, promotionChoices)))
+      .then(() => api.post<PricedCart>('/orders/price-preview', pricingBody(items, giftChoices, promotionChoice)))
       .then((p) => live && setPriced(p?.lines ? p : null))
       .catch(() => live && setPriced(null));
     return () => {

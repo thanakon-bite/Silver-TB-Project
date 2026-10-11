@@ -61,8 +61,8 @@ test('running Promotions: a guest misses only full ones; a Customer also misses 
     { promotion_id: 'full', user_id: BOB, released_at: null },
   ];
   fake.tables.products = [
-    { id: 'g1', price: 300 },
-    { id: 'g2', price: 120 },
+    { id: 'g1', price: 300, available: 2 },
+    { id: 'g2', price: 120, available: 5 },
   ];
   const ids = async (token) => (await (await call('/api/rules/promotions', { token })).json()).map((p) => p.id);
 
@@ -74,6 +74,11 @@ test('running Promotions: a guest misses only full ones; a Customer also misses 
   const [open] = await (await call('/api/rules/promotions')).json();
   assert.equal(open.stacking, 'stackable');
   assert.deepEqual(open.gift_prices.sort((a, b) => a - b), [120, 300], 'gift prices, to value the Gift');
+
+  // A gift product none is Available of is left out (CONTEXT.md: Gift), so it adds no value
+  fake.tables.products[0].available = 0;
+  const [again] = await (await call('/api/rules/promotions')).json();
+  assert.deepEqual(again.gift_prices, [120]);
 });
 
 // ---- Categories and Families ----------------------------------------------------------------
@@ -262,9 +267,81 @@ test("the LINE message goes out only for a Customer's own confirmation", async (
     assert.equal(await realNotify(ORDER), true);
     assert.equal(sent.length, 1);
     assert.match(sent[0], /STB-261011-00002/);
+    assert.equal(await realNotify(ORDER), false, 'a second confirm press: no second LINE');
+    assert.equal(sent.length, 1);
+
+    // Two confirms racing (a double click): only one of them sends
+    fake.tables.orders = [confirmed('customer')];
+    sent.length = 0;
+    assert.deepEqual((await Promise.all([realNotify(ORDER), realNotify(ORDER)])).sort(), [false, true]);
+    assert.equal(sent.length, 1);
+
+    // A failed push gives the claim back, so a later try can still send it
+    fake.tables.orders = [confirmed('customer')];
+    sent.length = 0;
+    lineLib.pushToAdmins = async () => {
+      throw new Error('LINE down');
+    };
+    await assert.rejects(realNotify(ORDER), /LINE down/);
+    lineLib.pushToAdmins = async (text) => sent.push(text);
+    assert.equal(await realNotify(ORDER), true);
+    assert.equal(sent.length, 1);
   } finally {
     lineLib.pushToAdmins = realPush;
     if (realToken === undefined) delete process.env.LINE_CHANNEL_ACCESS_TOKEN;
     else process.env.LINE_CHANNEL_ACCESS_TOKEN = realToken;
+  }
+});
+
+// ---- Deleting a Notification --------------------------------------------------------------------
+
+test('a Member deletes their own Notification, never someone else\'s, and gets the new unread count', async () => {
+  const N1 = '51515151-5151-4151-8151-515151515151';
+  const N2 = '52525252-5252-4252-8252-525252525252';
+  const N3 = '53535353-5353-4353-8353-535353535353';
+  fake.tables.notifications = [
+    { id: N1, user_id: ALICE, type: 'shipping', read_at: null },
+    { id: N2, user_id: ALICE, type: 'cancelled', read_at: null },
+    { id: N3, user_id: BOB, type: 'shipping', read_at: null },
+  ];
+  let res = await call(`/api/notifications/${N1}`, { token: 'alice', method: 'DELETE' });
+  assert.equal(res.status, 200);
+  assert.deepEqual(await res.json(), { unread: 1 });
+  assert.deepEqual(fake.tables.notifications.map((n) => n.id), [N2, N3]);
+
+  res = await call(`/api/notifications/${N3}`, { token: 'alice', method: 'DELETE' });
+  assert.equal(res.status, 404, "Bob's Notification is not Alice's to delete");
+  assert.equal(fake.tables.notifications.length, 2);
+
+  assert.equal((await call('/api/notifications/not-a-uuid', { token: 'alice', method: 'DELETE' })).status, 400);
+  assert.equal((await call(`/api/notifications/${N2}`, { method: 'DELETE' })).status, 401);
+});
+
+// ---- Admin cancels a paid order: a plain cancel, no Stripe refund ----------------------------------
+
+test('an Admin cancelling a paid order cancels it without refunding through Stripe', async () => {
+  const stripe = require('../../src/config/stripe');
+  const realCreate = stripe.refunds.create;
+  let refunds = 0;
+  stripe.refunds.create = async () => {
+    refunds += 1;
+    return { status: 'succeeded' };
+  };
+  try {
+    const ORDER = '61616161-6161-4161-8161-616161616161';
+    const paid = { id: ORDER, order_number: 'STB-261011-00061', user_id: ALICE, status: 'waiting_shipping', paid_at: '2026-10-11T00:00:00Z', refunded_at: null,
+      total: 500, shipping_fee: 0, order_items: [], stripe_checkout_session_id: 'cs_1' };
+    fake.tables.orders = [paid];
+    fake.rpcHandlers.cancel_order = (args) => {
+      Object.assign(paid, { status: 'cancelled', cancel_reason: args.p_reason });
+      return { data: paid, error: null };
+    };
+    const res = await call(`/api/orders/${ORDER}/status`, { token: 'owner', method: 'PATCH', body: { status: 'cancelled', reason: 'ด้วงป่วย' } });
+    assert.equal(res.status, 200);
+    assert.equal(refunds, 0, 'no refund through Stripe');
+    assert.deepEqual(fake.rpcCalls.at(-1), { name: 'cancel_order', args: { p_order_id: ORDER, p_reason: 'ด้วงป่วย', p_keep_payment: true } });
+    assert.equal(paid.refunded_at, null);
+  } finally {
+    stripe.refunds.create = realCreate;
   }
 });

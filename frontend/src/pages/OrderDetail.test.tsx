@@ -123,7 +123,7 @@ test('the customer confirms a Shipping order as received', async () => {
 });
 
 test('an admin viewing someone else’s Shipping order gets no customer buttons (the API says so)', async () => {
-  backend(anOrder({ ...shipping, actions: { customer: null, admin: { ship: false, confirm: true, cancel: false, refund_on_cancel: false } } }));
+  backend(anOrder({ ...shipping, actions: { customer: null, admin: { ship: false, confirm: true, cancel: false, paid_on_cancel: false } } }));
   visit();
 
   expect(await screen.findByRole('heading', { level: 1, name: 'จัดส่งแล้ว' })).toBeInTheDocument();

@@ -174,13 +174,13 @@ describe('Overview', () => {
 });
 
 /** What the API says an Admin may do with an order in each status (backend lib/orderStatus.js orderActions). */
-const ADMIN_ACTIONS: Record<string, { ship: boolean; confirm: boolean; cancel: boolean; refund_on_cancel: boolean }> = {
-  awaiting_payment: { ship: false, confirm: false, cancel: true, refund_on_cancel: false },
-  paid: { ship: false, confirm: false, cancel: true, refund_on_cancel: true },
-  waiting_shipping: { ship: true, confirm: false, cancel: true, refund_on_cancel: true },
-  shipping: { ship: false, confirm: true, cancel: false, refund_on_cancel: false },
-  confirmed: { ship: false, confirm: false, cancel: false, refund_on_cancel: false },
-  cancelled: { ship: false, confirm: false, cancel: false, refund_on_cancel: false },
+const ADMIN_ACTIONS: Record<string, { ship: boolean; confirm: boolean; cancel: boolean; paid_on_cancel: boolean }> = {
+  awaiting_payment: { ship: false, confirm: false, cancel: true, paid_on_cancel: false },
+  paid: { ship: false, confirm: false, cancel: true, paid_on_cancel: true },
+  waiting_shipping: { ship: true, confirm: false, cancel: true, paid_on_cancel: true },
+  shipping: { ship: false, confirm: true, cancel: false, paid_on_cancel: false },
+  confirmed: { ship: false, confirm: false, cancel: false, paid_on_cancel: false },
+  cancelled: { ship: false, confirm: false, cancel: false, paid_on_cancel: false },
 };
 
 const anOrder = (overrides: Record<string, unknown> = {}) => {
@@ -270,18 +270,20 @@ describe('Cancel with a reason', () => {
     expect(dialog.getByRole('textbox', { name: 'Cancel reason (the customer sees this)' })).toHaveFocus();
     // design.md: [keep] comes before [confirm]
     const keep = dialog.getByRole('button', { name: 'Keep order' });
-    expect(keep.compareDocumentPosition(dialog.getByRole('button', { name: 'Refund ฿3,200 and cancel' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(keep.compareDocumentPosition(dialog.getByRole('button', { name: 'Cancel and tell the customer' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     userEvent.click(keep);
     expect(dialog.queryByRole('textbox', { name: 'Cancel reason (the customer sees this)' })).not.toBeInTheDocument();
     expect(dialog.getByRole('button', { name: 'Cancel order' })).toHaveFocus();
     expect(api.patch).not.toHaveBeenCalled();
   });
 
-  test('cancelling a paid order says it refunds in full', async () => {
+  test('cancelling a paid order is a plain cancel, and says the money is not returned automatically', async () => {
     const dialog = await open(anOrder());
     userEvent.click(dialog.getByRole('button', { name: 'Cancel order' }));
+    expect(dialog.getByText('The customer paid ฿3,200. Cancelling does not refund it automatically; refund it in the Stripe Dashboard if needed.')).toBeInTheDocument();
+    expect(dialog.queryByRole('button', { name: /^Refund/ })).not.toBeInTheDocument();
     userEvent.type(dialog.getByRole('textbox', { name: 'Cancel reason (the customer sees this)' }), 'ด้วงป่วย');
-    userEvent.click(dialog.getByRole('button', { name: 'Refund ฿3,200 and cancel' }));
+    userEvent.click(dialog.getByRole('button', { name: 'Cancel and tell the customer' }));
     await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/orders/o1/status', { status: 'cancelled', reason: 'ด้วงป่วย' }));
   });
 
@@ -290,7 +292,7 @@ describe('Cancel with a reason', () => {
     (api.patch as jest.Mock).mockRejectedValueOnce(new ApiError('Write the reason in your own words', 400, 'RESERVED_CANCEL_REASON'));
     userEvent.click(dialog.getByRole('button', { name: 'Cancel order' }));
     userEvent.type(dialog.getByRole('textbox', { name: 'Cancel reason (the customer sees this)' }), 'expired');
-    userEvent.click(dialog.getByRole('button', { name: 'Refund ฿3,200 and cancel' }));
+    userEvent.click(dialog.getByRole('button', { name: 'Cancel and tell the customer' }));
     const Swal = jest.requireMock('sweetalert2').default;
     await waitFor(() =>
       expect(Swal.fire).toHaveBeenCalledWith('Error', 'That reason is one the system uses. Write it in your own words.', 'error')
@@ -298,16 +300,16 @@ describe('Cancel with a reason', () => {
   });
 
   test('the screen offers only what the API allows, whatever the status', async () => {
-    const dialog = await open(anOrder({ actions: { customer: null, admin: { ship: false, confirm: false, cancel: false, refund_on_cancel: false } } }));
+    const dialog = await open(anOrder({ actions: { customer: null, admin: { ship: false, confirm: false, cancel: false, paid_on_cancel: false } } }));
     expect(dialog.queryByRole('button', { name: 'Cancel order' })).not.toBeInTheDocument();
     expect(dialog.queryByRole('button', { name: 'Mark as Shipping' })).not.toBeInTheDocument();
   });
 
-  test('a paid order the shop already refunded is cancelled without promising a second refund', async () => {
-    const dialog = await open(anOrder({ refunded_at: '2026-10-11T00:00:00Z', actions: { customer: null, admin: { ...ADMIN_ACTIONS.waiting_shipping, refund_on_cancel: false } } }));
+  test('a paid order the shop already refunded is cancelled without the paid-money note', async () => {
+    const dialog = await open(anOrder({ refunded_at: '2026-10-11T00:00:00Z', actions: { customer: null, admin: { ...ADMIN_ACTIONS.waiting_shipping, paid_on_cancel: false } } }));
     userEvent.click(dialog.getByRole('button', { name: 'Cancel order' }));
     expect(dialog.getByRole('button', { name: 'Cancel and tell the customer' })).toBeInTheDocument();
-    expect(dialog.queryByRole('button', { name: /^Refund/ })).not.toBeInTheDocument();
+    expect(dialog.queryByText(/does not refund it automatically/)).not.toBeInTheDocument();
   });
 
   test('a Shipping order cannot be cancelled', async () => {
@@ -1007,5 +1009,133 @@ describe('Categories', () => {
     await waitFor(() =>
       expect(Swal.fire).toHaveBeenLastCalledWith(expect.any(String), 'Beetles still in this Family: 1. Change their Family first', 'error')
     );
+  });
+});
+
+describe('Settings: recent Stripe payments', () => {
+  const event = (id: string, type: string, result: string, over: Record<string, unknown> = {}) => ({
+    id, type, result, amount: 320000, currency: 'thb', created_at: '2026-10-11T03:00:00Z', order_id: 'o1',
+    orders: { order_number: 'STB-261011-00016' }, ...over,
+  });
+  const lineStatus = { configured: true, webhook_secret_set: true, source: 'env', targets: [], recipients: 0 };
+
+  test('each event reads as what happened to which order, with the amount, and problems stand out', async () => {
+    backend({
+      '/notifications/line/status': lineStatus,
+      '/notifications/line/contacts': { contacts: [] },
+      '/admin/payments': [
+        event('e1', 'checkout.session.completed', 'paid'),
+        event('e2', 'payment_intent.succeeded', 'already_paid'),
+        event('e3', 'checkout.session.completed', 'amount_mismatch', { orders: { order_number: 'STB-261011-00017' }, order_id: 'o2' }),
+        event('e4', 'charge.refunded', 'refunded', { amount: 50000 }),
+        event('e5', 'customer.created', 'ignored', { order_id: null, orders: null, amount: null }),
+      ],
+    });
+    renderAdmin();
+    await openTab('Payments & LINE');
+    const card = within(await screen.findByRole('region', { name: 'Recent Stripe payments' }));
+    const paid = within(await card.findByRole('listitem', { name: /Payment received · STB-261011-00016/ }));
+    expect(paid.getByText('฿3,200')).toBeInTheDocument();
+    expect(paid.getByText('Order marked Paid')).toBeInTheDocument();
+    expect(paid.getByRole('link', { name: 'STB-261011-00016' })).toHaveAttribute('href', '/admin?order=o1');
+    expect(card.getByText('The amount does not match the order. Check it in the Stripe Dashboard.')).toBeInTheDocument();
+    expect(card.getByRole('listitem', { name: /Refunded in Stripe/ })).toBeInTheDocument();
+    // The repeat of a payment already recorded, and events about nothing in the shop, wait behind "show all"
+    expect(card.queryByText('Already recorded')).not.toBeInTheDocument();
+    expect(card.queryByText('customer.created')).not.toBeInTheDocument();
+    userEvent.click(card.getByRole('button', { name: 'Show all events (2 more)' }));
+    expect(card.getByText('Already recorded')).toBeInTheDocument();
+    expect(card.getByText('customer.created')).toBeInTheDocument();
+  });
+
+  test('with no events yet, the Admin is told how Stripe reaches the shop', async () => {
+    backend({ '/notifications/line/status': lineStatus, '/notifications/line/contacts': { contacts: [] }, '/admin/payments': [] });
+    renderAdmin();
+    await openTab('Payments & LINE');
+    expect(await screen.findByText(/stripe listen --forward-to/)).toBeInTheDocument();
+  });
+});
+
+describe('Settings: LINE Recipients', () => {
+  const SOMCHAI = `U${'a'.repeat(32)}`;
+  const MALI = `U${'b'.repeat(32)}`;
+  const lineStatus = { configured: true, webhook_secret_set: true, source: 'env', targets: ['U000…0000'], recipients: 1 };
+  const friend = (line_user_id: string, display_name: string, receives_alerts: boolean) => ({
+    line_user_id, display_name, picture_url: null, followed_at: '2026-10-10T03:00:00Z', receives_alerts,
+  });
+
+  test('friends of the Official Account are listed, and ticking one sends them order alerts', async () => {
+    backend({
+      '/notifications/line/status': lineStatus,
+      '/notifications/line/contacts': { contacts: [friend(SOMCHAI, 'Somchai', true), friend(MALI, 'Mali', false)] },
+      '/admin/payments': [],
+    });
+    (api.patch as jest.Mock).mockResolvedValue(friend(MALI, 'Mali', true));
+    renderAdmin();
+    await openTab('Payments & LINE');
+    const list = within(await screen.findByRole('group', { name: 'Who gets order alerts on LINE' }));
+    expect(await list.findByRole('checkbox', { name: /Somchai/ })).toBeChecked();
+    const mali = list.getByRole('checkbox', { name: /Mali/ });
+    expect(mali).not.toBeChecked();
+    userEvent.click(mali);
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith(`/notifications/line/contacts/${MALI}`, { receives_alerts: true }));
+    expect(mali).toBeChecked();
+  });
+
+  test('a tick that fails to save flips back and says why', async () => {
+    backend({
+      '/notifications/line/status': lineStatus,
+      '/notifications/line/contacts': { contacts: [friend(MALI, 'Mali', false)] },
+      '/admin/payments': [],
+    });
+    (api.patch as jest.Mock).mockRejectedValue(new ApiError('This LINE friend is not following the Official Account', 404));
+    renderAdmin();
+    await openTab('Payments & LINE');
+    const mali = await screen.findByRole('checkbox', { name: /Mali/ });
+    userEvent.click(mali);
+    expect(await screen.findByText('This LINE friend is not following the Official Account')).toBeInTheDocument();
+    expect(mali).not.toBeChecked();
+  });
+
+  test('a list that cannot be loaded says so instead of looking empty', async () => {
+    backend({ '/notifications/line/status': lineStatus, '/admin/payments': [] });
+    renderAdmin();
+    await openTab('Payments & LINE');
+    expect(await screen.findByText(/Could not load the LINE friends/)).toBeInTheDocument();
+    expect(screen.queryByText(/add the shop's LINE Official Account as a friend/)).not.toBeInTheDocument();
+  });
+
+  test('the Admin can pull the friends list from LINE, and the list refreshes', async () => {
+    let contacts = { contacts: [] as ReturnType<typeof friend>[] };
+    backend({ '/notifications/line/status': lineStatus, '/admin/payments': [] });
+    const get = api.get as jest.Mock;
+    const base = get.getMockImplementation()!;
+    get.mockImplementation((path: string) => (path === '/notifications/line/contacts' ? Promise.resolve(contacts) : base(path)));
+    (api.post as jest.Mock).mockImplementation(async (path: string) => {
+      if (path !== '/notifications/line/contacts/sync') throw new Error(`unexpected POST ${path}`);
+      contacts = { contacts: [friend(MALI, 'Mali', false)] };
+      return { synced: 1 };
+    });
+    renderAdmin();
+    await openTab('Payments & LINE');
+    userEvent.click(await screen.findByRole('button', { name: 'Get friends from LINE' }));
+    expect(await screen.findByRole('checkbox', { name: /Mali/ })).not.toBeChecked();
+    expect(screen.getByText('Found 1 friend(s) on LINE.')).toBeInTheDocument();
+  });
+
+  test('when LINE will not list followers, the Admin is told what to do instead', async () => {
+    backend({ '/notifications/line/status': lineStatus, '/notifications/line/contacts': { contacts: [] }, '/admin/payments': [] });
+    (api.post as jest.Mock).mockRejectedValue(new ApiError('LINE does not list followers', 409, 'LINE_FOLLOWERS_UNAVAILABLE'));
+    renderAdmin();
+    await openTab('Payments & LINE');
+    userEvent.click(await screen.findByRole('button', { name: 'Get friends from LINE' }));
+    expect(await screen.findByText(/only for verified or premium Official Accounts/)).toBeInTheDocument();
+  });
+
+  test('with no friends yet, the Admin is told how people get on the list', async () => {
+    backend({ '/notifications/line/status': lineStatus, '/notifications/line/contacts': { contacts: [] }, '/admin/payments': [] });
+    renderAdmin();
+    await openTab('Payments & LINE');
+    expect(await screen.findByText(/add the shop's LINE Official Account as a friend/)).toBeInTheDocument();
   });
 });

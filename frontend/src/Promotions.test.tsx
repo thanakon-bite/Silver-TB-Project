@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderApp } from './test/renderPage';
 import { api } from './lib/api';
+import { promotionChoiceKey } from './lib/promotionChoice';
 
 let mockMember: { id: string; email: string; full_name: string; role: 'user' | 'admin' } | null = null;
 
@@ -216,10 +217,10 @@ describe('choosing a Promotion on the product page', () => {
     });
   });
 
-  test('one card per option, the best picked first; the pick is kept for the Cart', async () => {
+  test("one card per option, the best picked first; the pick becomes the whole Order's Promotion", async () => {
     renderApp('/');
     userEvent.click(await screen.findByRole('button', { name: 'เยลลี่ด้วง' }));
-    const picker = within(await screen.findByRole('group', { name: 'เลือกโปรโมชันที่ต้องการ' }));
+    const picker = within(await screen.findByRole('group', { name: 'เลือกโปรโมชันสำหรับออเดอร์' }));
     const radios = picker.getAllByRole('radio');
     expect(radios.map((r) => r.getAttribute('aria-label'))).toEqual(['ลดตรง', 'ซื้อ 3 แถม 1', 'ใช้ร่วมกัน: ลดสมาชิก + ลดหน้าฝน']);
     // Each card says what it gives
@@ -230,7 +231,9 @@ describe('choosing a Promotion on the product page', () => {
 
     userEvent.click(picker.getByRole('radio', { name: 'ใช้ร่วมกัน: ลดสมาชิก + ลดหน้าฝน' }));
     expect(picker.getByRole('radio', { name: 'ใช้ร่วมกัน: ลดสมาชิก + ลดหน้าฝน' })).toBeChecked();
-    expect(JSON.parse(localStorage.getItem('stb_line_choices') || '{}')).toEqual({ f1: 'stack' });
+    expect(picker.getByText('เลือกได้ 1 แบบ ใช้กับทุกสินค้าในออเดอร์')).toBeInTheDocument();
+    // A guest has no Cart, so the pick is not kept for later
+    expect(localStorage.getItem(promotionChoiceKey('u1'))).toBeNull();
   });
 
   test('a product with a single Promotion shows it as a card with nothing to pick', async () => {
@@ -242,9 +245,9 @@ describe('choosing a Promotion on the product page', () => {
   });
 });
 
-test('a Promotion picked on the product page is what the Cart prices with', async () => {
+test('a Promotion picked on the product page is what the Cart prices the Order with', async () => {
   mockMember = customer;
-  localStorage.setItem('stb_line_choices', JSON.stringify({ f1: 'pr1' }));
+  localStorage.setItem(promotionChoiceKey('u1'), JSON.stringify('pr1'));
   backend({
     lines: [{ product_id: 'f1', name: 'Beetle jelly', quantity: 1, list_price: 100, unit_price: 95, discount_per_unit: 5, line_total: 95, promotion_id: 'pr1' }],
     gifts: [], promotions_applied: [{ id: 'pr1', name_th: 'ลดรับหน้าฝน', name_en: null, units: 1, discount_total: 5 }],
@@ -253,6 +256,6 @@ test('a Promotion picked on the product page is what the Cart prices with', asyn
   renderApp('/', { cart: [{ product_id: 'f1', name: 'Beetle jelly', name_th: 'เยลลี่ด้วง', price: 100, image: '', quantity: 1 }] });
   userEvent.click((await screen.findAllByRole('button', { name: /ตะกร้า/ }))[0]);
   await waitFor(() =>
-    expect(api.post).toHaveBeenCalledWith('/orders/price-preview', { items: [{ product_id: 'f1', quantity: 1 }], promotion_choices: { f1: 'pr1' } })
+    expect(api.post).toHaveBeenCalledWith('/orders/price-preview', { items: [{ product_id: 'f1', quantity: 1 }], promotion_choice: 'pr1' })
   );
 });

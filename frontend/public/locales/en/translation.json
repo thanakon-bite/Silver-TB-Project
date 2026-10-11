@@ -238,14 +238,13 @@
     "BELOW_MINIMUM_TOTAL": "An order must come to at least ฿10 to be paid by card or PromptPay. Add a little more to your cart.",
     "PROMOTION_LOCKED": "This promotion has started: only its names, end date and on/off can change. Reload to see what is saved.",
     "RESERVED_CANCEL_REASON": "That reason is one the system uses. Write it in your own words.",
-    "REFUND_PENDING": "Stripe is still processing the refund. The order stays as it is; cancel it once the refund has gone through (the order will be marked for attention).",
-    "REFUND_FAILED": "Stripe could not refund this payment, so the order was not cancelled. Check the payment in the Stripe Dashboard.",
     "CATEGORY_IN_USE": "Products still in this Category: {{count}}. Move them to another Category first",
     "FAMILY_IN_USE": "Beetles still in this Family: {{count}}. Change their Family first",
     "SYSTEM_CATEGORY": "The beetle Category can be renamed but not deleted",
     "BELOW_RESERVED": "On Hand can't go below {{reserved}}: customers have reserved them",
     "UNKNOWN_CATEGORY": "Choose one of the shop's Categories",
-    "UNKNOWN_FAMILY": "Choose one of the shop's Families"
+    "UNKNOWN_FAMILY": "Choose one of the shop's Families",
+    "LINE_FOLLOWERS_UNAVAILABLE": "LINE lists followers only for verified or premium Official Accounts. Use the webhook instead: point the Webhook URL in LINE Developers at the server (use ngrok when running on your own machine), then have each recipient message the OA once."
   },
   "order_status": {
     "awaiting_payment": "Awaiting payment",
@@ -324,6 +323,8 @@
     "favorite": "Add to favorites",
     "unfavorite": "Remove from favorites",
     "added": "Added",
+    "cart_full": "All in Cart",
+    "cart_full_note": "Your Cart already holds all {{count}} available.",
     "guarantee_line": "Film the unboxing and tell us within 2 hours if the beetle died in transit."
   },
   "products_page": {
@@ -369,10 +370,17 @@
     "keep": "Keep it",
     "lowered_to_available": "Some products have fewer left, so their quantities were lowered to what is available",
     "max_reached": "Only {{count}} available",
-    "option_legend": "Choose a promotion for {{name}}",
     "option_stack": "Combined: {{names}}",
     "option_saving": "Saves {{amount}}",
-    "option_nothing": "Not reached yet"
+    "option_nothing": "Not reached yet",
+    "order_promotion": "Promotion for this order",
+    "order_promotion_hint": "Pick one; it applies to the whole order. Products it doesn't cover are at the normal price",
+    "using_promotion": "Promotion: {{name}}",
+    "products": "Products in your cart",
+    "summary": "Order summary",
+    "expand": "Open the full cart",
+    "change_promotion": "Change promotion",
+    "collapse": "Shrink the Cart"
   },
   "home_page": {
     "promises": "What the shop guarantees",
@@ -445,7 +453,14 @@
     "no_addresses": "No saved addresses yet. Add one here or during checkout.",
     "add_address": "Add address",
     "edit_address": "Edit address",
-    "save_address": "Save address"
+    "save_address": "Save address",
+    "password_title": "Change password",
+    "password_text": "Enter your current password, then choose a new one.",
+    "current_password": "Current password",
+    "password_changed": "Password changed",
+    "wrong_password": "The current password is wrong",
+    "forgot_current": "Forgot it? Email me a link to set a new one",
+    "reset_sent": "Link sent to {{email}}"
   },
   "session_expired": {
     "title": "You've been signed out",
@@ -764,7 +779,8 @@
     "admin_confirmed_auto": "{{number}} confirmed automatically (7 days)",
     "admin_confirmed_body": "Customer: {{customer}}",
     "promotion_new": "New promotion coming: {{name}}",
-    "promotion_new_body": "Runs {{from}} – {{to}}"
+    "promotion_new_body": "Runs {{from}} – {{to}}",
+    "delete": "Delete notification: {{title}}"
   },
   "shipping_rule": {
     "units_one": "{{count}} item",
@@ -794,8 +810,8 @@
     "gift_out": "The gift is out of stock",
     "gift_label": "Free gift",
     "next_gift": "Add {{count}} more to get {{gift}} free ({{name}})",
-    "choose_legend": "Choose your promotion",
-    "choose_hint": "Pick one; your Cart prices this product with it",
+    "choose_legend": "Choose the promotion for your order",
+    "choose_hint": "Pick one; it applies to your whole order",
     "stack_heading": "Combined"
   },
   "hero": {
@@ -921,9 +937,8 @@
       "confirm_received": "Confirm received",
       "cancel_order": "Cancel order",
       "cancel_reason_label": "Cancel reason (the customer sees this)",
-      "refund_note": "The customer has paid: this refunds {{amount}} in full through Stripe, then cancels.",
+      "paid_cancel_note": "The customer paid {{amount}}. Cancelling does not refund it automatically; refund it in the Stripe Dashboard if needed.",
       "cancel_tell": "Cancel and tell the customer",
-      "refund_cancel": "Refund {{amount}} and cancel",
       "keep": "Keep order",
       "internal_note": "Internal note",
       "save_note": "Save note",
@@ -1006,8 +1021,37 @@
       "how_to_set": "Set your LINE user ID (LINE Developers console → Basic settings → \"Your user ID\") and add the Official Account as a friend on that LINE account, in the server variable:",
       "sending": "Sending…",
       "send_test": "Send test message",
-      "stripe_events": "Recent Stripe events",
-      "no_events": "No webhook events received yet."
+      "stripe_events": "Recent Stripe payments",
+      "no_events": "No Stripe events yet. If someone has paid and nothing shows here, the webhook is not reaching the server: point an endpoint in the Stripe Dashboard at /api/payments/webhook, or on your own machine run stripe listen --forward-to localhost:5000/api/payments/webhook",
+      "recipients_title": "Who gets order alerts on LINE",
+      "recipients_hint": "Tick who gets a message for every paid order and every order a customer confirms receiving. Tick as many as you like. Messages include the customer's name, phone and address.",
+      "no_friends": "Nobody here yet. Ask whoever should get alerts to add the shop's LINE Official Account as a friend, then press \"Get friends from LINE\" (or wait for the webhook to list them when they follow or message the OA, which works once the server is reachable from the internet).",
+      "unnamed_friend": "LINE user",
+      "friend_since": "Friend since {{date}}",
+      "picked_count": "Recipients picked here: {{count}}",
+      "friends_failed": "Could not load the LINE friends: {{reason}}",
+      "sync_friends": "Get friends from LINE",
+      "synced": "Found {{count}} friend(s) on LINE.",
+      "stripe_events_hint": "What Stripe told the shop through its webhook, and what the shop did with it",
+      "event_paid": "Payment received",
+      "event_failed": "Payment failed",
+      "event_refunded": "Refunded in Stripe",
+      "result_paid": "Order marked Paid",
+      "result_already_paid": "Already recorded",
+      "result_ignored": "Not about an order",
+      "result_not_paid_yet": "Not paid yet (e.g. PromptPay pending)",
+      "result_marked_failed": "The customer’s payment failed; the order still awaits payment",
+      "result_refunded": "Refunded in full; the order is flagged for attention",
+      "result_partial_refund": "Partly refunded; the order is flagged for attention",
+      "result_amount_mismatch": "The amount does not match the order. Check it in the Stripe Dashboard.",
+      "result_intent_mismatch": "The payment does not match the order. Check it in the Stripe Dashboard.",
+      "result_order_not_found": "No such order in the shop",
+      "result_paid_after_cancel": "Paid after the order was cancelled: refund it in Stripe",
+      "result_no_order_metadata": "No order attached (may not be a shop payment)",
+      "result_no_payment_intent": "No payment attached",
+      "result_unknown": "Unknown result",
+      "show_all_events": "Show all events ({{count}} more)",
+      "hide_routine": "Hide repeats"
     },
     "members": {
       "role_user": "Customer (user)",

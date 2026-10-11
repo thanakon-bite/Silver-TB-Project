@@ -97,7 +97,8 @@ const ShopHero: React.FC<{ productsId: string }> = ({ productsId }) => {
                     )}
                   </div>
                 </div>
-                <p className="absolute bottom-3 right-4 max-w-[60%] text-right text-[11px] leading-snug text-on-scrim/70 sm:right-6 lg:right-8">
+                {/* Kept clear of the slide controls at the bottom left, which are wider than 40% of a phone */}
+                <p className="absolute bottom-3 right-4 max-w-[calc(100%-14rem)] text-right sm:max-w-[60%] text-[11px] leading-snug text-on-scrim/70 sm:right-6 lg:right-8">
                   {t('hero.photo_by', { author: s.photo.author })} ·{' '}
                   <a href={s.photo.licenseUrl} target="_blank" rel="noopener noreferrer" tabIndex={active ? 0 : -1} className="underline underline-offset-2 hover:text-on-scrim">
                     {s.photo.license}

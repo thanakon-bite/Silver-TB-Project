@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { storage } from '../lib/format';
 import { useAuth } from './AuthContext';
+import { clearPromotionChoice, LEGACY_PROMOTION_CHOICE_KEY } from '../lib/promotionChoice';
 
 export interface CartItem {
   product_id: string;
@@ -64,6 +65,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     try {
       window.localStorage.removeItem(LEGACY_KEY);
+      window.localStorage.removeItem(LEGACY_PROMOTION_CHOICE_KEY);
     } catch {
       /* storage blocked: nothing to clean */
     }
@@ -71,6 +73,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (userId && owner === userId) storage.set(cartKey(userId), items);
+    // The Order's Promotion pick lives with the Cart: an emptied Cart starts the next one on the best option
+    if (userId && owner === userId && items.length === 0) clearPromotionChoice(userId);
   }, [userId, owner, items]);
 
   const addItem = useCallback((item: Omit<CartItem, 'quantity'>) => {

@@ -69,7 +69,8 @@ export interface OrderActions {
   /** The order's owner; null for anyone else. */
   customer: { cancel: boolean; confirm: boolean } | null;
   /** An Admin; null for customers. */
-  admin: { ship: boolean; confirm: boolean; cancel: boolean; refund_on_cancel: boolean } | null;
+  /** paid_on_cancel: cancelling keeps money the customer paid (no automatic refund for now). */
+  admin: { ship: boolean; confirm: boolean; cancel: boolean; paid_on_cancel: boolean } | null;
 }
 
 /** When an Order's clock runs out: payment for Awaiting Payment, automatic Confirmed for Shipping (admin list only). */
@@ -174,14 +175,16 @@ export interface PricedGift {
 }
 
 /** POST /orders/price-preview: what the Cart costs today, priced by the server. */
-/** One way a Cart line can take its Promotions: one Exclusive Promotion, or every Stackable one together (ADR 0004). */
-export interface LineOption {
-  /** 'stack', or the Exclusive Promotion's id: what the Cart sends back as the line's choice. */
+/** One way the Order can take its Promotions: one Exclusive Promotion, or every Stackable one together (ADR 0004). */
+export interface PromotionOption {
+  /** 'stack', or the Exclusive Promotion's id: what the Cart sends back as the Order's choice. */
   key: string;
   kind: 'exclusive' | 'stack';
   promotions: { id: string; name_th: string; name_en: string | null }[];
-  /** What the whole Cart saves with this option (Discounts plus Gifts' worth), the other lines as chosen. */
+  /** What the whole Cart saves with this option (Discounts plus Gifts' worth). */
   saving: number;
+  /** It earned a Gift that none is Available of. */
+  gift_out?: boolean;
 }
 
 export interface PricedCart {
@@ -196,14 +199,14 @@ export interface PricedCart {
     promotion_id: string | null;
     /** Every Promotion this line used: one Exclusive, or the Stackable set. */
     promotion_ids?: string[];
-    /** The option the line was priced with: 'none', 'stack' or a Promotion id. */
-    option?: string;
-    /** The options to choose from, only when there are two or more. */
-    options?: LineOption[];
     /** Today's Available for the product (Cart preview only). */
     available?: number;
   }[];
   gifts: PricedGift[];
+  /** The option the whole Order is priced with ('stack' or a Promotion id), null with no Promotion to use. */
+  promotion_option?: string | null;
+  /** Every option the Order could use, with what each saves. */
+  promotion_options?: PromotionOption[];
   next_gifts?: { promotion_id: string; name_th: string; name_en: string | null; units_needed: number; gift_quantity: number }[];
   promotions_applied?: { id: string; name_th: string; name_en: string | null; units: number; discount_total: number }[];
   next_tiers?: {

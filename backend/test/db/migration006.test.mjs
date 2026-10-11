@@ -175,13 +175,19 @@ const history = async (id) => q(`SELECT kind, on_hand_delta, available_delta, on
   assert.deepEqual(await notesFor(auto.id), [['admin_confirmed_auto', boss], ['admin_confirmed_auto', helper], ['confirmed_auto', alice]]);
   const n = await one(`SELECT data FROM notifications WHERE order_id = $1 AND type = 'admin_confirmed_by_customer' LIMIT 1`, [byCustomer.id]);
   assert.equal(n.data.customer, 'Alice');
+  // The Owner's LINE claim: only the first of two confirm presses gets the row
+  const claim = `UPDATE orders SET received_notified_at = NOW() WHERE id = $1 AND status = 'confirmed' AND confirmed_by = 'customer' AND received_notified_at IS NULL RETURNING id`;
+  assert.equal((await q(claim, [byCustomer.id])).length, 1);
+  assert.equal((await q(claim, [byCustomer.id])).length, 0, 'a second press finds it already claimed');
+  assert.equal((await q(claim, [byAdmin.id])).length, 0, 'never for an Admin confirm');
   console.log('OK   006: Confirmed notifies Admins (customer), the customer (Admin), or both (auto)');
 }
 
 // ---- Promotion announcements ----
 {
   const promoNotes = async (id) => (await q(`SELECT type, count(*)::int AS n FROM notifications WHERE promotion_id = $1 GROUP BY type ORDER BY type`, [id])).map((r) => [r.type, r.n]);
-  const customers = (await one(`SELECT count(*)::int AS n FROM profiles WHERE role = 'user' AND deactivated_at IS NULL`)).n;
+  // Every active Member is told: Customers and Admins, never a deactivated one
+  const customers = (await one(`SELECT count(*)::int AS n FROM profiles WHERE deactivated_at IS NULL`)).n;
 
   const backfilled = await one(`SELECT count(*)::int AS n FROM promotions WHERE id = $1 AND previewed_at IS NOT NULL`, [oldPromo.id]);
   assert.equal(backfilled.n, 1, 'a Promotion announced under 005 is not announced again');
@@ -192,10 +198,10 @@ const history = async (id) => q(`SELECT kind, on_hand_delta, available_delta, on
 
   await db.query(`SELECT announce_promotions()`);
   await db.query(`SELECT announce_promotions()`);
-  assert.equal(customers, 2, 'two Customers to announce to');
-  assert.deepEqual(await promoNotes(future.id), [['promotion_new', customers]], 'coming: once, to every active Customer');
+  assert.equal(customers, 4, 'two Customers and two active Admins to announce to');
+  assert.deepEqual(await promoNotes(future.id), [['promotion_new', customers]], 'coming: once, to every active Member');
   const told = await q(`SELECT user_id FROM notifications WHERE promotion_id = $1 ORDER BY user_id`, [future.id]);
-  assert.deepEqual(told.map((r) => r.user_id), [alice, bea], 'each Customer gets their own; Admins do not');
+  assert.deepEqual(told.map((r) => r.user_id), [alice, boss, helper, bea], 'each Customer and active Admin gets their own; a deactivated Admin does not');
   assert.deepEqual(await promoNotes(today.id), [['promotion', customers]], 'starting today: only the start notification');
   assert.deepEqual(await promoNotes(off.id), [], 'switched off: not announced');
   assert.deepEqual(await promoNotes(oldPromo.id), []);
@@ -237,6 +243,37 @@ const history = async (id) => q(`SELECT kind, on_hand_delta, available_delta, on
     'INVALID_DISCOUNT'
   );
   console.log('OK   006: a line may use several Stackable Promotions; each is redeemed');
+}
+
+// ---- A paid order cancelled without a refund (refunds paused) ----
+{
+  const jelly = await product();
+  const paidOrder = async () => {
+    const o = await createOrder([{ product_id: jelly.id, quantity: 1 }]);
+    await db.query(`UPDATE orders SET status = 'waiting_shipping', paid_at = NOW() WHERE id = $1`, [o.id]);
+    return o;
+  };
+  const a = await paidOrder();
+  await expectError(() => db.query(`SELECT * FROM cancel_order($1, 'x')`, [a.id]), 'REFUND_REQUIRED');
+  const before = (await one(`SELECT available FROM products WHERE id = $1`, [jelly.id])).available;
+  const c = await one(`SELECT status, refunded_at FROM cancel_order($1, 'ด้วงป่วย', FALSE, TRUE)`, [a.id]);
+  assert.equal(c.status, 'cancelled');
+  assert.equal(c.refunded_at, null, 'the money is not marked refunded');
+  assert.equal((await one(`SELECT available FROM products WHERE id = $1`, [jelly.id])).available, before + 1, 'units come back');
+  console.log('OK   006: an Admin can cancel a paid order without a refund');
+}
+
+// ---- LINE Recipients ----
+{
+  const friend = 'U' + 'a'.repeat(32);
+  await db.query(`INSERT INTO line_contacts (line_user_id, display_name) VALUES ($1, 'Somchai')`, [friend]);
+  const c = await one(`SELECT receives_alerts, unfollowed_at FROM line_contacts WHERE line_user_id = $1`, [friend]);
+  assert.equal(c.receives_alerts, false, 'following alone never makes a recipient');
+  await expectError(() => db.query(`INSERT INTO line_contacts (line_user_id) VALUES ('C' || repeat('a', 32))`), 'line_contacts_line_user_id_check');
+  await db.exec(`SET ROLE authenticated`);
+  await expectError(() => db.query(`SELECT * FROM line_contacts`), 'permission denied');
+  await db.exec(`RESET ROLE`);
+  console.log('OK   006: LINE friends are stored off by default, users only, server-side only');
 }
 
 console.log('\nALL MIGRATION 006 TESTS PASSED');

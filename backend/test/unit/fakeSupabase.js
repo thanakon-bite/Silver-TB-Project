@@ -46,6 +46,12 @@ function createFake() {
       this.action = 'delete';
       return this;
     }
+    upsert(values, { onConflict = 'id' } = {}) {
+      this.action = 'upsert';
+      this.values = values;
+      this.key = onConflict;
+      return this;
+    }
     insert(values) {
       this.action = 'insert';
       this.values = values;
@@ -94,6 +100,14 @@ function createFake() {
       let data = hit;
       if (this.action === 'update') hit.forEach((r) => Object.assign(r, this.values));
       if (this.action === 'delete') tables[this.table] = rows.filter((r) => !hit.includes(r));
+      if (this.action === 'upsert') {
+        data = [].concat(this.values).map((v) => {
+          const row = rows.find((r) => r[this.key] === v[this.key]);
+          if (row) return Object.assign(row, v);
+          rows.push({ ...v });
+          return rows[rows.length - 1];
+        });
+      }
       if (this.action === 'insert') {
         data = [].concat(this.values);
         rows.push(...data);

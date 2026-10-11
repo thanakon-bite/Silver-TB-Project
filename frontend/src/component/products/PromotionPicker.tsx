@@ -48,8 +48,9 @@ const PromotionPicker: React.FC<{
   options: PickerOption[];
   value: string | null;
   onChange: (key: string) => void;
-  compact?: boolean;
-}> = ({ legend, name, options, value, onChange, compact = false }) => {
+  /** A line under the legend, e.g. that one pick covers the whole Order. */
+  hint?: string;
+}> = ({ legend, name, options, value, onChange, hint }) => {
   const { t, i18n } = useTranslation();
   const isThai = (i18n.language || 'th').startsWith('th');
   const choosing = options.length > 1;
@@ -59,9 +60,9 @@ const PromotionPicker: React.FC<{
   };
 
   return (
-    <fieldset className={`space-y-2 ${compact ? 'text-xs' : 'text-sm'}`}>
-      <legend className={`mb-1 font-medium text-ink ${compact ? '' : 'text-sm'}`}>{legend}</legend>
-      {choosing && !compact && <p className="-mt-1 mb-1 text-xs text-muted">{t('promotions.choose_hint')}</p>}
+    <fieldset className="space-y-2 text-sm">
+      <legend className="mb-1 font-medium text-ink">{legend}</legend>
+      {choosing && hint && <p className="-mt-1 mb-1 text-xs text-muted">{hint}</p>}
       {options.map((o) => {
         const picked = choosing && value === o.key;
         const body = (

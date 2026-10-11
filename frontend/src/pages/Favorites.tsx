@@ -13,7 +13,7 @@ import { primaryButtonInline } from '../component/ui/buttonStyles';
 const Favorites: React.FC = () => {
   const { t } = useTranslation();
   const { favorites } = useFavorites();
-  const { add, isJustAdded } = useAddToCart();
+  const { add, isJustAdded, isFull } = useAddToCart();
 
   const [products, setProducts] = React.useState<Record<string, ShopProduct> | null>(null);
   const [error, setError] = React.useState('');
@@ -59,7 +59,7 @@ const Favorites: React.FC = () => {
         ) : (
           <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
             {saved.map((p) => (
-              <ProductCard key={p.id} product={p} onAdd={add} justAdded={isJustAdded(p.id)} />
+              <ProductCard key={p.id} product={p} onAdd={add} justAdded={isJustAdded(p.id)} cartFull={isFull(p.id)} />
             ))}
           </div>
         )}

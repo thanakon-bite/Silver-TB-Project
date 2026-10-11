@@ -4,9 +4,9 @@ const { orderForViewer, ordersForCustomer } = require('../../src/lib/orderView')
 
 const order = () => ({
   id: 'o1', user_id: 'u1', status: 'awaiting_payment', total: 100,
-  admin_note: 'call the courier', needs_attention: true, admin_notified_at: '2026-10-11T00:00:00Z', client_request_id: 'r1',
+  admin_note: 'call the courier', needs_attention: true, admin_notified_at: '2026-10-11T00:00:00Z', received_notified_at: '2026-10-11T00:00:00Z', client_request_id: 'r1',
 });
-const ADMIN_ONLY = ['admin_note', 'needs_attention', 'admin_notified_at', 'client_request_id'];
+const ADMIN_ONLY = ['admin_note', 'needs_attention', 'admin_notified_at', 'received_notified_at', 'client_request_id'];
 
 test('a customer never sees admin-only fields and gets what they may do', () => {
   const seen = orderForViewer(order(), { id: 'u1', role: 'user' });

@@ -16,6 +16,96 @@ import { fieldClass, fieldLabel } from '../component/ui/fieldStyles';
 const sectionTitle = 'font-display text-xl font-bold text-ink';
 
 /**
+ * Change password: the current one is checked first. Forgot it? A reset link goes to the Member's own
+ * email, the same one "forgot password" on the login page sends. Feedback is inline (design.md).
+ */
+const PasswordSection: React.FC = () => {
+  const { t } = useTranslation();
+  const { user, changePassword, requestPasswordReset } = useAuth();
+  const [form, setForm] = useState({ current: '', next: '', again: '' });
+  const [status, setStatus] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (form.next.length < 8) return setStatus({ ok: false, text: t('login_page.err_password_short') });
+    if (form.next !== form.again) return setStatus({ ok: false, text: t('reset_page.err_mismatch') });
+    setSaving(true);
+    setStatus(null);
+    try {
+      await changePassword(form.current, form.next);
+      setForm({ current: '', next: '', again: '' });
+      setStatus({ ok: true, text: t('account_page.password_changed') });
+    } catch (err: any) {
+      setStatus({ ok: false, text: err?.code === 'WRONG_PASSWORD' ? t('account_page.wrong_password') : err?.message || t('login_page.err_generic') });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const sendReset = async () => {
+    if (!user?.email) return;
+    setStatus(null);
+    try {
+      await requestPasswordReset(user.email);
+      setStatus({ ok: true, text: t('account_page.reset_sent', { email: user.email }) });
+    } catch (err: any) {
+      setStatus({ ok: false, text: err?.message || t('login_page.err_generic') });
+    }
+  };
+
+  const field = (key: 'current' | 'next' | 'again', id: string, label: string, autoComplete: string) => (
+    <div>
+      <label htmlFor={id} className={fieldLabel}>
+        {label}
+      </label>
+      <input
+        id={id}
+        type="password"
+        autoComplete={autoComplete}
+        className={fieldClass()}
+        value={form[key]}
+        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        required
+      />
+    </div>
+  );
+
+  return (
+    <form onSubmit={submit} aria-labelledby="password-title" className="grid gap-6 border-b border-line py-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
+      <div>
+        <h2 id="password-title" className={sectionTitle}>
+          {t('account_page.password_title')}
+        </h2>
+        <p className="mt-1 text-sm text-muted">{t('account_page.password_text')}</p>
+      </div>
+      <div className="max-w-xl space-y-4">
+        {field('current', 'acc-current-password', t('account_page.current_password'), 'current-password')}
+        <div className="grid gap-4 sm:grid-cols-2">
+          {field('next', 'acc-new-password', t('reset_page.new_password'), 'new-password')}
+          {field('again', 'acc-confirm-password', t('reset_page.confirm_password'), 'new-password')}
+        </div>
+        <p className="text-xs text-muted">{t('login_page.password_hint')}</p>
+        {status &&
+          (status.ok ? (
+            <Notice icon={<CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />}>{status.text}</Notice>
+          ) : (
+            <ErrorBox>{status.text}</ErrorBox>
+          ))}
+        <div className="flex flex-wrap items-center gap-4">
+          <button disabled={saving} className={primaryButtonInline}>
+            {saving ? t('login_page.wait') : t('account_page.password_title')}
+          </button>
+          <button type="button" onClick={sendReset} className={`${textLink} text-sm`}>
+            {t('account_page.forgot_current')}
+          </button>
+        </div>
+      </div>
+    </form>
+  );
+};
+
+/**
  * One saved address. Deleting is confirmed in place (design.md: destructive actions never use a popup),
  * with focus on the safe choice.
  */
@@ -224,6 +314,8 @@ const Account: React.FC = () => {
           </button>
         </div>
       </form>
+
+      <PasswordSection />
 
       <section className="grid gap-6 py-8 lg:grid-cols-[16rem_minmax(0,1fr)]">
         <div>

@@ -54,6 +54,14 @@ test('when no gift is Available the order still goes through without it', () => 
   assert.equal(r.gifts[0].quantity, 0);
   assert.deepEqual(r.redeem, [], 'nothing given, nothing redeemed');
   assert.equal(r.total, 100);
+  // Its card says the Gift ran out, not that the Order has not reached it
+  assert.deepEqual(r.promotion_options.map((o) => [o.key, o.saving, o.gift_out]), [['g1', 0, true]]);
+});
+
+test('an option whose Gift is still in stock, or not yet earned, is not marked out', () => {
+  assert.equal(priceCart({ lines: [line('jelly', 50, 2)], promotions: [giftPromo()], giftProducts }).promotion_options[0].gift_out, false);
+  const none = { sticker: { ...giftProducts.sticker, available: 0 }, spoon: { ...giftProducts.spoon, available: 0 } };
+  assert.equal(priceCart({ lines: [line('jelly', 50, 1)], promotions: [giftPromo()], giftProducts: none }).promotion_options[0].gift_out, false);
 });
 
 test('gifts never count towards the Shipping Fee', () => {
@@ -85,9 +93,9 @@ test('a Promotion may give a gift with no discount, and needs gift products when
   assert.match(validatePromotion({ ...base }).reason, /discount or a gift/);
 });
 
-test('two Promotions giving the same gift product give one gift line each, sharing its Available', () => {
-  const a = giftPromo({ id: 'gA', product_ids: ['jelly'], gift_every: 1, gift_product_ids: ['sticker'] });
-  const b = giftPromo({ id: 'gB', product_ids: ['log'], gift_every: 1, gift_product_ids: ['sticker'] });
+test('two Stackable Promotions giving the same gift product give one gift line each, sharing its Available', () => {
+  const a = giftPromo({ id: 'gA', product_ids: ['jelly'], gift_every: 1, gift_product_ids: ['sticker'], stacking: 'stackable' });
+  const b = giftPromo({ id: 'gB', product_ids: ['log'], gift_every: 1, gift_product_ids: ['sticker'], stacking: 'stackable' });
   const few = { sticker: { ...giftProducts.sticker, available: 3 } };
   const r = priceCart({ lines: [line('jelly', 50, 2), line('log', 80, 2)], promotions: [a, b], giftProducts: few });
   const given = r.gifts.map((g) => [g.promotion_id, g.product_id, g.quantity]).sort();

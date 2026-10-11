@@ -1,10 +1,11 @@
 /**
  * LINE Messaging API — server-side only. The channel access token / secret never leave the backend.
  *
- * Paid-order alerts contain customer PII, so recipients come ONLY from env vars
- * (docs/adr/0002-line-target-from-env-only.md):
+ * Paid-order alerts contain customer PII, so recipients are only ones the shop chose
+ * (docs/adr/0002-line-target-from-env-only.md, amended):
  *   LINE_OWNER_USER_ID     — the shop owner's LINE user ID ("U…", LINE Developers → Basic settings)
  *   LINE_ADMIN_TARGET_IDS  — optional extra user/group IDs, comma-separated
+ *   LINE Recipients        — friends of the Official Account an Admin ticked (services/lineContacts.js)
  */
 const crypto = require('crypto');
 const axios = require('axios');
@@ -26,12 +27,54 @@ function verifySignature(rawBody, signature, secret = process.env.LINE_CHANNEL_S
   return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
+/** Who order alerts go to: the env ids, then the LINE Recipients an Admin ticked. */
 async function getAdminTargets() {
-  const ids = [process.env.LINE_OWNER_USER_ID, ...(process.env.LINE_ADMIN_TARGET_IDS || '').split(',')]
+  const envIds = [process.env.LINE_OWNER_USER_ID, ...(process.env.LINE_ADMIN_TARGET_IDS || '').split(',')]
     .map((s) => (s || '').trim())
     .filter(Boolean);
-  const targets = [...new Set(ids)];
-  return { source: targets.length ? 'env' : 'none', targets };
+  let picked = [];
+  try {
+    // Required here, not at the top: lineContacts itself uses this module
+    picked = await require('../services/lineContacts').recipientIds();
+  } catch (err) {
+    // The env Owner still gets the alert when the list can't be read (e.g. 006 not run yet)
+    console.error('LINE Recipients could not be read:', err.message);
+  }
+  const targets = [...new Set([...envIds, ...picked])];
+  return { source: targets.length ? 'env' : 'none', targets, envTargets: [...new Set(envIds)], picked };
+}
+
+/**
+ * Every user following the Official Account. LINE serves this only to verified or premium accounts;
+ * others get a 403, which the caller turns into words.
+ */
+async function getFollowerIds() {
+  const ids = [];
+  let start;
+  do {
+    const { data } = await axios.get('https://api.line.me/v2/bot/followers/ids', {
+      timeout: 10_000,
+      params: { limit: 1000, ...(start ? { start } : {}) },
+      headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` },
+    });
+    ids.push(...(data.userIds || []));
+    start = data.next;
+  } while (start);
+  return ids;
+}
+
+/** A friend's LINE name and picture, or null when LINE does not know them. */
+async function getProfile(userId) {
+  try {
+    const { data } = await axios.get(`https://api.line.me/v2/bot/profile/${encodeURIComponent(userId)}`, {
+      timeout: 10_000,
+      headers: { Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` },
+    });
+    return data;
+  } catch (err) {
+    if (err.response?.status === 404) return null;
+    throw err;
+  }
 }
 
 async function pushMessage(to, messages) {
@@ -103,6 +146,8 @@ module.exports = {
   buildOrderReceivedMessage,
   verifySignature,
   getAdminTargets,
+  getProfile,
+  getFollowerIds,
   pushToAdmins,
   buildOrderPaidMessage,
   baht,

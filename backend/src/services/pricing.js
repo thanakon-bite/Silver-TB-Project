@@ -38,7 +38,7 @@ async function saveShippingRule(rule) {
  * Prices cart items [{ product_id, quantity }] for a Customer with today's prices, Shipping Rule and
  * Promotions (and that Customer's Redemptions). Unknown or inactive products are refused, as create_order would.
  */
-async function priceItems(items, userId = null, giftChoices = {}, promotionChoices = {}) {
+async function priceItems(items, userId = null, giftChoices = {}, promotionChoice = null) {
   const ids = [...new Set(items.map((i) => i.product_id))];
   const [products, shippingRule, active] = await Promise.all([
     supabase.from('products').select('id, name, name_th, price, available, is_active, images').in('id', ids),
@@ -65,7 +65,7 @@ async function priceItems(items, userId = null, giftChoices = {}, promotionChoic
   }
 
   const redemptions = userId ? await promotions.redemptionsFor(userId, active.map((p) => p.id)) : {};
-  const priced = priceCart({ lines, shippingRule, fallbackFee: FALLBACK_SHIPPING_FEE, promotions: active, redemptions, giftProducts, giftChoices, promotionChoices });
+  const priced = priceCart({ lines, shippingRule, fallbackFee: FALLBACK_SHIPPING_FEE, promotions: active, redemptions, giftProducts, giftChoices, promotionChoice });
   // Each line carries today's Available so the Cart can keep its quantities within it
   const lines_ = priced.lines.map((l) => ({ ...l, available: Math.max(0, Number(byId[l.product_id].available || 0)) }));
   return { ...priced, lines: lines_, shipping_rule: shippingRule };

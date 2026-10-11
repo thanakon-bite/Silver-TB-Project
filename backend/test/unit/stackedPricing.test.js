@@ -26,7 +26,7 @@ test('Stackable Promotions combine: percentages compound on the reduced price, t
   });
   // 100 → −10% = 90 → −5% = 85.5 → −฿20 = 65.5
   assert.equal(r.lines[0].unit_price, 65.5);
-  assert.equal(r.lines[0].option, 'stack');
+  assert.equal(r.promotion_option, 'stack');
   assert.deepEqual(r.lines[0].promotion_ids, ['a', 'b', 'c']);
   assert.deepEqual([...r.redeem].sort(), ['a', 'b', 'c'], 'one Redemption per Promotion used');
   assert.deepEqual(
@@ -44,39 +44,67 @@ test('a stack never takes a unit below zero', () => {
   assert.equal(r.discount_total, 60);
 });
 
-test('an Exclusive Promotion is never combined; the line gets whichever option saves more', () => {
+test('an Exclusive Promotion is never combined; the Order gets whichever option saves more', () => {
   const stackSmall = [promo('a', [pct(5)], { stacking: 'stackable' }), promo('b', [pct(5)], { stacking: 'stackable' })];
   let r = priceCart({ lines: [line('jelly', 100, 1)], promotions: [promo('x', [pct(20)]), ...stackSmall] });
-  assert.equal(r.lines[0].option, 'x');
+  assert.equal(r.promotion_option, 'x');
   assert.equal(r.lines[0].unit_price, 80);
   assert.deepEqual(r.redeem, ['x']);
 
   r = priceCart({ lines: [line('jelly', 100, 1)], promotions: [promo('x', [pct(8)]), ...stackSmall] });
-  assert.equal(r.lines[0].option, 'stack', '5% then 5% (9.75) beats 8%');
+  assert.equal(r.promotion_option, 'stack', '5% then 5% (9.75) beats 8%');
   assert.equal(r.lines[0].unit_price, 90.25);
 });
 
-test('the Cart lists every option of a line with what it would save, and honours the Customer\'s pick', () => {
+test('the Cart lists every option of the Order with what it would save, and honours the Customer\'s pick', () => {
   const promotions = [promo('x', [pct(20)]), promo('a', [pct(5)], { stacking: 'stackable' }), promo('b', [pct(5)], { stacking: 'stackable' })];
   let r = priceCart({ lines: [line('jelly', 100, 1)], promotions });
   assert.deepEqual(
-    r.lines[0].options.map((o) => [o.key, o.saving]),
-    [['x', 20], ['stack', 9.75]]
+    r.promotion_options.map((o) => [o.key, o.kind, o.saving]),
+    [['x', 'exclusive', 20], ['stack', 'stack', 9.75]]
   );
-  assert.deepEqual(r.lines[0].options[1].promotions.map((p) => p.id), ['a', 'b']);
+  assert.deepEqual(r.promotion_options[1].promotions.map((p) => p.id), ['a', 'b']);
 
-  r = priceCart({ lines: [line('jelly', 100, 1)], promotions, promotionChoices: { jelly: 'stack' } });
-  assert.equal(r.lines[0].option, 'stack');
+  r = priceCart({ lines: [line('jelly', 100, 1)], promotions, promotionChoice: 'stack' });
+  assert.equal(r.promotion_option, 'stack');
   assert.equal(r.lines[0].unit_price, 90.25);
 
   // A pick that is no longer on offer falls back to the best option
-  r = priceCart({ lines: [line('jelly', 100, 1)], promotions, promotionChoices: { jelly: 'gone' } });
-  assert.equal(r.lines[0].option, 'x');
+  r = priceCart({ lines: [line('jelly', 100, 1)], promotions, promotionChoice: 'gone' });
+  assert.equal(r.promotion_option, 'x');
 });
 
-test('a line with a single Promotion option gets no radio list', () => {
-  const r = priceCart({ lines: [line('jelly', 100, 1)], promotions: [promo('x', [pct(20)])] });
-  assert.deepEqual(r.lines[0].options, []);
+test('one option covers the whole Order: products the picked Promotion does not cover pay the normal price', () => {
+  const onJelly = promo('jellyDeal', [pct(10)], { applies_to_all: false, product_ids: ['jelly'] });
+  const onLog = promo('logDeal', [pct(50)], { applies_to_all: false, product_ids: ['log'] });
+  // Best: 50% on the ฿300 log (150) over 10% on the ฿100 jelly (10); the jelly pays full price
+  let r = priceCart({ lines: [line('jelly', 100, 1), line('log', 300, 1)], promotions: [onJelly, onLog] });
+  assert.equal(r.promotion_option, 'logDeal');
+  assert.deepEqual(r.lines.map((l) => [l.product_id, l.unit_price, l.promotion_id]), [['jelly', 100, null], ['log', 150, 'logDeal']]);
+  assert.deepEqual(r.redeem, ['logDeal'], 'only the picked Promotion is redeemed');
+
+  r = priceCart({ lines: [line('jelly', 100, 1), line('log', 300, 1)], promotions: [onJelly, onLog], promotionChoice: 'jellyDeal' });
+  assert.deepEqual(r.lines.map((l) => [l.product_id, l.unit_price]), [['jelly', 90], ['log', 300]]);
+  assert.deepEqual(r.redeem, ['jellyDeal']);
+});
+
+test('the "buy N more" hints are only for the Promotions of the option in use', () => {
+  const tenFor10 = promo('bulk', [pct(5, 10)]);
+  const gift3 = promo('gift', [], { gift_every: 3, gift_quantity: 1, gift_product_ids: ['spoon'] });
+  const giftProducts = { spoon: { name: 'Spoon', price: 10, available: 5 } };
+  let r = priceCart({ lines: [line('jelly', 100, 2)], promotions: [tenFor10, gift3], giftProducts, promotionChoice: 'gift' });
+  assert.deepEqual(r.next_tiers, []);
+  assert.deepEqual(r.next_gifts.map((h) => [h.promotion_id, h.units_needed]), [['gift', 1]]);
+
+  r = priceCart({ lines: [line('jelly', 100, 2)], promotions: [tenFor10, gift3], giftProducts, promotionChoice: 'bulk' });
+  assert.deepEqual(r.next_tiers.map((h) => [h.promotion_id, h.units_needed]), [['bulk', 8]]);
+  assert.deepEqual(r.next_gifts, []);
+});
+
+test('with no Promotion to use, the Order has no option', () => {
+  const r = priceCart({ lines: [line('jelly', 100, 1)], promotions: [] });
+  assert.equal(r.promotion_option, null);
+  assert.deepEqual(r.promotion_options, []);
 });
 
 test('a used-up Promotion drops out of the stack; the others still apply', () => {

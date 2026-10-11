@@ -121,24 +121,35 @@ function giftPlan(promo, units, { giftProducts, giftChoices, paidQty }) {
   };
 }
 
-/** A Promotion that combines with the other Stackable ones on a line (ADR 0004); anything else applies alone. */
+/** A Promotion that combines with the other Stackable ones (ADR 0004); anything else applies alone. */
 const isStackable = (p) => p.stacking === 'stackable';
 
 /**
- * What a line may get (CONTEXT.md: Stackable, Exclusive): nothing, one Exclusive Promotion, or every
- * Stackable Promotion that covers it together. An option is null | { kind: 'exclusive', promo } | { kind: 'stack', promos }.
+ * What the Order may use (CONTEXT.md: Stackable, Exclusive; ADR 0004): one Exclusive Promotion, or every
+ * Stackable Promotion together. One option covers the whole Order; a product it does not cover pays the
+ * normal price. An option is { kind: 'exclusive', promo } | { kind: 'stack', promos }.
  */
-function lineOptions(line, promotions) {
-  const covering = promotions.filter((p) => covers(p, line.product_id));
-  const options = [null, ...covering.filter((p) => !isStackable(p)).map((promo) => ({ kind: 'exclusive', promo }))];
-  const stack = covering.filter(isStackable).sort((a, b) => String(a.id).localeCompare(String(b.id)));
-  if (stack.length) options.push({ kind: 'stack', promos: stack });
-  return options;
+function orderOptions(promotions) {
+  const stack = promotions.filter(isStackable).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  return [
+    ...promotions.filter((p) => !isStackable(p)).map((promo) => ({ kind: 'exclusive', promo })),
+    ...(stack.length ? [{ kind: 'stack', promos: stack }] : []),
+  ];
+}
+
+/** Each line's share of an Order option: the option's Promotions that cover that product, or nothing. */
+function lineShares(priced, option) {
+  return priced.map((l) => {
+    if (!option) return null;
+    if (option.kind === 'exclusive') return covers(option.promo, l.product_id) ? option : null;
+    const mine = option.promos.filter((p) => covers(p, l.product_id));
+    return mine.length ? { kind: 'stack', promos: mine } : null;
+  });
 }
 
 const optionPromos = (o) => (!o ? [] : o.kind === 'stack' ? o.promos : [o.promo]);
-/** How the Cart and checkout name an option: 'none', 'stack', or the Exclusive Promotion's id. */
-const optionKey = (o) => (!o ? 'none' : o.kind === 'stack' ? 'stack' : o.promo.id);
+/** How the Cart and checkout name an option: 'stack', or the Exclusive Promotion's id. */
+const optionKey = (o) => (!o ? null : o.kind === 'stack' ? 'stack' : o.promo.id);
 
 /**
  * One unit's discount from these Promotions at the tiers they reached: percentages one after another on
@@ -159,7 +170,7 @@ function stackedDiscount(promos, reached, unit) {
 }
 
 /**
- * What one option per line is worth. A Promotion's tier counts the units of every line using it;
+ * What one share per line is worth. A Promotion's tier counts the units of every line using it;
  * Gifts take Available in Promotion order, so two Promotions giving the same product share it.
  */
 function evaluate(priced, choice, promotions, giftCtx) {
@@ -189,64 +200,21 @@ function evaluate(priced, choice, promotions, giftCtx) {
 
 const better = (a, b) => !b || a.saving > b.saving || (a.saving === b.saving && a.used < b.used);
 
-/** Above this many combinations the search falls back to greedy: biggest saving first, then the rest. */
-const MAX_COMBINATIONS = 20000;
-
-/**
- * The option per line that saves the Customer the most in total, Gifts counted at their price; on a
- * tie, the one that redeems fewer Promotions. options[i] lists line i's options (just one when the Customer chose).
- */
-function bestChoice(priced, options, promotions, giftCtx) {
-  const combinations = options.reduce((n, o) => n * o.length, 1);
-  let best = null;
-  if (combinations <= MAX_COMBINATIONS) {
-    const choice = new Array(priced.length).fill(null);
-    const walk = (i) => {
-      if (i === priced.length) {
-        const e = evaluate(priced, choice, promotions, giftCtx);
-        if (better(e, best)) best = e;
-        return;
-      }
-      for (const o of options[i]) {
-        choice[i] = o;
-        walk(i + 1);
-      }
-    };
-    walk(0);
-    return best;
-  }
-  // Greedy: each step gives one Promotion to every line still free that can take it
-  const choice = options.map((o) => (o.length === 1 ? o[0] : null));
-  best = evaluate(priced, choice, promotions, giftCtx);
-  for (let remaining = [...promotions]; remaining.length; ) {
-    let step = null;
-    for (const p of remaining) {
-      const trial = choice.map((c, i) => c || options[i].find((o) => optionPromos(o).includes(p)) || null);
-      const e = evaluate(priced, trial, promotions, giftCtx);
-      if (e.saving > best.saving && (!step || e.saving > step.e.saving)) step = { p, trial, e };
-    }
-    if (!step) break;
-    step.trial.forEach((c, i) => (choice[i] = c));
-    best = step.e;
-    remaining = remaining.filter((p) => p !== step.p);
-  }
-  return best;
-}
-
 /**
  * @param {{ lines: { product_id: string, name: string, unit_price: number, quantity: number }[],
  *           shippingRule?: object|null, fallbackFee?: number,
  *           promotions?: object[], redemptions?: Record<string, { mine: number, customers: number, counted: boolean }>,
  *           giftProducts?: Record<string, { name: string, name_th?: string, price: number, available: number }>,
- *           giftChoices?: Record<string, string>, promotionChoices?: Record<string, string> }} input
+ *           giftChoices?: Record<string, string>, promotionChoice?: string|null }} input
  *
- * Promotions (CONTEXT.md): applied automatically; units of all products a Promotion covers count
- * together and only the highest tier reached applies. Each line gets one Exclusive Promotion or all its
- * Stackable ones together (ADR 0004): the option that saves the whole Cart the most, counting a Gift at
- * its price, unless the Customer picked another (promotionChoices: product_id → 'none' | 'stack' | Promotion id),
- * which is honoured while it is still on offer. Gifts are free and never count towards the Shipping Fee.
+ * Promotions (CONTEXT.md): units of all products a Promotion covers count together and only the highest
+ * tier reached applies. The whole Order uses one option (ADR 0004): one Exclusive Promotion or every
+ * Stackable one together; products it does not cover pay the normal price. It is the option that saves
+ * the most, counting a Gift at its price, unless the Customer picked another (promotionChoice: 'stack' |
+ * Promotion id), which is honoured while it is still on offer. Gifts are free and never count towards
+ * the Shipping Fee.
  */
-function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [], redemptions = {}, giftProducts = {}, giftChoices = {}, promotionChoices = {} }) {
+function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [], redemptions = {}, giftProducts = {}, giftChoices = {}, promotionChoice = null }) {
   const priced = lines.map((l) => {
     const unit = toSatang(l.unit_price);
     return { product_id: l.product_id, name: l.name, quantity: l.quantity, list: unit, discount: 0, promotion_ids: [] };
@@ -263,31 +231,12 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
     else usable.push(p);
   }
 
-  // Each line's options; a choice the Customer made is kept while it is still on offer
-  const allOptions = priced.map((l) => lineOptions(l, usable));
-  const searchOptions = allOptions.map((opts, i) => {
-    const wanted = promotionChoices?.[priced[i].product_id];
-    const picked = wanted ? opts.filter((o) => optionKey(o) === wanted) : [];
-    return picked.length ? picked : opts;
-  });
-  const best = bestChoice(priced, searchOptions, usable, giftCtx);
-
-  // What each option of a line saves the whole Cart, the other lines as chosen: the Cart's radio list.
-  // Only lines with a real choice (two or more Promotion options) get one.
-  const optionsOf = (i) =>
-    allOptions[i].filter(Boolean).length < 2
-      ? []
-      : allOptions[i].filter(Boolean).map((o) => {
-          const trial = [...best.choice];
-          trial[i] = o;
-          const e = evaluate(priced, trial, usable, giftCtx);
-          return {
-            key: optionKey(o),
-            kind: o.kind,
-            promotions: optionPromos(o).map((p) => ({ id: p.id, name_th: p.name_th, name_en: p.name_en })),
-            saving: toBaht(e.saving),
-          };
-        });
+  // Each option priced for the whole Order; the Customer's pick is kept while it is still on offer
+  const options = orderOptions(usable).map((o) => ({ o, e: evaluate(priced, lineShares(priced, o), usable, giftCtx) }));
+  const picked = options.find((x) => optionKey(x.o) === promotionChoice);
+  const chosen = picked || options.reduce((top, x) => (better(x.e, top?.e) ? x : top), null);
+  const best = chosen ? chosen.e : evaluate(priced, lineShares(priced, null), usable, giftCtx);
+  const chosenPromos = chosen ? optionPromos(chosen.o) : [];
 
   // A Promotion is redeemed when it took money off or gave a Gift
   const gave = (g) => g.discount > 0 || Boolean(g.gift && g.gift.quantity > 0);
@@ -308,23 +257,11 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
     if (g.gift && g.gift.earned > 0 && (g.value > 0 || g.gift.quantity === 0)) gifts.push(giftEntry(g.p, g.gift));
   }
 
-  // Earned Gifts that could not be given (none Available) are still shown, as "out of stock"
-  const finalCtx = { ...giftCtx, paidQty: best.paidQty };
-  const free = (l, i) => !best.choice[i];
-  for (const p of usable) {
-    if (best.groups.some((g) => g.p === p)) continue;
-    const units = priced.filter((l, i) => free(l, i) && covers(p, l.product_id)).reduce((n, l) => n + l.quantity, 0);
-    const gift = giftPlan(p, units, finalCtx);
-    if (gift && gift.earned > 0 && gift.quantity === 0) gifts.push(giftEntry(p, gift));
-  }
-
-  // "Buy N more" hints, for every usable Promotion that covers something in the Cart
+  // "Buy N more" hints, only for the Promotions of the option the Order uses
   const next_tiers = [];
   const next_gifts = [];
-  for (const p of usable) {
-    const units = priced
-      .filter((l, i) => covers(p, l.product_id) && (free(l, i) || optionPromos(best.choice[i]).includes(p)))
-      .reduce((n, l) => n + l.quantity, 0);
+  for (const p of chosenPromos) {
+    const units = priced.filter((l) => covers(p, l.product_id)).reduce((n, l) => n + l.quantity, 0);
     if (!units) continue;
     const { next } = tierFor(p, units);
     if (next) next_tiers.push({ promotion_id: p.id, name_th: p.name_th, name_en: p.name_en, units_needed: next.min_units - units, tier: next });
@@ -339,7 +276,7 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
   const shipping = shippingFeeSatang(shippingRule, paidUnits, itemTotal, fallbackFee);
 
   return {
-    lines: priced.map((l, i) => ({
+    lines: priced.map((l) => ({
       product_id: l.product_id,
       name: l.name,
       quantity: l.quantity,
@@ -349,8 +286,16 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
       line_total: toBaht((l.list - l.discount) * l.quantity),
       promotion_id: l.promotion_ids[0] || null,
       promotion_ids: l.promotion_ids,
-      option: optionKey(best.choice[i]),
-      options: optionsOf(i),
+    })),
+    // The Order's option and every one it could use instead, with what each saves: the Cart's cards
+    promotion_option: chosen ? optionKey(chosen.o) : null,
+    promotion_options: options.map(({ o, e }) => ({
+      key: optionKey(o),
+      kind: o.kind,
+      promotions: optionPromos(o).map((p) => ({ id: p.id, name_th: p.name_th, name_en: p.name_en })),
+      saving: toBaht(e.saving),
+      // It earned a Gift that none is Available of, so its card can say why it saves nothing
+      gift_out: e.groups.some((g) => Boolean(g.gift && g.gift.earned > 0 && g.gift.quantity === 0)),
     })),
     gifts,
     promotions_applied: applied.filter((a) => redeem.includes(a.id)),

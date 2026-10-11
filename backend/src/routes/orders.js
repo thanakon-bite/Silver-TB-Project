@@ -69,7 +69,7 @@ router.post(
 
     const shipping = await resolveShipping(req);
     // Priced with today's prices and Shipping Rule; the order keeps this fee even if the rule changes later
-    const priced = await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices), v.promotionChoices(req.body.promotion_choices));
+    const priced = await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices), v.promotionChoice(req.body.promotion_choice));
     const payable = checkPayableTotal(priced.total);
     if (!payable.ok) throw badRequest(payable.reason, payable.code);
     await orders.releaseOtherPendingOrders(req.user.id, requestId);
@@ -106,7 +106,7 @@ router.post(
   authenticate,
   asyncHandler(async (req, res) => {
     const items = v.cartItems(req.body.items);
-    res.json(await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices), v.promotionChoices(req.body.promotion_choices)));
+    res.json(await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices), v.promotionChoice(req.body.promotion_choice)));
   })
 );
 
@@ -224,7 +224,7 @@ router.patch(
     if (!check.ok) throw conflict(check.reason, 'INVALID_TRANSITION');
 
     if (next === 'cancelled') {
-      if (check.refund) await orders.refundAndCancel(order, reason);
+      if (check.paid) await orders.cancelPaidOrder(order, reason);
       else if (order.refunded_at) unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason, p_refunded: true }));
       else await orders.cancelUnpaidOrder(order, reason);
       return res.json(orderForViewer(await fetchOrder(order.id, req.user), req.user));

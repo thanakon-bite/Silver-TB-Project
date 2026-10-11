@@ -4,7 +4,7 @@
  */
 const { orderActions } = require('./orderStatus');
 
-const ADMIN_ONLY_FIELDS = ['admin_note', 'needs_attention', 'admin_notified_at', 'client_request_id'];
+const ADMIN_ONLY_FIELDS = ['admin_note', 'needs_attention', 'admin_notified_at', 'received_notified_at', 'client_request_id'];
 
 function withoutAdminFields(order) {
   const rest = { ...order };

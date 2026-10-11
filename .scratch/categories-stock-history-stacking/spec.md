@@ -73,7 +73,7 @@
 - หน้า Rules แสดงขั้น Discount เป็น Tag เช่น "1+ ชิ้น −5%", "3+ ชิ้น −10%"
 - ฟอร์มมีตัวเลือก ใช้ร่วมกับโปรโมชั่นอื่นได้ (Stackable) / ใช้ได้เฉพาะโปรโมชั่นเดียว (Exclusive) ค่าเริ่มต้นเป็น Exclusive
 - แจ้งลูกค้าทุกคนเมื่อประกาศโปร (บอกช่วงวันที่) และอีกครั้งเมื่อโปรเริ่ม ถ้าสองวันนี้ตรงกันแจ้งครั้งเดียว
-- Order line ได้ Exclusive 1 ตัว หรือ Stackable ทุกตัวรวมกัน ตะกร้าเลือกแบบที่คุ้มที่สุดไว้ให้ ลูกค้าเปลี่ยนเป็นตัวเลือกอื่นแบบ radio ได้
+- Order ทั้งออเดอร์ใช้ตัวเลือกเดียว: Exclusive 1 ตัว หรือ Stackable ทุกตัวรวมกัน สินค้าที่ตัวเลือกนั้นไม่คลุมจ่ายราคาปกติ ตะกร้าเลือกแบบที่คุ้มที่สุดกับทั้งออเดอร์ไว้ให้ ลูกค้าเปลี่ยนได้ครั้งเดียวสำหรับทั้งออเดอร์ ที่หน้า Cart (`/cart`) หรือในหน้าสินค้า (แก้ 2026-10-11 ตาม ADR 0004)
 - ป้ายบนการ์ดแสดง Best Promotion
 - โปรที่ลูกค้าใช้สิทธิ์ไม่ได้แล้วจะไม่แสดงและไม่ถูกใช้
 - ตารางแจ้งเตือนมีคอลัมน์ promotion ที่ผูก FK
@@ -171,14 +171,14 @@
 74. As a deactivated Member, I want no Promotion Notifications, so that a closed account stays quiet.
 
 ### Promotions: pricing and choice
-75. As a Customer, I want every Stackable Promotion covering a line applied together, so that I get all offers the shop allows to combine.
+75. As a Customer, I want every Stackable Promotion covering a product applied together when my Order uses the Stackable option, so that I get all offers the shop allows to combine.
 76. As a Customer, I want stacked percentage Discounts applied one after another to the reduced price, so that the result is predictable.
 77. As a Customer, I want a unit price never to go below zero, so that stacked baht Discounts can't make the shop pay me.
-78. As a Customer, I want the Cart to pre-select the option worth most on each line, so that I get the best deal without thinking.
-79. As a Customer, I want to choose another option on a line with a radio list (each Exclusive Promotion, or the Stackable set), so that I can pick a Gift I prefer over a Discount.
-80. As a Customer, I want the radio list shown only when a line has more than one option, so that simple lines stay simple.
-81. As a Customer, I want each radio option to show how much it saves or what it gives, so that I can compare.
-82. As a Customer, I want my choice remembered in the Cart and honoured at checkout, so that the price I saw is the price I pay.
+78. As a Customer, I want the Cart to pre-select the option worth most to my whole Order (Gifts counted at their price), so that I get the best deal without thinking.
+79. As a Customer, I want to choose another option once for the whole Order (each Exclusive Promotion, or the Stackable set) on the Cart page or a product page, so that I can pick a Gift I prefer over a Discount. Products the option does not cover pay the normal price.
+80. As a Customer, I want the option cards shown only when my Order has more than one option, so that simple Carts stay simple.
+81. As a Customer, I want each option card to show how much it saves or what it gives, so that I can compare.
+82. As a Customer, I want my choice remembered with my Cart and honoured at checkout, so that the price I saw is the price I pay.
 83. As a Customer, I want the server to re-check my choice at checkout and fall back to the best option if it is no longer valid, so that an expired Promotion can't break my Order.
 84. As a Customer, I want every Gift of every applied Promotion, so that stacked Gifts are honoured.
 85. As a Customer, I want one Redemption counted per Promotion my Order uses, so that caps are fair however many lines share it.
@@ -240,12 +240,12 @@
 - **Stock API:**
   - `POST /products/:id/stock` เปลี่ยน body เป็น `{ on_hand, note? }` และคืน product ที่อัปเดตแล้ว
   - เพิ่ม `GET /products/:id/stock-history?page=` (เฉพาะ Admin) คืน Stock Change พร้อม Order Number และชื่อผู้ทำรายการ
-- **Pricing module (seam หลัก):** เปลี่ยน "choice" ของแต่ละ line จาก promotion id เดียวเป็น option ของ line ซึ่งมี 2 แบบ: `{ kind: 'exclusive', promotion_id }` หรือ `{ kind: 'stack' }`
-  - **options ของ line:** Exclusive แต่ละตัวที่คลุมสินค้านั้นและลูกค้ายังใช้สิทธิ์ได้ บวกชุด stack 1 ชุด (ถ้ามี Stackable อย่างน้อย 1 ตัว)
+- **Pricing module (seam หลัก):** เปลี่ยน "choice" จาก promotion id ต่อ line เป็น option เดียวของทั้ง Order (`priceCart({ promotionChoice })`) ซึ่งมี 2 แบบ: `{ kind: 'exclusive', promotion_id }` หรือ `{ kind: 'stack' }` (แก้ 2026-10-11: เดิมเป็นต่อ line)
+  - **options ของ Order:** Exclusive แต่ละตัวที่คลุมสินค้าอย่างน้อย 1 ตัวในตะกร้าและลูกค้ายังใช้สิทธิ์ได้ บวกชุด stack 1 ชุด (ถ้ามี Stackable อย่างน้อย 1 ตัว) สินค้าที่ option ไม่คลุมคิดราคาปกติ
   - **การคิด stack:** แต่ละ Stackable ยังนับ tier จากจำนวนหน่วยรวมของสินค้าทุกตัวที่โปรนั้นคลุม เหมือนเดิม ส่วนลดเปอร์เซ็นต์คูณต่อกัน เรียงลำดับคงที่ตาม promotion id เพื่อให้ผลไม่ขึ้นกับลำดับ ส่วนลดบาทหักทีหลัง ราคาต่อหน่วยไม่ต่ำกว่า 0 และของแถมของทุกโปรได้ครบ
-  - **ผลลัพธ์ต่อ line:** options ทั้งหมดพร้อมมูลค่าที่ประหยัด / ของแถม, option ที่ถูกเลือก และ option ที่ดีที่สุด
+  - **ผลลัพธ์:** `promotion_options` (ทุก option ของ Order พร้อมมูลค่าที่ประหยัด / ของแถม และ option ที่ดีที่สุด) และ `promotion_option` (option ที่ใช้จริง)
   - **Redemption:** order-create บันทึกหนึ่งแถวต่อโปรที่ order ใช้จริง
-  - checkout ส่ง option ของแต่ละ line มา server validate ใหม่ ถ้าใช้ไม่ได้ให้ใช้ option ที่ดีที่สุดแทน
+  - price-preview และ checkout ส่ง `promotion_choice` ของ Order มา server validate ใหม่ ถ้าไม่ได้เลือกหรือใช้ไม่ได้แล้วให้ใช้ option ที่ดีที่สุดแทน
 - **Best Promotion helper:** ฟังก์ชัน pure ที่รับสินค้า 1 ตัวกับรายการโปรที่ใช้ได้ แล้วคืนโปรที่ดีที่สุดตามนิยามใน glossary
   - มูลค่าต่อ 1 หน่วยที่ราคาสินค้านั้น ถ้าไม่มีโปรไหนให้อะไรเลยตอนซื้อ 1 หน่วย ใช้ tier ต่ำสุดของแต่ละโปร
   - ของแถมคิดเป็น ราคาของแถม × gift_quantity / gift_every โดยใช้ของแถมราคาต่ำสุดถ้ามีหลายตัว
@@ -266,7 +266,7 @@
 - **Cart page / drawer:**
   - เพิ่มบรรทัด "ราคาสินค้ารวม" และลำดับบรรทัด summary ตามที่ตกลง
   - ใช้ SweetAlert ยืนยันเมื่อลบ หรือเมื่อลดจำนวนจาก 1 ลงไปเป็น 0
-  - line ที่มีมากกว่า 1 option แสดง radio list
+  - drawer เป็นค่าเริ่มต้น มีไอคอนขยายไปหน้า Cart (`/cart`) ซึ่งแสดงการ์ดตัวเลือกโปรของทั้ง Order (เมื่อมีมากกว่า 1 option) หน้าสินค้าก็แสดงการ์ดชุดเดียวกัน
 - **Checkout:** ล้าง Cart ทันทีหลัง API สร้าง Order สำเร็จ ก่อน redirect ไป Stripe แล้วเอาการล้างตอน `justPaid` ใน Order Detail ออก ถ้าสร้าง Order ไม่สำเร็จ Cart ต้องไม่ถูกแตะ
 - **Admin แท็บ Categories ใหม่:** มีสองส่วน: Category (ตาราง, ชื่อ TH/EN, ปุ่มเลื่อนขึ้น/ลง, แก้, ลบ ซึ่งปิดไว้สำหรับ beetle) และ Family ใช้ SweetAlert ยืนยันการลบ และแสดง error 409 เป็นภาษาคน
 - **Products page:** ชิป Category มาจาก API ตามลำดับและภาษา ฟอร์มสินค้าเลือก Category และ Family จาก dropdown
@@ -299,7 +299,7 @@
   - job ประกาศโปรครบทุกกรณี: ประกาศล่วงหน้าแล้วแจ้งตอนเริ่ม, สร้างวันเดียวกันได้แจ้งครั้งเดียว, สร้างแบบปิดไว้ไม่แจ้ง, เรียกซ้ำไม่แจ้งซ้ำ
   - Redemption: นับหนึ่งแถวต่อโปรที่ใช้ เมื่อมี stack
 - **Pricing module seam** (node:test, prior art คือ pricing / promotionPricing / giftPricing tests):
-  - options ของ line
+  - options ของ Order และสินค้าที่ option ไม่คลุมจ่ายราคาปกติ
   - คิด stack: เปอร์เซ็นต์ทบ, บาท, ราคาไม่ต่ำกว่า 0, ของแถมหลายโปร
   - เลือก option ที่ดีที่สุด และ fallback เมื่อ option ใช้ไม่ได้
   - โปรที่ใช้สิทธิ์ครบหลุดออกจาก stack
@@ -310,7 +310,7 @@
   - `/rules/promotions` กรองตามสิทธิ์ของลูกค้า
   - LINE ถูกเรียกเฉพาะตอนลูกค้า confirm
 - **Frontend page seam** (RTL ผ่าน harness renderPage, prior art คือ Checkout / OrderDetail / Promotions / NotificationBell / AdminDashboard tests):
-  - Cart จำกัดที่ Available, ยืนยันก่อนลบ, ลำดับบรรทัด summary, radio option
+  - Cart จำกัดที่ Available, ยืนยันก่อนลบ, ลำดับบรรทัด summary, การ์ดตัวเลือกโปรของ Order
   - Checkout ล้าง Cart เมื่อสร้าง Order สำเร็จเท่านั้น
   - แท็บ Categories
   - popup stock เติมค่าปัจจุบัน และ modal history

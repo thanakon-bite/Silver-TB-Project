@@ -238,14 +238,13 @@
     "BELOW_MINIMUM_TOTAL": "ยอดสั่งซื้อต้องอย่างน้อย ฿10 จึงจะชำระด้วยบัตรหรือพร้อมเพย์ได้ กรุณาเพิ่มสินค้าในตะกร้า",
     "PROMOTION_LOCKED": "โปรโมชันนี้เริ่มแล้ว แก้ได้เฉพาะชื่อ วันสิ้นสุด และการเปิด/ปิด กรุณาโหลดหน้าใหม่เพื่อดูค่าที่บันทึกไว้",
     "RESERVED_CANCEL_REASON": "เหตุผลนี้เป็นคำที่ระบบใช้ กรุณาเขียนด้วยคำของคุณเอง",
-    "REFUND_PENDING": "Stripe กำลังดำเนินการคืนเงิน คำสั่งซื้อยังไม่ถูกยกเลิก เมื่อคืนเงินเสร็จระบบจะทำเครื่องหมายให้ตรวจสอบ แล้วจึงกดยกเลิกอีกครั้ง",
-    "REFUND_FAILED": "Stripe คืนเงินรายการนี้ไม่สำเร็จ คำสั่งซื้อจึงยังไม่ถูกยกเลิก กรุณาตรวจสอบการชำระเงินใน Stripe Dashboard",
     "CATEGORY_IN_USE": "ยังมีสินค้า {{count}} รายการอยู่ในหมวดนี้ ย้ายสินค้าไปหมวดอื่นก่อนจึงจะลบได้",
     "FAMILY_IN_USE": "ยังมีด้วง {{count}} ตัวใช้วงศ์นี้อยู่ เปลี่ยนวงศ์ของด้วงก่อนจึงจะลบได้",
     "SYSTEM_CATEGORY": "หมวดด้วงเปลี่ยนชื่อได้แต่ลบไม่ได้",
     "BELOW_RESERVED": "ตั้งคงคลังต่ำกว่า {{reserved}} ไม่ได้ เพราะลูกค้าจองไว้แล้ว",
     "UNKNOWN_CATEGORY": "เลือกหมวดหมู่จากรายการของร้าน",
-    "UNKNOWN_FAMILY": "เลือกวงศ์จากรายการของร้าน"
+    "UNKNOWN_FAMILY": "เลือกวงศ์จากรายการของร้าน",
+    "LINE_FOLLOWERS_UNAVAILABLE": "LINE ให้ดึงรายชื่อผู้ติดตามได้เฉพาะ Official Account ที่ยืนยันแล้ว (verified) หรือ premium เท่านั้น ให้ใช้ webhook แทน: ตั้ง Webhook URL ใน LINE Developers ให้ชี้มาที่เซิร์ฟเวอร์ (ถ้ารันบนเครื่องตัวเองให้ใช้ ngrok) แล้วให้ผู้รับทักแชท OA หนึ่งครั้ง"
   },
   "order_status": {
     "awaiting_payment": "รอชำระเงิน",
@@ -322,6 +321,8 @@
     "favorite": "เพิ่มในรายการโปรด",
     "unfavorite": "เอาออกจากรายการโปรด",
     "added": "เพิ่มแล้ว",
+    "cart_full": "ครบจำนวนแล้ว",
+    "cart_full_note": "ในตะกร้ามีครบ {{count}} ชิ้นที่พร้อมขายแล้ว",
     "guarantee_line": "ถ่ายวิดีโอตอนแกะกล่อง และแจ้งภายใน 2 ชม. ถ้าด้วงตายระหว่างขนส่ง"
   },
   "products_page": {
@@ -364,10 +365,17 @@
     "keep": "เก็บไว้",
     "lowered_to_available": "บางรายการเหลือน้อยลง จึงปรับจำนวนในตะกร้าให้ไม่เกินจำนวนที่พร้อมขาย",
     "max_reached": "ใส่ได้สูงสุด {{count}} ชิ้นตามจำนวนที่พร้อมขาย",
-    "option_legend": "เลือกโปรโมชันของ {{name}}",
     "option_stack": "ใช้ร่วมกัน: {{names}}",
     "option_saving": "ประหยัด {{amount}}",
-    "option_nothing": "ยังไม่ถึงเงื่อนไข"
+    "option_nothing": "ยังไม่ถึงเงื่อนไข",
+    "order_promotion": "โปรโมชันของออเดอร์นี้",
+    "order_promotion_hint": "เลือกได้ 1 แบบ ใช้กับทุกสินค้าในออเดอร์ สินค้าที่โปรนั้นไม่ครอบคลุมคิดราคาปกติ",
+    "using_promotion": "ใช้โปรโมชัน: {{name}}",
+    "products": "สินค้าในตะกร้า",
+    "summary": "สรุปยอด",
+    "expand": "เปิดตะกร้าแบบเต็มหน้า",
+    "change_promotion": "เปลี่ยนโปรโมชัน",
+    "collapse": "ย่อตะกร้า"
   },
   "home_page": {
     "promises": "สิ่งที่ร้านรับประกัน",
@@ -440,7 +448,14 @@
     "no_addresses": "ยังไม่มีที่อยู่ที่บันทึกไว้ เพิ่มได้ที่นี่หรือระหว่างชำระเงิน",
     "add_address": "เพิ่มที่อยู่",
     "edit_address": "แก้ไขที่อยู่",
-    "save_address": "บันทึกที่อยู่"
+    "save_address": "บันทึกที่อยู่",
+    "password_title": "เปลี่ยนรหัสผ่าน",
+    "password_text": "ใส่รหัสผ่านปัจจุบันก่อน แล้วตั้งรหัสผ่านใหม่",
+    "current_password": "รหัสผ่านปัจจุบัน",
+    "password_changed": "เปลี่ยนรหัสผ่านแล้ว",
+    "wrong_password": "รหัสผ่านปัจจุบันไม่ถูกต้อง",
+    "forgot_current": "ลืมรหัสผ่านปัจจุบัน? ส่งลิงก์ตั้งรหัสใหม่ทางอีเมล",
+    "reset_sent": "ส่งลิงก์ไปที่ {{email}} แล้ว"
   },
   "session_expired": {
     "title": "ออกจากระบบแล้ว",
@@ -759,7 +774,8 @@
     "admin_confirmed_auto": "{{number}} ยืนยันรับสินค้าอัตโนมัติ (ครบ 7 วัน)",
     "admin_confirmed_body": "ลูกค้า: {{customer}}",
     "promotion_new": "โปรโมชันใหม่กำลังมา: {{name}}",
-    "promotion_new_body": "ใช้ได้ {{from}} – {{to}}"
+    "promotion_new_body": "ใช้ได้ {{from}} – {{to}}",
+    "delete": "ลบการแจ้งเตือน: {{title}}"
   },
   "shipping_rule": {
     "units_one": "{{count}} ชิ้น",
@@ -788,8 +804,8 @@
     "gift_out": "ของแถมหมด",
     "gift_label": "ของแถม",
     "next_gift": "เพิ่มอีก {{count}} ชิ้น รับของแถม {{gift}} ชิ้น ({{name}})",
-    "choose_legend": "เลือกโปรโมชันที่ต้องการ",
-    "choose_hint": "เลือกได้ 1 แบบ ตะกร้าจะคิดราคาสินค้านี้ตามที่เลือก",
+    "choose_legend": "เลือกโปรโมชันสำหรับออเดอร์",
+    "choose_hint": "เลือกได้ 1 แบบ ใช้กับทุกสินค้าในออเดอร์",
     "stack_heading": "ใช้ร่วมกันได้"
   },
   "hero": {
@@ -913,9 +929,8 @@
       "confirm_received": "ยืนยันว่าลูกค้าได้รับแล้ว",
       "cancel_order": "ยกเลิกคำสั่งซื้อ",
       "cancel_reason_label": "เหตุผลที่ยกเลิก (ลูกค้าจะเห็นข้อความนี้)",
-      "refund_note": "ลูกค้าชำระเงินแล้ว: จะคืนเงิน {{amount}} เต็มจำนวนผ่าน Stripe แล้วจึงยกเลิก",
+      "paid_cancel_note": "ลูกค้าชำระเงินแล้ว {{amount}} การยกเลิกจะไม่คืนเงินให้อัตโนมัติ ถ้าต้องคืนเงินให้ทำใน Stripe Dashboard",
       "cancel_tell": "ยกเลิกและแจ้งลูกค้า",
-      "refund_cancel": "คืนเงิน {{amount}} และยกเลิก",
       "keep": "เก็บคำสั่งซื้อไว้",
       "internal_note": "โน้ตภายในร้าน",
       "save_note": "บันทึกโน้ต",
@@ -997,8 +1012,37 @@
       "how_to_set": "ตั้ง LINE user ID ของคุณ (LINE Developers console → Basic settings → \"Your user ID\") และเพิ่ม Official Account เป็นเพื่อนในบัญชี LINE นั้น โดยใส่ในตัวแปรบนเซิร์ฟเวอร์:",
       "sending": "กำลังส่ง…",
       "send_test": "ส่งข้อความทดสอบ",
-      "stripe_events": "เหตุการณ์ Stripe ล่าสุด",
-      "no_events": "ยังไม่ได้รับ webhook"
+      "stripe_events": "การชำระเงินจาก Stripe ล่าสุด",
+      "no_events": "ยังไม่มีเหตุการณ์จาก Stripe ถ้ามีคนจ่ายเงินแล้วแต่ไม่ขึ้นที่นี่ แปลว่า webhook ยังมาไม่ถึงเซิร์ฟเวอร์: ตั้ง endpoint ใน Stripe Dashboard ให้ชี้มาที่ /api/payments/webhook หรือตอนรันบนเครื่องตัวเองใช้ stripe listen --forward-to localhost:5000/api/payments/webhook",
+      "recipients_title": "ใครได้รับแจ้งเตือนออเดอร์ทาง LINE",
+      "recipients_hint": "ติ๊กคนที่จะได้รับข้อความทุกครั้งที่มีออเดอร์ชำระเงินหรือลูกค้ายืนยันรับสินค้า เลือกได้กี่คนก็ได้ ข้อความมีชื่อ เบอร์ และที่อยู่ลูกค้า",
+      "no_friends": "ยังไม่มีใครในรายชื่อ ให้คนที่จะรับแจ้งเตือนเพิ่ม LINE Official Account ของร้านเป็นเพื่อน แล้วกด \"ดึงรายชื่อเพื่อนจาก LINE\" (หรือรอให้ webhook ส่งชื่อมาเมื่อมีคนแอด/ทักแชท ซึ่งใช้ได้เมื่อเซิร์ฟเวอร์เปิดให้ LINE เข้าถึงจากอินเทอร์เน็ต)",
+      "unnamed_friend": "ผู้ใช้ LINE",
+      "friend_since": "เป็นเพื่อนตั้งแต่ {{date}}",
+      "picked_count": "ผู้รับที่เลือกไว้ {{count}} คน",
+      "friends_failed": "โหลดรายชื่อเพื่อน LINE ไม่ได้: {{reason}}",
+      "sync_friends": "ดึงรายชื่อเพื่อนจาก LINE",
+      "synced": "พบเพื่อนใน LINE {{count}} คน",
+      "stripe_events_hint": "สิ่งที่ Stripe แจ้งเข้ามาทาง webhook และผลที่ร้านบันทึกไว้",
+      "event_paid": "ได้รับชำระเงิน",
+      "event_failed": "ชำระเงินไม่สำเร็จ",
+      "event_refunded": "คืนเงินใน Stripe",
+      "result_paid": "บันทึกออเดอร์เป็นชำระแล้ว",
+      "result_already_paid": "บันทึกไว้แล้ว",
+      "result_ignored": "ไม่เกี่ยวกับออเดอร์",
+      "result_not_paid_yet": "ยังไม่ได้รับเงิน (เช่น รอ PromptPay)",
+      "result_marked_failed": "ลูกค้าจ่ายไม่สำเร็จ ออเดอร์ยังรอชำระ",
+      "result_refunded": "คืนเงินเต็มจำนวนแล้ว ออเดอร์ถูกทำเครื่องหมายให้ตรวจสอบ",
+      "result_partial_refund": "คืนเงินบางส่วน ออเดอร์ถูกทำเครื่องหมายให้ตรวจสอบ",
+      "result_amount_mismatch": "ยอดเงินไม่ตรงกับออเดอร์ ให้ตรวจใน Stripe Dashboard",
+      "result_intent_mismatch": "การชำระเงินไม่ตรงกับออเดอร์ ให้ตรวจใน Stripe Dashboard",
+      "result_order_not_found": "ไม่พบออเดอร์นี้ในร้าน",
+      "result_paid_after_cancel": "จ่ายเข้ามาหลังออเดอร์ถูกยกเลิก ต้องคืนเงินเองใน Stripe",
+      "result_no_order_metadata": "ไม่มีเลขออเดอร์แนบมา (อาจไม่ใช่การชำระของร้าน)",
+      "result_no_payment_intent": "ไม่มีข้อมูลการชำระเงินแนบมา",
+      "result_unknown": "ไม่ทราบผล",
+      "show_all_events": "แสดงทั้งหมด (อีก {{count}} รายการ)",
+      "hide_routine": "ซ่อนรายการซ้ำ"
     },
     "members": {
       "role_user": "ลูกค้า (user)",

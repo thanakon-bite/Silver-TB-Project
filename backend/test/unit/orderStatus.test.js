@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { checkAdminTransition, checkCustomerCancel, checkCustomerConfirm, isPayable, orderActions, checkRefund } = require('../../src/lib/orderStatus');
+const { checkAdminTransition, checkCustomerCancel, checkCustomerConfirm, isPayable, orderActions } = require('../../src/lib/orderStatus');
 
 const order = (status, extra = {}) => ({ status, ...extra });
 
@@ -15,11 +15,13 @@ test('only Waiting Shipping orders can ship', () => {
   assert.equal(checkAdminTransition(order('paid'), 'shipping').ok, false);
 });
 
-test('an admin cancels before Shipping; a paid order is refunded as part of it', () => {
-  assert.deepEqual(checkAdminTransition(order('awaiting_payment'), 'cancelled'), { ok: true, refund: false });
+test('an admin cancels before Shipping; a paid order is cancelled without a refund (refunds are paused)', () => {
+  assert.deepEqual(checkAdminTransition(order('awaiting_payment'), 'cancelled'), { ok: true, paid: false });
   for (const s of ['paid', 'waiting_shipping']) {
-    assert.deepEqual(checkAdminTransition(order(s), 'cancelled'), { ok: true, refund: true }, s);
+    assert.deepEqual(checkAdminTransition(order(s), 'cancelled'), { ok: true, paid: true }, s);
   }
+  // Already refunded in the Stripe Dashboard: nothing paid is kept
+  assert.deepEqual(checkAdminTransition(order('paid', { refunded_at: '2026-10-11T00:00:00Z' }), 'cancelled'), { ok: true, paid: false });
 });
 
 test('no going backwards or out of a final status', () => {
@@ -68,8 +70,8 @@ test('customers can confirm receipt only of their Shipping orders', () => {
   }
 });
 
-test('an order already refunded (e.g. in the Stripe Dashboard) is cancelled without a second refund', () => {
-  assert.deepEqual(checkAdminTransition(order('waiting_shipping', { refunded_at: '2026-10-11T00:00:00Z' }), 'cancelled'), { ok: true, refund: false });
+test('an order already refunded (e.g. in the Stripe Dashboard) keeps no paid money when cancelled', () => {
+  assert.deepEqual(checkAdminTransition(order('waiting_shipping', { refunded_at: '2026-10-11T00:00:00Z' }), 'cancelled'), { ok: true, paid: false });
 });
 
 test('a typed Cancel Reason may not be one of the system codes the UI translates', () => {
@@ -86,27 +88,15 @@ test('orderActions tells each viewer what they may do, from the same rules the r
   const admin = { owner: false, admin: true };
   assert.deepEqual(orderActions(order('awaiting_payment'), owner), { customer: { cancel: true, confirm: false }, admin: null });
   assert.deepEqual(orderActions(order('shipping'), owner), { customer: { cancel: false, confirm: true }, admin: null });
-  assert.deepEqual(orderActions(order('awaiting_payment'), admin).admin, { ship: false, confirm: false, cancel: true, refund_on_cancel: false });
-  assert.deepEqual(orderActions(order('waiting_shipping'), admin).admin, { ship: true, confirm: false, cancel: true, refund_on_cancel: true });
-  assert.deepEqual(orderActions(order('waiting_shipping', { refunded_at: '2026-10-11T00:00:00Z' }), admin).admin.refund_on_cancel, false);
-  assert.deepEqual(orderActions(order('shipping'), admin).admin, { ship: false, confirm: true, cancel: false, refund_on_cancel: false });
+  assert.deepEqual(orderActions(order('awaiting_payment'), admin).admin, { ship: false, confirm: false, cancel: true, paid_on_cancel: false });
+  assert.deepEqual(orderActions(order('waiting_shipping'), admin).admin, { ship: true, confirm: false, cancel: true, paid_on_cancel: true });
+  assert.deepEqual(orderActions(order('waiting_shipping', { refunded_at: '2026-10-11T00:00:00Z' }), admin).admin.paid_on_cancel, false);
+  assert.deepEqual(orderActions(order('shipping'), admin).admin, { ship: false, confirm: true, cancel: false, paid_on_cancel: false });
   assert.equal(orderActions(order('shipping'), admin).customer, null);
   assert.deepEqual(orderActions(order('confirmed'), { owner: true, admin: true }), {
     customer: { cancel: false, confirm: false },
-    admin: { ship: false, confirm: false, cancel: false, refund_on_cancel: false },
+    admin: { ship: false, confirm: false, cancel: false, paid_on_cancel: false },
   });
-});
-
-test('an order is cancelled as refunded only once Stripe says the refund succeeded', () => {
-  assert.deepEqual(checkRefund({ status: 'succeeded' }), { ok: true });
-  for (const status of ['pending', 'requires_action']) {
-    assert.equal(checkRefund({ status }).ok, false);
-    assert.equal(checkRefund({ status }).code, 'REFUND_PENDING');
-  }
-  for (const status of ['failed', 'canceled', undefined]) {
-    assert.equal(checkRefund({ status }).ok, false);
-    assert.equal(checkRefund({ status }).code, 'REFUND_FAILED');
-  }
 });
 
 test('the Admin countdown: Reservation end while Awaiting Payment, automatic Confirmed 7 days after Shipping', () => {

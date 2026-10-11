@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Bell, Check, Copy } from 'lucide-react';
+import { Bell, Check, Copy, X } from 'lucide-react';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 import { api, API_WRITE_EVENT, type ApiWrite } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
@@ -173,6 +173,14 @@ export function useNotifications(userId: string | null) {
     api.post(`/notifications/${n.id}/read`, {}).catch(() => {});
   };
 
+  /** Takes it out of the bell at once; puts it back if the server refuses. */
+  const remove = (n: AppNotification) => {
+    generation.current++;
+    setItems((list) => list.filter((x) => x.id !== n.id));
+    if (!n.read_at) setUnread((u) => Math.max(0, u - 1));
+    api.delete<{ unread: number }>(`/notifications/${n.id}`).catch(() => load());
+  };
+
   const markAllRead = () => {
     generation.current++;
     setItems((list) => list.map((x) => (x.read_at ? x : { ...x, read_at: new Date().toISOString() })));
@@ -180,7 +188,7 @@ export function useNotifications(userId: string | null) {
     api.post('/notifications/read-all', {}).catch(() => {});
   };
 
-  return { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead, refresh: load };
+  return { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead, remove, refresh: load };
 }
 
 export type NotificationsState = ReturnType<typeof useNotifications>;
@@ -255,7 +263,7 @@ const CopyTracking: React.FC<{ tracking: string }> = ({ tracking }) => {
       type="button"
       onClick={copy}
       aria-label={copied ? t('notifications.copied') : t('notifications.copy_tracking', { tracking })}
-      className={`${iconButton} absolute right-2 top-2`}
+      className={`${iconButton} absolute right-2 top-11`}
     >
       {copied ? <Check className="h-4 w-4 text-accent-strong" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
     </button>
@@ -267,7 +275,7 @@ const NotificationBell: React.FC<{ state: NotificationsState; className?: string
   const isThai = (i18n.language || 'th').startsWith('th');
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
-  const { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead, refresh } = state;
+  const { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead, remove, refresh } = state;
   const toggle = () => {
     // Opening the bell shows the newest, whatever the last refresh caught
     if (!open) refresh();
@@ -339,7 +347,7 @@ const NotificationBell: React.FC<{ state: NotificationsState; className?: string
                         markRead(n);
                         setOpen(false);
                       }}
-                      className={`flex gap-3 px-4 py-3 hover:bg-sunken ${n.read_at ? '' : 'bg-accent-strong/5'}`}
+                      className={`flex gap-3 py-3 pl-4 pr-12 hover:bg-sunken ${n.read_at ? '' : 'bg-accent-strong/5'}`}
                     >
                       <span
                         aria-hidden
@@ -351,6 +359,14 @@ const NotificationBell: React.FC<{ state: NotificationsState; className?: string
                         <span className="block font-mono text-xs tabular-nums text-muted">{localDateTime(n.created_at, i18n.language)}</span>
                       </span>
                     </Link>
+                    <button
+                      type="button"
+                      onClick={() => remove(n)}
+                      aria-label={t('notifications.delete', { title: d.title })}
+                      className={`${iconButton} absolute right-2 top-2 text-muted hover:text-danger`}
+                    >
+                      <X className="h-4 w-4" aria-hidden />
+                    </button>
                     {n.type === 'shipping' && n.data.tracking_number && <CopyTracking tracking={n.data.tracking_number} />}
                   </li>
                 );

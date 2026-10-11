@@ -25,10 +25,15 @@ router.get(
     const active = await promotions.activePromotions();
     const standing = await promotions.redemptionsFor(req.user?.id || null, active.map((p) => p.id));
     const list = redeemablePromotions(active, standing);
-    // Gift products' prices, so a Gift can be valued against a Discount (Best Promotion)
+    // Gift products' prices, so a Gift can be valued against a Discount (Best Promotion). One none is
+    // Available of is left out, as the Cart leaves it out, so the product page and the Cart agree.
     const giftIds = [...new Set(list.flatMap((p) => p.gift_product_ids || []))];
     const giftPrices = giftIds.length
-      ? Object.fromEntries(unwrap(await supabase.from('products').select('id, price').in('id', giftIds)).map((g) => [g.id, Number(g.price)]))
+      ? Object.fromEntries(
+          unwrap(await supabase.from('products').select('id, price, available').in('id', giftIds))
+            .filter((g) => Number(g.available) > 0)
+            .map((g) => [g.id, Number(g.price)])
+        )
       : {};
     res.json(
       list.map((p) => ({

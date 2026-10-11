@@ -304,3 +304,25 @@ describe('the new kinds of Notification', () => {
     expect(api.post).not.toHaveBeenCalledWith('/notifications/n1/read', {});
   });
 });
+
+test('a notification can be deleted from the bell; an unread one lowers the count', async () => {
+  mockMember = customer;
+  (api.delete as jest.Mock).mockResolvedValue({ unread: 1 });
+  renderApp('/');
+  userEvent.click((await screen.findAllByRole('button', { name: /ยังไม่อ่าน 2/ }))[0]);
+  userEvent.click(screen.getByRole('button', { name: 'ลบการแจ้งเตือน: ออเดอร์ STB-261010-00007 ได้รับการจัดส่งแล้ว' }));
+  await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/notifications/n1'));
+  expect(screen.queryByRole('link', { name: /STB-261010-00007/ })).not.toBeInTheDocument();
+  expect(screen.getAllByRole('button', { name: /ยังไม่อ่าน 1/ })[0]).toBeInTheDocument();
+  // Deleting does not open the order
+  expect(api.get).not.toHaveBeenCalledWith('/orders/o1');
+});
+
+test('a delete the server refuses puts the notification back', async () => {
+  mockMember = customer;
+  (api.delete as jest.Mock).mockRejectedValue(new Error('offline'));
+  renderApp('/');
+  userEvent.click((await screen.findAllByRole('button', { name: /ยังไม่อ่าน 2/ }))[0]);
+  userEvent.click(screen.getByRole('button', { name: /ลบการแจ้งเตือน: STB-261010-00006/ }));
+  expect(await screen.findByRole('link', { name: /STB-261010-00006/ })).toBeInTheDocument();
+});

@@ -2,9 +2,10 @@ const express = require('express');
 const axios = require('axios');
 const supabase = require('../config/supabase');
 const { authenticate, requireAdmin } = require('../middleware/auth');
-const { asyncHandler, badRequest, unwrap } = require('../lib/http');
+const { asyncHandler, badRequest, notFound, unwrap } = require('../lib/http');
 const line = require('../lib/line');
 const v = require('../lib/validate');
+const lineContacts = require('../services/lineContacts');
 
 const router = express.Router();
 
@@ -76,6 +77,20 @@ router.post(
   })
 );
 
+// DELETE /api/notifications/:id — remove one of mine from my bell; answers with my new unread count
+router.delete(
+  '/:id',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const id = v.uuid(req.params.id, 'id');
+    const gone = unwrap(await supabase.from('notifications').delete().eq('id', id).eq('user_id', req.user.id).select('id'));
+    if (!gone?.length) throw notFound('Notification not found');
+    const unread = await supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', req.user.id).is('read_at', null);
+    if (unread.error) throw unread.error;
+    res.json({ unread: unread.count || 0 });
+  })
+);
+
 // ---- LINE (admin)
 
 // GET /api/notifications/line/status — admin: is LINE set up, and where do alerts go?
@@ -84,13 +99,47 @@ router.get(
   authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const { source, targets } = await line.getAdminTargets();
+    const { source, envTargets, picked } = await line.getAdminTargets();
     res.json({
       configured: line.isConfigured(),
       webhook_secret_set: Boolean(process.env.LINE_CHANNEL_SECRET),
       source,
-      targets: targets.map(mask),
+      targets: envTargets.map(mask),
+      recipients: picked.length,
     });
+  })
+);
+
+// GET /api/notifications/line/contacts — admin: the OA's friends, to pick LINE Recipients from
+router.get(
+  '/line/contacts',
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    res.json({ contacts: await lineContacts.listFriends() });
+  })
+);
+
+// POST /api/notifications/line/contacts/sync — admin: pull the OA's followers from LINE into the list
+router.post(
+  '/line/contacts/sync',
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    if (!line.isConfigured()) throw badRequest('LINE is not configured');
+    res.json({ synced: await lineContacts.syncFollowers() });
+  })
+);
+
+// PATCH /api/notifications/line/contacts/:lineUserId — admin: tick or untick a friend for order alerts
+router.patch(
+  '/line/contacts/:lineUserId',
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = v.str(req.params.lineUserId, 'line_user_id', { pattern: lineContacts.LINE_USER_ID, max: 33 });
+    const receivesAlerts = v.bool(req.body.receives_alerts, 'receives_alerts', { required: true });
+    res.json(await lineContacts.setReceivesAlerts(id, receivesAlerts));
   })
 );
 
@@ -136,8 +185,8 @@ router.post(
 
 /**
  * POST /api/notifications/line/webhook — LINE platform events (raw body, signature-verified).
- * Events are acknowledged only: alert recipients come from env vars, never from events
- * (anyone can invite the bot to a group).
+ * A 1:1 follow or message only lists the friend for the Admin to pick; nothing here makes anyone a
+ * recipient, and groups are ignored (anyone can invite the bot to a group).
  */
 router.post('/line/webhook', async (req, res) => {
   if (!process.env.LINE_CHANNEL_SECRET) return res.status(503).json({ error: 'LINE webhook not configured' });
@@ -147,6 +196,13 @@ router.post('/line/webhook', async (req, res) => {
     return res.status(401).json({ error: 'Invalid signature' });
   }
 
+  let body = null;
+  try {
+    body = JSON.parse(raw.toString('utf8'));
+  } catch {
+    return res.status(400).json({ error: 'Invalid JSON' });
+  }
+  await lineContacts.handleWebhookEvents(body?.events);
   res.sendStatus(200);
 });
 

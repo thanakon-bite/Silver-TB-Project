@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AlertTriangle, Copy, Search, Truck, PackageCheck, XCircle, RotateCcw } from 'lucide-react';
+import { AlertTriangle, Copy, Search, Truck, PackageCheck, XCircle } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { api } from '../../lib/api';
 import { baht, cancelReasonText, formatAddressLines, localDateTime, ORDER_STATUS_STYLE, orderStatusKey } from '../../lib/format';
@@ -104,7 +104,7 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
   const confirmReceived = () =>
     selected && run(() => api.patch<Order>(`/orders/${selected.id}/status`, { status: 'confirmed' }), t('admin.orders.marked_received'));
 
-  // The customer reads the Cancel Reason; a paid order is refunded in full by the same step.
+  // The customer reads the Cancel Reason. A paid order is cancelled without a refund for now.
   const cancelOrder = () => {
     if (!selected || !cancelReason.trim()) return;
     run(() => api.patch<Order>(`/orders/${selected.id}/status`, { status: 'cancelled', reason: cancelReason.trim() }), t('admin.orders.cancelled'));
@@ -289,8 +289,8 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
                     maxLength={500}
                     className="w-full border border-line rounded-xl px-3 py-2 min-h-[70px] bg-paper"
                   />
-                  {selected.actions.admin.refund_on_cancel && (
-                    <p className="text-muted">{t('admin.orders.refund_note', { amount: baht(selected.total) })}</p>
+                  {selected.actions.admin.paid_on_cancel && (
+                    <p className="text-muted">{t('admin.orders.paid_cancel_note', { amount: baht(selected.total) })}</p>
                   )}
                   <div className="flex flex-wrap gap-2">
                     <button type="button" onClick={() => setCancelling(false)} className={secondaryButton}>{t('admin.orders.keep')}</button>
@@ -300,8 +300,8 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
                       type="button"
                       className={dangerButton}
                     >
-                      {selected.actions.admin.refund_on_cancel ? <RotateCcw className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
-                      {selected.actions.admin.refund_on_cancel ? t('admin.orders.refund_cancel', { amount: baht(selected.total) }) : t('admin.orders.cancel_tell')}
+                      <XCircle className="w-4 h-4" />
+                      {t('admin.orders.cancel_tell')}
                     </button>
                   </div>
                 </div>

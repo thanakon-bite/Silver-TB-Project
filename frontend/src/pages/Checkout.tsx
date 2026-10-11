@@ -11,7 +11,7 @@ import { formatAddressLines, uuidv4 } from '../lib/format';
 import type { Address, Order } from '../lib/types';
 import { pricingBody, usePricedCart } from '../lib/usePricedCart';
 import { readGiftChoices } from '../lib/giftChoices';
-import { readLineChoices } from '../lib/lineChoices';
+import { usePromotionChoice } from '../lib/promotionChoice';
 import AddressForm, { emptyAddress, validateAddress, pruneErrors, toAddressPayload, AddressFormValue } from '../component/address/AddressForm';
 import PaymentStep from '../component/checkout/PaymentStep';
 import { CheckoutHeader, CheckoutFooter } from '../component/checkout/FocusedChrome';
@@ -99,11 +99,12 @@ const Checkout = () => {
     [items]
   );
 
-  // Before the order exists, the server prices the Cart (Shipping Rule, Promotions, the Gifts and Promotion
-  // options picked in the Cart) so the summary matches what will be charged.
+  // Before the order exists, the server prices the Cart (Shipping Rule, Promotions, the Gifts and the Order's
+  // Promotion picked in the Cart) so the summary matches what will be charged.
   const [giftChoices] = useState(readGiftChoices);
-  const [lineChoices] = useState(readLineChoices);
-  const priced = usePricedCart(items, true, giftChoices, lineChoices);
+  // Follows the signed-in Customer: their account is known only once auth has loaded
+  const { choice: promotionChoice } = usePromotionChoice();
+  const priced = usePricedCart(items, true, giftChoices, promotionChoice);
 
   const updateForm = (next: AddressFormValue) => {
     setErrors((e) => pruneErrors(e, form, next));
@@ -129,7 +130,7 @@ const Checkout = () => {
     }
 
     const signature = `${cartSignature}|${JSON.stringify(shipping)}`;
-    const body = { ...pricingBody(items, giftChoices, lineChoices), ...shipping };
+    const body = { ...pricingBody(items, giftChoices, promotionChoice), ...shipping };
 
     setSubmitting(true);
     setOrderError('');
