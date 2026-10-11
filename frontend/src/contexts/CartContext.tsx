@@ -22,6 +22,10 @@ interface CartContextType {
   removeItem: (product_id: string) => void;
   updateQuantity: (product_id: string, quantity: number) => void;
   clearCart: () => void;
+  /** Puts a Cart back as it was (an Order that could not go ahead returns its products to the Cart). */
+  restoreCart: (items: CartItem[]) => void;
+  /** Brings quantities within today's Available ({ product_id: available }); returns the products it changed. */
+  syncAvailable: (available: Record<string, number>) => string[];
   openCart: () => void;
   closeCart: () => void;
 }
@@ -42,7 +46,8 @@ const MAX_PER_ITEM = 99;
 
 const CartContext = createContext<CartContextType | null>(null);
 
-const clamp = (qty: number, max?: number) => Math.max(1, Math.min(qty, max ?? MAX_PER_ITEM, MAX_PER_ITEM));
+/** A Cart quantity never goes above Available (CONTEXT.md); 0 means the line has to go. */
+const clamp = (qty: number, max?: number) => Math.max(0, Math.min(qty, max ?? MAX_PER_ITEM, MAX_PER_ITEM));
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const userId = useAuth().user?.id;
@@ -69,13 +74,13 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [userId, owner, items]);
 
   const addItem = useCallback((item: Omit<CartItem, 'quantity'>) => {
-    if (!userId) return;
+    if (!userId || (item.max_quantity !== undefined && item.max_quantity <= 0)) return;
     setItems((prev) => {
       const existing = prev.find((i) => i.product_id === item.product_id);
       if (existing) {
         return prev.map((i) =>
           i.product_id === item.product_id
-            ? { ...i, ...item, quantity: clamp(i.quantity + 1, item.max_quantity ?? i.max_quantity) }
+            ? { ...i, ...item, quantity: Math.max(1, clamp(i.quantity + 1, item.max_quantity ?? i.max_quantity)) }
             : i
         );
       }
@@ -94,12 +99,29 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeItem(product_id);
         return;
       }
-      setItems((prev) => prev.map((i) => (i.product_id === product_id ? { ...i, quantity: clamp(quantity, i.max_quantity) } : i)));
+      setItems((prev) => prev.map((i) => (i.product_id === product_id ? { ...i, quantity: Math.max(1, clamp(quantity, i.max_quantity)) } : i)));
     },
     [removeItem]
   );
 
   const clearCart = useCallback(() => setItems([]), []);
+  const restoreCart = useCallback((saved: CartItem[]) => setItems(saved), []);
+
+  const syncAvailable = useCallback(
+    (available: Record<string, number>) => {
+      const known = (i: CartItem) => available[i.product_id] !== undefined;
+      const changed = items.filter((i) => known(i) && i.quantity > available[i.product_id]).map((i) => i.product_id);
+      if (changed.length || items.some((i) => known(i) && i.max_quantity !== available[i.product_id])) {
+        setItems((prev) =>
+          prev
+            .map((i) => (known(i) ? { ...i, max_quantity: available[i.product_id], quantity: clamp(i.quantity, available[i.product_id]) } : i))
+            .filter((i) => i.quantity > 0)
+        );
+      }
+      return changed;
+    },
+    [items]
+  );
   const openCart = useCallback(() => setIsOpen(true), []);
   const closeCart = useCallback(() => setIsOpen(false), []);
 
@@ -117,6 +139,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         removeItem,
         updateQuantity,
         clearCart,
+        restoreCart,
+        syncAvailable,
         openCart,
         closeCart,
       }}

@@ -1,19 +1,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, Edit2, Upload, X, Minus, Search, Star, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Plus, Edit2, Upload, X, Search, Star, ArrowLeft, ArrowRight, History, PackageCheck } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import { baht, uuidv4 } from '../../lib/format';
-import { BEETLE_SEXES, BEETLE_STAGES, PRODUCT_CATEGORIES, type BeetleAttributes, type Product, type ProductCategory } from '../../lib/types';
+import { BEETLE_SEXES, BEETLE_STAGES, type BeetleAttributes, type Product, type ProductCategory } from '../../lib/types';
+import { useCatalogue, useCategoryName } from '../../lib/catalogue';
+import StockHistory from './StockHistory';
 import Modal from '../common/Modal';
+import { iconButton } from '../ui/buttonStyles';
 import { showAdminError } from './adminError';
 import Pager, { PAGE_SIZE } from './Pager';
 
 const BUCKET = 'product-images';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-const DEFAULT_FAMILIES = ['Rhinoceros', 'Stag', 'Flower'];
 
 type Attrs = { family: string; species: string; locality: string; sex: string; stage: string; size_mm: string };
 const emptyAttrs = (): Attrs => ({ family: '', species: '', locality: '', sex: '', stage: '', size_mm: '' });
@@ -85,6 +87,10 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
   const [lowOnly, setLowOnly] = useState(initialFilter === 'low');
   const [active, setActive] = useState<ActiveFilter>('');
   const [editing, setEditing] = useState<Product | 'new' | null>(null);
+  const [historyOf, setHistoryOf] = useState<Product | null>(null);
+  // The Admin's Categories and Families (ADR 0005)
+  const catalogue = useCatalogue();
+  const categoryName = useCategoryName();
   const [form, setForm] = useState<Form>(emptyForm());
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -109,7 +115,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
     return () => clearTimeout(timer);
   }, [fetchProducts]);
 
-  const families = Array.from(new Set([...DEFAULT_FAMILIES, ...products.map((p) => p.attributes?.family).filter(Boolean) as string[]]));
+  const families = catalogue.families.map((f) => f.name);
   const setAttr = (key: keyof Attrs, value: string) => setForm((f) => ({ ...f, attrs: { ...f.attrs, [key]: value } }));
 
   const open = (p: Product | 'new') => {
@@ -213,19 +219,43 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
     }
   };
 
-  const adjustStock = async (p: Product, sign: 1 | -1) => {
-    const { value } = await Swal.fire({
-      title: `${sign > 0 ? t('admin.products.receive') : t('admin.products.correct')} — ${p.name}`,
-      text: t('admin.products.adjust_text', { on_hand: p.on_hand ?? 0, available: p.available }),
-      input: 'number',
-      inputValue: 1,
-      inputAttributes: { min: '1', step: '1' },
+  /**
+   * The Admin types the counted On Hand (prefilled with today's) and why. Available moves by the same
+   * difference; a count below the units Reserved by open orders is refused (CONTEXT.md: On Hand).
+   */
+  const setOnHand = async (p: Product) => {
+    const onHand = p.on_hand ?? 0;
+    const reserved = Math.max(0, onHand - p.available);
+    const { value } = await Swal.fire<{ on_hand: number; note: string }>({
+      titleText: t('admin.products.set_on_hand_title', { name: p.name }),
+      html:
+        `<p class="swal2-html-container" style="margin:0 0 .5rem">${t('admin.products.set_on_hand_text', { on_hand: onHand, available: p.available, reserved })}</p>` +
+        `<label for="stb-on-hand" style="display:block;font-size:.875rem;margin-top:.5rem">${t('admin.products.on_hand_label')}</label>` +
+        `<input id="stb-on-hand" type="number" min="${reserved}" step="1" value="${onHand}" class="swal2-input" style="margin:.25rem auto" />` +
+        `<label for="stb-on-hand-note" style="display:block;font-size:.875rem;margin-top:.5rem">${t('admin.products.set_on_hand_note')}</label>` +
+        `<input id="stb-on-hand-note" type="text" maxlength="300" class="swal2-input" style="margin:.25rem auto" />`,
+      focusConfirm: false,
       showCancelButton: true,
+      confirmButtonText: t('admin.common.save'),
+      cancelButtonText: t('admin.common.cancel'),
+      didOpen: () => (document.getElementById('stb-on-hand') as HTMLInputElement | null)?.select(),
+      preConfirm: () => {
+        const raw = (document.getElementById('stb-on-hand') as HTMLInputElement | null)?.value ?? '';
+        const n = Number(raw);
+        if (raw === '' || !Number.isInteger(n) || n < 0) {
+          Swal.showValidationMessage(t('admin.products.set_on_hand_whole'));
+          return false;
+        }
+        if (n < reserved) {
+          Swal.showValidationMessage(t('admin.products.set_on_hand_min', { reserved }));
+          return false;
+        }
+        return { on_hand: n, note: (document.getElementById('stb-on-hand-note') as HTMLInputElement | null)?.value.trim() || '' };
+      },
     });
-    const n = Number(value);
-    if (!value || !Number.isInteger(n) || n <= 0) return;
+    if (!value || value.on_hand === onHand) return;
     try {
-      const updated = await api.post<Product>(`/products/${p.id}/stock`, { delta: sign * n });
+      const updated = await api.post<Product>(`/products/${p.id}/stock`, { on_hand: value.on_hand, ...(value.note ? { note: value.note } : {}) });
       setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, on_hand: updated.on_hand, available: updated.available } : x)));
     } catch (err: any) {
       showAdminError(err, t);
@@ -299,8 +329,8 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
               <th className="p-3 font-semibold">{t('admin.common.product')}</th>
               <th className="p-3 font-semibold">{t('category')}</th>
               <th className="p-3 font-semibold text-right">{t('admin.products.price')}</th>
-              <th className="p-3 font-semibold text-center" title={t('admin.products.on_hand_hint')}>Onhand</th>
-              <th className="p-3 font-semibold text-center" title={t('admin.products.available_hint')}>Stockmove</th>
+              <th className="p-3 font-semibold text-center" title={t('admin.products.on_hand_hint')}>{t('admin.products.on_hand_label')}</th>
+              <th className="p-3 font-semibold text-center" title={t('admin.products.available_hint')}>{t('admin.products.available_label')}</th>
               <th className="p-3 font-semibold text-center" title={t('admin.products.in_transit_hint')}>{t('admin.products.in_transit')}</th>
               <th className="p-3 font-semibold">{t('admin.common.status')}</th>
               <th className="p-3 font-semibold">{t('admin.common.actions')}</th>
@@ -321,23 +351,26 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                   </div>
                 </td>
                 <td className="p-3 text-muted">
-                  {t(p.category)}
+                  {categoryName(p.category)}
                   {p.attributes?.family && <div className="text-xs text-muted">{p.attributes.family}</div>}
                 </td>
                 <td className="p-3 text-ink text-right">{baht(p.price)}</td>
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-1">
-                    <button aria-label={t('admin.products.correct')} onClick={() => adjustStock(p, -1)} className="p-1 rounded border border-line hover:border-accent-strong" disabled={p.available === 0}>
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span aria-label="Onhand" className="w-10 text-center font-semibold font-mono tabular-nums text-ink">{p.on_hand ?? 0}</span>
-                    <button aria-label={t('admin.products.receive')} onClick={() => adjustStock(p, 1)} className="p-1 rounded border border-line hover:border-accent-strong">
-                      <Plus className="w-3 h-3" />
+                    <span aria-label={t('admin.products.on_hand_label')} className="w-10 text-center font-semibold font-mono tabular-nums text-ink">{p.on_hand ?? 0}</span>
+                    <button
+                      type="button"
+                      aria-label={t('admin.products.set_on_hand_for', { name: p.name })}
+                      title={t('admin.products.set_on_hand')}
+                      onClick={() => setOnHand(p)}
+                      className="p-1 rounded border border-line hover:border-accent-strong"
+                    >
+                      <PackageCheck className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </td>
                 <td className="p-3 text-center">
-                  <span aria-label="Stockmove" className={`font-semibold font-mono tabular-nums ${p.available === 0 ? 'text-danger' : p.available <= 2 ? 'text-accent-strong' : 'text-ink'}`}>{p.available}</span>
+                  <span aria-label={t('admin.products.available_label')} className={`font-semibold font-mono tabular-nums ${p.available === 0 ? 'text-danger' : p.available <= 2 ? 'text-accent-strong' : 'text-ink'}`}>{p.available}</span>
                 </td>
                 <td className="p-3 text-center">
                   <span aria-label={t('admin.products.in_transit')} className="font-mono tabular-nums text-muted">{p.in_transit ?? 0}</span>
@@ -353,12 +386,20 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                       aria-pressed={!!p.is_best_seller}
                       title={p.is_best_seller ? t('best_seller') : t('admin.products.mark_best_seller')}
                       onClick={() => toggleBestSeller(p)}
-                      className="p-2 rounded-lg hover:bg-sunken"
+                      className={iconButton}
                     >
                       <Star className={`w-4 h-4 ${p.is_best_seller ? 'fill-accent-strong text-accent-strong' : 'text-muted'}`} />
                     </button>
-                    <button aria-label={t('admin.products.edit_named', { name: p.name })} onClick={() => open(p)} className="p-2 text-ink hover:bg-sunken rounded-lg">
+                    <button aria-label={t('admin.products.edit_named', { name: p.name })} onClick={() => open(p)} className={iconButton}>
                       <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      aria-label={t('admin.stock_history.open', { name: p.name })}
+                      title={t('admin.stock_history.short')}
+                      onClick={() => setHistoryOf(p)}
+                      className={iconButton}
+                    >
+                      <History className="w-4 h-4" />
                     </button>
                   </div>
                 </td>
@@ -374,6 +415,8 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       </div>
 
       <Pager page={page} total={total} onPage={setPage} />
+
+      <StockHistory product={historyOf} onClose={() => setHistoryOf(null)} />
 
       <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? t('admin.products.add') : t('admin.products.edit')} maxWidth="2xl">
         <form onSubmit={save} className="space-y-4">
@@ -399,7 +442,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
               <input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className={input} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-ink">{editing === 'new' ? t('admin.products.initial_on_hand') : 'Onhand'}</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{editing === 'new' ? t('admin.products.initial_on_hand') : t('admin.products.on_hand_label')}</label>
               {editing === 'new' ? (
                 <input required type="number" min="0" step="1" value={form.on_hand} onChange={(e) => setForm({ ...form, on_hand: e.target.value })} className={input} />
               ) : (
@@ -409,9 +452,10 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
             <div>
               <label className="block text-sm font-medium mb-1 text-ink">{t('category')}</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })} className={input}>
-                {PRODUCT_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{t(c)}</option>
+                {catalogue.categories.map((c) => (
+                  <option key={c.slug} value={c.slug}>{categoryName(c.slug)}</option>
                 ))}
+                {!catalogue.categories.some((c) => c.slug === form.category) && <option value={form.category}>{form.category}</option>}
               </select>
             </div>
             <div className="flex items-center gap-4 mt-6">
@@ -431,12 +475,14 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
               <legend className="px-1 text-sm font-semibold text-ink">{t('admin.products.beetle_details')}</legend>
               <div>
                 <label className="block text-sm font-medium mb-1 text-ink">{t('products_page.family')}</label>
-                <input list="beetle-families" maxLength={50} value={form.attrs.family} onChange={(e) => setAttr('family', e.target.value)} className={input} />
-                <datalist id="beetle-families">
+                {/* Picked from the Admin's list (Categories tab), so spellings never split the filter */}
+                <select value={form.attrs.family} onChange={(e) => setAttr('family', e.target.value)} className={input}>
+                  <option value="">{t('admin.products.no_family')}</option>
                   {families.map((f) => (
-                    <option key={f} value={f} />
+                    <option key={f} value={f}>{f}</option>
                   ))}
-                </datalist>
+                  {form.attrs.family && !families.includes(form.attrs.family) && <option value={form.attrs.family}>{form.attrs.family}</option>}
+                </select>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1 text-ink">{t('species')}</label>

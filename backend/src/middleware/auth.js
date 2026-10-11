@@ -39,6 +39,25 @@ const authenticate = async (req, res, next) => {
   }
 };
 
+/**
+ * For public endpoints that answer a signed-in Customer differently: a valid token sets req.user,
+ * anything else (no token, expired, deactivated) carries on as a guest.
+ */
+const optionalAuth = async (req, res, next) => {
+  const [scheme, token] = (req.headers.authorization || '').split(' ');
+  if (scheme !== 'Bearer' || !token) return next();
+  try {
+    const { data, error } = await supabase.auth.getUser(token);
+    if (!error && data?.user) {
+      const { data: profile } = await supabase.from('profiles').select('id, role, deactivated_at').eq('id', data.user.id).maybeSingle();
+      if (profile && !profile.deactivated_at) req.user = { id: profile.id, role: profile.role };
+    }
+  } catch {
+    /* a guest, then */
+  }
+  next();
+};
+
 const requireAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Admin access required' });
@@ -46,4 +65,4 @@ const requireAdmin = (req, res, next) => {
   next();
 };
 
-module.exports = { authenticate, requireAdmin };
+module.exports = { authenticate, optionalAuth, requireAdmin };

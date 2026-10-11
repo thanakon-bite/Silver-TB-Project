@@ -10,7 +10,7 @@ const supabase = require('../config/supabase');
 const stripe = require('../config/stripe');
 const line = require('../lib/line');
 const { conflict, unwrap } = require('../lib/http');
-const { AUTO_CONFIRM_DAYS, CONFIRM_REQUEST_DAYS } = require('../lib/orderStatus');
+const { AUTO_CONFIRM_DAYS, CONFIRM_REQUEST_DAYS, checkRefund } = require('../lib/orderStatus');
 
 const ORDER_WITH_ITEMS =
   '*, order_items(id, product_id, product_name, product_image, unit_price, quantity, line_total, list_price, discount_per_unit, promotion_id, is_gift)';
@@ -44,6 +44,16 @@ async function notifyAdminsOrderPaid(orderId) {
     await supabase.from('orders').update({ admin_notified_at: null }).eq('id', orderId);
     throw err;
   }
+}
+
+/** LINE to the Owner when a customer confirms receiving their order (ADR 0002 targets). Never throws for "not configured". */
+async function notifyAdminsOrderReceived(orderId) {
+  if (!line.isConfigured()) return false;
+  const order = await getOrderWithItems(orderId);
+  // Only a Customer's own confirmation goes to LINE (an Admin's or the automatic one never does)
+  if (!order || order.status !== 'confirmed' || order.confirmed_by !== 'customer') return false;
+  await line.pushToAdmins(line.buildOrderReceivedMessage(order));
+  return true;
 }
 
 async function warnAdmins(text) {
@@ -173,14 +183,18 @@ async function cancelUnpaidOrder(order, reason) {
 
 /**
  * Admin cancels a paid order (Paid / Waiting Shipping): full refund through Stripe first, then cancel.
- * If the refund fails nothing changes, so the money and the Order Status never disagree.
+ * If the refund fails or is still pending nothing changes, so the money and the Order Status never disagree.
  */
 async function refundAndCancel(order, reason) {
   if (!order.stripe_payment_intent_id) throw conflict('No Stripe payment is linked to this order');
-  await stripe.refunds.create(
+  const created = await stripe.refunds.create(
     { payment_intent: order.stripe_payment_intent_id, reason: 'requested_by_customer', metadata: { order_id: order.id } },
     { idempotencyKey: `refund-${order.id}` }
   );
+  // A retry replays the first response (idempotency key), so read the refund's current status
+  const refund = created.status === 'succeeded' ? created : await stripe.refunds.retrieve(created.id);
+  const check = checkRefund(refund);
+  if (!check.ok) throw conflict(check.reason, check.code);
   return unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason, p_refunded: true }));
 }
 
@@ -248,9 +262,12 @@ async function sendConfirmRequests() {
   return data || 0;
 }
 
-/** Background job: every Promotion that has started is announced once to every active Customer. */
+/**
+ * Background job, also run right after a Promotion is created or switched on: every active Customer is
+ * told once that a Promotion is coming (with its dates) and once that it has started (CONTEXT.md: Notification).
+ */
 async function announcePromotions() {
-  const { data, error } = await supabase.rpc('announce_started_promotions');
+  const { data, error } = await supabase.rpc('announce_promotions');
   if (error) throw new Error(error.message);
   return data || 0;
 }
@@ -311,6 +328,7 @@ module.exports = {
   ORDER_WITH_ITEMS,
   getOrderWithItems,
   notifyAdminsOrderPaid,
+  notifyAdminsOrderReceived,
   markPaidFromIntent,
   markPaidFromCheckoutSession,
   cancelUnpaidOrder,

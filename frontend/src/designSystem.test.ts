@@ -36,3 +36,12 @@ test('no gradients', () => {
 test('colours come from tokens: no raw black/white or arbitrary colour values', () => {
   expect(breaches(/\b(bg|text|border|ring|outline|from|via|to|fill|stroke)-(black|white)\b|\b(bg|text|border|ring|outline|fill|stroke)-\[(#|rgb|oklch|hsl)/)).toEqual([]);
 });
+
+test('icon buttons use the shared iconButton instead of a hand-rolled p-2 rounded-lg', () => {
+  expect(breaches(/className="[^"]*\b(rounded-lg p-2|p-2 [^"]*rounded-lg)\b/)).toEqual([]);
+});
+
+test('fields and notices are rounded-xl: no field restyled round, no rounded-lg notice or select', () => {
+  // Badges and pills may be rounded-full; fields use fieldClass() as it is
+  expect(breaches(/fieldClass\(\)\}[^`]*\brounded-(full|lg)\b|rounded-lg bg-accent-strong\/10|rounded-lg border border-line bg-paper px-2/)).toEqual([]);
+});

@@ -14,6 +14,10 @@ export const thaiDateTime = (iso: string) =>
 export const localDateTime = (iso: string | null | undefined, lang: string | undefined) =>
   !iso ? '-' : (lang || 'th').startsWith('th') ? thaiDateTime(iso) : dateTime(iso);
 
+/** A calendar day in the reader's language, read in Thai time (Promotion dates): "1 พ.ย. 2569" / "1 Nov 2026". */
+export const localDate = (iso: string | null | undefined, lang: string | undefined) =>
+  !iso ? '-' : new Date(iso).toLocaleDateString((lang || 'th').startsWith('th') ? 'th-TH' : 'en-GB', { dateStyle: 'medium', timeZone: 'Asia/Bangkok' });
+
 export function formatAddressLines(a: ShippingSnapshot | string | null | undefined): string[] {
   if (!a) return [];
   if (typeof a === 'string') return [a];
@@ -34,7 +38,7 @@ export const cancelReasonText = (reason: string, t: (key: string) => string) =>
 /** "1 ชิ้น", "2–5 ชิ้น", "6 ชิ้นขึ้นไป": the paid units a Shipping Tier covers. */
 export const tierLabel = (tier: ShippingTier, t: (key: string, o?: Record<string, unknown>) => string) =>
   tier.max_units === null
-    ? t('shipping_rule.units_open', { min: tier.min_units })
+    ? t('shipping_rule.units_open', { count: tier.min_units })
     : tier.max_units === tier.min_units
       ? t('shipping_rule.units_one', { count: tier.min_units })
       : t('shipping_rule.units_range', { min: tier.min_units, max: tier.max_units });

@@ -6,7 +6,8 @@ import { api } from '../../lib/api';
 import { useTranslation } from 'react-i18next';
 import { baht } from '../../lib/format';
 import { tokenColor } from '../../lib/tokenColor';
-import { ORDER_STATUSES, PRODUCT_CATEGORIES, type OrderStatus, type ProductCategory } from '../../lib/types';
+import { ORDER_STATUSES, type OrderStatus, type ProductCategory } from '../../lib/types';
+import { useCatalogue, useCategoryName } from '../../lib/catalogue';
 import { useTheme } from '../../contexts/ThemeContext';
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip);
@@ -109,6 +110,9 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
   const { theme } = useTheme();
   const { t, i18n } = useTranslation();
   const statusLabel = (s: OrderStatus) => t(`order_status.${s}`);
+  const { categories } = useCatalogue();
+  const categoryName = useCategoryName();
+  const PRODUCT_CATEGORIES = categories.map((c) => c.slug);
   // Canvas cannot read CSS variables; re-read the tokens whenever the theme flips.
   const chart = React.useMemo(
     () => ({
@@ -252,7 +256,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
               <tbody>
                 {PRODUCT_CATEGORIES.map((c, i) => (
                   <tr key={c} className="border-b border-line">
-                    <td className={td}>{t(c)}</td>
+                    <td className={td}>{categoryName(c)}</td>
                     <td className={`${td} text-right font-mono tabular-nums`}>{byCategory[i]}</td>
                   </tr>
                 ))}
@@ -263,7 +267,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
           <div className="h-56">
             <Bar
               data={{
-                labels: PRODUCT_CATEGORIES.map((c) => t(c)),
+                labels: PRODUCT_CATEGORIES.map((c) => categoryName(c)),
                 datasets: [
                   {
                     data: byCategory,
@@ -300,7 +304,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
             <thead>
               <tr className="text-left text-muted border-b border-line">
                 <th className={th}>{t('admin.common.product')}</th>
-                <th className={`${th} text-right`}>Stockmove</th>
+                <th className={`${th} text-right`}>{t('admin.products.available_label')}</th>
               </tr>
             </thead>
             <tbody>

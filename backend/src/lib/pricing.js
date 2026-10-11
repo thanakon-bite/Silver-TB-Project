@@ -121,28 +121,70 @@ function giftPlan(promo, units, { giftProducts, giftChoices, paidQty }) {
   };
 }
 
+/** A Promotion that combines with the other Stackable ones on a line (ADR 0004); anything else applies alone. */
+const isStackable = (p) => p.stacking === 'stackable';
+
 /**
- * What one choice of Promotion per line is worth. choice[i] is the Promotion for line i, or null.
+ * What a line may get (CONTEXT.md: Stackable, Exclusive): nothing, one Exclusive Promotion, or every
+ * Stackable Promotion that covers it together. An option is null | { kind: 'exclusive', promo } | { kind: 'stack', promos }.
+ */
+function lineOptions(line, promotions) {
+  const covering = promotions.filter((p) => covers(p, line.product_id));
+  const options = [null, ...covering.filter((p) => !isStackable(p)).map((promo) => ({ kind: 'exclusive', promo }))];
+  const stack = covering.filter(isStackable).sort((a, b) => String(a.id).localeCompare(String(b.id)));
+  if (stack.length) options.push({ kind: 'stack', promos: stack });
+  return options;
+}
+
+const optionPromos = (o) => (!o ? [] : o.kind === 'stack' ? o.promos : [o.promo]);
+/** How the Cart and checkout name an option: 'none', 'stack', or the Exclusive Promotion's id. */
+const optionKey = (o) => (!o ? 'none' : o.kind === 'stack' ? 'stack' : o.promo.id);
+
+/**
+ * One unit's discount from these Promotions at the tiers they reached: percentages one after another on
+ * the reduced price (in a fixed order), then baht off; a unit never goes below zero.
+ * @returns {{ total: number, parts: Record<string, number> }} satang, and each Promotion's share
+ */
+function stackedDiscount(promos, reached, unit) {
+  const tiers = promos.map((p) => ({ p, t: reached[p.id] })).filter((x) => x.t);
+  tiers.sort((a, b) => (a.t.type === b.t.type ? String(a.p.id).localeCompare(String(b.p.id)) : a.t.type === 'percent' ? -1 : 1));
+  let price = unit;
+  const parts = {};
+  for (const { p, t } of tiers) {
+    const d = unitDiscount(t, price);
+    parts[p.id] = d;
+    price -= d;
+  }
+  return { total: unit - price, parts };
+}
+
+/**
+ * What one option per line is worth. A Promotion's tier counts the units of every line using it;
  * Gifts take Available in Promotion order, so two Promotions giving the same product share it.
  */
 function evaluate(priced, choice, promotions, giftCtx) {
   const paidQty = { ...giftCtx.paidQty };
+  const uses = choice.map(optionPromos);
+  const reached = {};
   const groups = [];
-  let saving = 0;
   for (const p of promotions) {
-    const mine = priced.filter((l, i) => choice[i] === p);
+    const mine = priced.filter((l, i) => uses[i].includes(p));
     if (!mine.length) continue;
     const units = mine.reduce((n, l) => n + l.quantity, 0);
-    const { reached } = tierFor(p, units);
-    const discount = mine.reduce((n, l) => n + unitDiscount(reached, l.list) * l.quantity, 0);
-    const gift = giftPlan(p, units, { ...giftCtx, paidQty });
-    if (gift && gift.quantity > 0) paidQty[gift.product.product_id] = (paidQty[gift.product.product_id] || 0) + gift.quantity;
-    const value = discount + (gift ? gift.value : 0);
-    saving += value;
-    groups.push({ p, mine, units, reached, discount, gift, value });
+    reached[p.id] = tierFor(p, units).reached;
+    groups.push({ p, mine, units, reached: reached[p.id], discount: 0, gift: null, value: 0 });
+  }
+  const lineDiscounts = priced.map((l, i) => stackedDiscount(uses[i], reached, l.list));
+  let saving = 0;
+  for (const g of groups) {
+    g.discount = priced.reduce((n, l, i) => n + (lineDiscounts[i].parts[g.p.id] || 0) * l.quantity, 0);
+    g.gift = giftPlan(g.p, g.units, { ...giftCtx, paidQty });
+    if (g.gift && g.gift.quantity > 0) paidQty[g.gift.product.product_id] = (paidQty[g.gift.product.product_id] || 0) + g.gift.quantity;
+    g.value = g.discount + (g.gift ? g.gift.value : 0);
+    saving += g.value;
   }
   const used = groups.filter((g) => g.value > 0).length;
-  return { saving, used, groups, paidQty };
+  return { saving, used, groups, paidQty, lineDiscounts, choice: [...choice] };
 }
 
 const better = (a, b) => !b || a.saving > b.saving || (a.saving === b.saving && a.used < b.used);
@@ -151,11 +193,10 @@ const better = (a, b) => !b || a.saving > b.saving || (a.saving === b.saving && 
 const MAX_COMBINATIONS = 20000;
 
 /**
- * The choice of one Promotion (or none) per line that saves the Customer the most in total, Gifts
- * counted at their price; on a tie, the one that redeems fewer Promotions.
+ * The option per line that saves the Customer the most in total, Gifts counted at their price; on a
+ * tie, the one that redeems fewer Promotions. options[i] lists line i's options (just one when the Customer chose).
  */
-function bestChoice(priced, promotions, giftCtx) {
-  const options = priced.map((l) => [null, ...promotions.filter((p) => covers(p, l.product_id))]);
+function bestChoice(priced, options, promotions, giftCtx) {
   const combinations = options.reduce((n, o) => n * o.length, 1);
   let best = null;
   if (combinations <= MAX_COMBINATIONS) {
@@ -166,20 +207,21 @@ function bestChoice(priced, promotions, giftCtx) {
         if (better(e, best)) best = e;
         return;
       }
-      for (const p of options[i]) {
-        choice[i] = p;
+      for (const o of options[i]) {
+        choice[i] = o;
         walk(i + 1);
       }
     };
     walk(0);
     return best;
   }
-  const choice = new Array(priced.length).fill(null);
+  // Greedy: each step gives one Promotion to every line still free that can take it
+  const choice = options.map((o) => (o.length === 1 ? o[0] : null));
   best = evaluate(priced, choice, promotions, giftCtx);
   for (let remaining = [...promotions]; remaining.length; ) {
     let step = null;
     for (const p of remaining) {
-      const trial = choice.map((c, i) => c || (covers(p, priced[i].product_id) ? p : null));
+      const trial = choice.map((c, i) => c || options[i].find((o) => optionPromos(o).includes(p)) || null);
       const e = evaluate(priced, trial, promotions, giftCtx);
       if (e.saving > best.saving && (!step || e.saving > step.e.saving)) step = { p, trial, e };
     }
@@ -196,17 +238,18 @@ function bestChoice(priced, promotions, giftCtx) {
  *           shippingRule?: object|null, fallbackFee?: number,
  *           promotions?: object[], redemptions?: Record<string, { mine: number, customers: number, counted: boolean }>,
  *           giftProducts?: Record<string, { name: string, name_th?: string, price: number, available: number }>,
- *           giftChoices?: Record<string, string> }} input
+ *           giftChoices?: Record<string, string>, promotionChoices?: Record<string, string> }} input
  *
  * Promotions (CONTEXT.md): applied automatically; units of all products a Promotion covers count
- * together and only the highest tier reached applies; Promotions never stack — each line gets one
- * Promotion, chosen so the whole Cart saves the most, counting a Gift at its price. Gifts are free
- * and never count towards the Shipping Fee.
+ * together and only the highest tier reached applies. Each line gets one Exclusive Promotion or all its
+ * Stackable ones together (ADR 0004): the option that saves the whole Cart the most, counting a Gift at
+ * its price, unless the Customer picked another (promotionChoices: product_id → 'none' | 'stack' | Promotion id),
+ * which is honoured while it is still on offer. Gifts are free and never count towards the Shipping Fee.
  */
-function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [], redemptions = {}, giftProducts = {}, giftChoices = {} }) {
+function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [], redemptions = {}, giftProducts = {}, giftChoices = {}, promotionChoices = {} }) {
   const priced = lines.map((l) => {
     const unit = toSatang(l.unit_price);
-    return { product_id: l.product_id, name: l.name, quantity: l.quantity, list: unit, discount: 0, promotion_id: null };
+    return { product_id: l.product_id, name: l.name, quantity: l.quantity, list: unit, discount: 0, promotion_ids: [] };
   });
   const paidQty = Object.fromEntries(priced.map((l) => [l.product_id, l.quantity]));
   const giftCtx = { giftProducts, giftChoices, paidQty };
@@ -220,15 +263,46 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
     else usable.push(p);
   }
 
-  const best = bestChoice(priced, usable, giftCtx);
+  // Each line's options; a choice the Customer made is kept while it is still on offer
+  const allOptions = priced.map((l) => lineOptions(l, usable));
+  const searchOptions = allOptions.map((opts, i) => {
+    const wanted = promotionChoices?.[priced[i].product_id];
+    const picked = wanted ? opts.filter((o) => optionKey(o) === wanted) : [];
+    return picked.length ? picked : opts;
+  });
+  const best = bestChoice(priced, searchOptions, usable, giftCtx);
+
+  // What each option of a line saves the whole Cart, the other lines as chosen: the Cart's radio list.
+  // Only lines with a real choice (two or more Promotion options) get one.
+  const optionsOf = (i) =>
+    allOptions[i].filter(Boolean).length < 2
+      ? []
+      : allOptions[i].filter(Boolean).map((o) => {
+          const trial = [...best.choice];
+          trial[i] = o;
+          const e = evaluate(priced, trial, usable, giftCtx);
+          return {
+            key: optionKey(o),
+            kind: o.kind,
+            promotions: optionPromos(o).map((p) => ({ id: p.id, name_th: p.name_th, name_en: p.name_en })),
+            saving: toBaht(e.saving),
+          };
+        });
+
+  // A Promotion is redeemed when it took money off or gave a Gift
+  const gave = (g) => g.discount > 0 || Boolean(g.gift && g.gift.quantity > 0);
+  const redeem = best.groups.filter(gave).map((g) => g.p.id);
+  priced.forEach((l, i) => {
+    l.discount = best.lineDiscounts[i].total;
+    l.promotion_ids = optionPromos(best.choice[i])
+      .map((p) => p.id)
+      .filter((id) => redeem.includes(id));
+  });
+
   const applied = [];
   const gifts = [];
   for (const g of best.groups) {
     if (g.value > 0) {
-      for (const l of g.mine) {
-        l.discount = unitDiscount(g.reached, l.list);
-        l.promotion_id = g.p.id;
-      }
       applied.push({ id: g.p.id, name_th: g.p.name_th, name_en: g.p.name_en, units: g.units, tier: g.reached, discount_total: toBaht(g.discount) });
     }
     if (g.gift && g.gift.earned > 0 && (g.value > 0 || g.gift.quantity === 0)) gifts.push(giftEntry(g.p, g.gift));
@@ -236,9 +310,10 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
 
   // Earned Gifts that could not be given (none Available) are still shown, as "out of stock"
   const finalCtx = { ...giftCtx, paidQty: best.paidQty };
+  const free = (l, i) => !best.choice[i];
   for (const p of usable) {
     if (best.groups.some((g) => g.p === p)) continue;
-    const units = priced.filter((l) => !l.promotion_id && covers(p, l.product_id)).reduce((n, l) => n + l.quantity, 0);
+    const units = priced.filter((l, i) => free(l, i) && covers(p, l.product_id)).reduce((n, l) => n + l.quantity, 0);
     const gift = giftPlan(p, units, finalCtx);
     if (gift && gift.earned > 0 && gift.quantity === 0) gifts.push(giftEntry(p, gift));
   }
@@ -247,7 +322,9 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
   const next_tiers = [];
   const next_gifts = [];
   for (const p of usable) {
-    const units = priced.filter((l) => covers(p, l.product_id) && (!l.promotion_id || l.promotion_id === p.id)).reduce((n, l) => n + l.quantity, 0);
+    const units = priced
+      .filter((l, i) => covers(p, l.product_id) && (free(l, i) || optionPromos(best.choice[i]).includes(p)))
+      .reduce((n, l) => n + l.quantity, 0);
     if (!units) continue;
     const { next } = tierFor(p, units);
     if (next) next_tiers.push({ promotion_id: p.id, name_th: p.name_th, name_en: p.name_en, units_needed: next.min_units - units, tier: next });
@@ -260,11 +337,9 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
   const subtotal = priced.reduce((n, l) => n + l.list * l.quantity, 0);
   const itemTotal = priced.reduce((n, l) => n + (l.list - l.discount) * l.quantity, 0);
   const shipping = shippingFeeSatang(shippingRule, paidUnits, itemTotal, fallbackFee);
-  // A Promotion is redeemed when it took money off or gave a Gift
-  const redeem = applied.filter((a) => toSatang(a.discount_total) > 0 || gifts.some((g) => g.promotion_id === a.id && g.quantity > 0)).map((a) => a.id);
 
   return {
-    lines: priced.map((l) => ({
+    lines: priced.map((l, i) => ({
       product_id: l.product_id,
       name: l.name,
       quantity: l.quantity,
@@ -272,7 +347,10 @@ function priceCart({ lines, shippingRule = null, fallbackFee = 0, promotions = [
       unit_price: toBaht(l.list - l.discount),
       discount_per_unit: toBaht(l.discount),
       line_total: toBaht((l.list - l.discount) * l.quantity),
-      promotion_id: redeem.includes(l.promotion_id) ? l.promotion_id : null,
+      promotion_id: l.promotion_ids[0] || null,
+      promotion_ids: l.promotion_ids,
+      option: optionKey(best.choice[i]),
+      options: optionsOf(i),
     })),
     gifts,
     promotions_applied: applied.filter((a) => redeem.includes(a.id)),
@@ -303,4 +381,19 @@ function giftEntry(promo, gift) {
   };
 }
 
-module.exports = { priceCart, validateShippingRule, toSatang };
+/** Stripe's smallest charge in Thai Baht: a smaller order could be placed but never paid. */
+const MIN_PAYABLE_TOTAL = 10;
+
+/** @returns {{ ok: true } | { ok: false, reason: string, code: string }} */
+function checkPayableTotal(total) {
+  if (Number(total) >= MIN_PAYABLE_TOTAL) return { ok: true };
+  return { ok: false, reason: `Orders must come to at least ฿${MIN_PAYABLE_TOTAL} to be paid by card or PromptPay`, code: 'BELOW_MINIMUM_TOTAL' };
+}
+
+/**
+ * The Promotions this shopper can still redeem (CONTEXT.md: Promotion): not ones they used up, nor ones
+ * that reached their Customer cap unless they are already one of its Customers. Guests pass no standing.
+ */
+const redeemablePromotions = (promotions, redemptions = {}) => promotions.filter((p) => !blockedReason(p, redemptions));
+
+module.exports = { priceCart, redeemablePromotions, validateShippingRule, checkPayableTotal, MIN_PAYABLE_TOTAL, toSatang };

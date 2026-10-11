@@ -9,7 +9,11 @@ const { decideMemberRemoval } = require('../lib/memberRemoval');
 const { validateShippingRule } = require('../lib/pricing');
 const pricing = require('../services/pricing');
 const promotionsService = require('../services/promotions');
-const { validatePromotion, editablePromotionFields } = require('../lib/promotions');
+const ordersService = require('../services/orders');
+
+/** Tell Customers about a new or switched-on Promotion now, not at the next job run. Never fails the request. */
+const announceSoon = () => ordersService.announcePromotions().catch((err) => console.error('announce promotions:', err.message));
+const { validatePromotion, editablePromotionFields, lockedFieldsChanged } = require('../lib/promotions');
 
 const router = express.Router();
 router.use(authenticate, requireAdmin);
@@ -25,7 +29,7 @@ router.get(
     const since = new Date(Date.now() - 13 * 24 * 60 * 60 * 1000);
     since.setUTCHours(0, 0, 0, 0);
 
-    const [statusRows, confirmedRecent, lowStock, attention, customers, catalogue] = await Promise.all([
+    const [statusRows, confirmedRecent, lowStock, attention, customers, catalogue, categories] = await Promise.all([
       supabase.rpc('admin_order_stats'),
       supabase.from('orders').select('total, confirmed_at').eq('status', 'confirmed').is('refunded_at', null).gte('confirmed_at', since.toISOString()),
       supabase
@@ -38,11 +42,12 @@ router.get(
       supabase.from('orders').select('id', { count: 'exact', head: true }).eq('needs_attention', true),
       supabase.from('profiles').select('id', { count: 'exact', head: true }).eq('role', 'user'),
       supabase.from('products').select('category').eq('is_active', true),
+      supabase.from('categories').select('slug').order('sort_order', { ascending: true }),
     ]);
-    for (const r of [statusRows, confirmedRecent, lowStock, catalogue]) if (r.error) throw r.error;
+    for (const r of [statusRows, confirmedRecent, lowStock, catalogue, categories]) if (r.error) throw r.error;
 
-    // Every Category appears, even with no products, so the chart's axis never shifts.
-    const byCategory = Object.fromEntries(v.PRODUCT_CATEGORIES.map((c) => [c, 0]));
+    // Every Category the Admin keeps appears, in their order, even with no products (ADR 0005)
+    const byCategory = Object.fromEntries(categories.data.map((c) => [c.slug, 0]));
     for (const p of catalogue.data) byCategory[p.category] = (byCategory[p.category] || 0) + 1;
 
     // Counted in the database so the numbers stay exact at any number of orders
@@ -255,6 +260,7 @@ const promotionRow = (p) => ({
   per_customer_limit: p.per_customer_limit,
   customer_limit: p.customer_limit,
   is_active: p.is_active,
+  stacking: p.stacking,
 });
 
 // GET /api/admin/promotions — every Promotion with its Redemption counts
@@ -274,6 +280,7 @@ router.post(
     const p = check.promotion;
     const row = unwrap(await supabase.from('promotions').insert(promotionRow(p)).select('id').single());
     await promotionsService.setProducts(row.id, p.product_ids, p.gift_product_ids || []);
+    await announceSoon();
     res.status(201).json(await promotionsService.getOne(row.id));
   })
 );
@@ -291,6 +298,10 @@ router.patch(
     const p = check.promotion;
     const locked = editablePromotionFields(existing, new Date());
     if (locked) {
+      const changed = lockedFieldsChanged(existing, p);
+      if (changed.length) {
+        throw conflict(`This promotion has started, so ${changed.join(', ')} can no longer change`, 'PROMOTION_LOCKED');
+      }
       const updates = Object.fromEntries(locked.map((k) => [k, p[k]]));
       if (updates.ends_at < existing.starts_at) throw badRequest('The end date cannot be before the start date', 'INVALID_PROMOTION');
       unwrap(await supabase.from('promotions').update(updates).eq('id', id));
@@ -298,6 +309,7 @@ router.patch(
       unwrap(await supabase.from('promotions').update(promotionRow(p)).eq('id', id));
       await promotionsService.setProducts(id, p.product_ids, p.gift_product_ids || []);
     }
+    if (p.is_active && !existing.is_active) await announceSoon();
     res.json(await promotionsService.getOne(id));
   })
 );

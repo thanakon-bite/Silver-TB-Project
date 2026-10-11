@@ -1,11 +1,12 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { Pencil, Plus, Tag, Trash2 } from 'lucide-react';
+import { errorMessage } from '../../lib/errorMessage';
 import { api } from '../../lib/api';
-import type { DiscountTier } from '../../lib/promotions';
+import { amountText, type DiscountTier, type Stacking } from '../../lib/promotions';
 import Modal from '../common/Modal';
-import { primaryButtonInline, secondaryButton } from '../ui/buttonStyles';
+import { dangerButton, iconButton, primaryButtonInline, secondaryButton } from '../ui/buttonStyles';
 import { fieldClass, fieldLabel } from '../ui/fieldStyles';
 
 /** A Promotion as GET /admin/promotions returns it (CONTEXT.md: Promotion, Redemption). */
@@ -23,6 +24,7 @@ interface AdminPromotion {
   gift_quantity: number | null;
   per_customer_limit: number | null;
   customer_limit: number | null;
+  stacking: Stacking;
   is_active: boolean;
   redemptions: number;
   customers: number;
@@ -54,6 +56,7 @@ interface Form {
   gift_product_ids: string[];
   per_customer_limit: string;
   customer_limit: string;
+  stacking: Stacking;
   is_active: boolean;
 }
 
@@ -73,6 +76,8 @@ const emptyForm: Form = {
   gift_product_ids: [],
   per_customer_limit: '',
   customer_limit: '',
+  // New Promotions never combine by accident (ADR 0004)
+  stacking: 'exclusive',
   is_active: true,
 };
 
@@ -89,6 +94,7 @@ const toForm = (p: AdminPromotion): Form => ({
   gift_product_ids: p.gift_product_ids || [],
   per_customer_limit: p.per_customer_limit === null ? '' : String(p.per_customer_limit),
   customer_limit: p.customer_limit === null ? '' : String(p.customer_limit),
+  stacking: p.stacking || 'exclusive',
   is_active: p.is_active,
 });
 
@@ -105,11 +111,30 @@ const toBody = (f: Form) => ({
   gift_product_ids: f.gift_every.trim() === '' ? [] : f.gift_product_ids,
   per_customer_limit: f.per_customer_limit.trim() === '' ? null : Number(f.per_customer_limit),
   customer_limit: f.customer_limit.trim() === '' ? null : Number(f.customer_limit),
+  stacking: f.stacking,
   is_active: f.is_active,
 });
 
-const tierSummary = (tier: DiscountTier, t: TFunction) =>
-  `${tier.min_units}+ → ${tier.type === 'percent' ? `${tier.value}%` : t('admin.promos.baht_unit', { value: tier.value })}`;
+/** A Promotion's benefits as tags: its Discount Tiers from fewest units up ("3+ ชิ้น −10%"), then its Gift ("ซื้อ 3 แถม 1"). */
+const PromotionTags: React.FC<{ promotion: AdminPromotion; t: TFunction }> = ({ promotion: p, t }) => {
+  const tiers = [...p.discount_tiers].sort((a, b) => a.min_units - b.min_units);
+  const tag = 'inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium whitespace-nowrap';
+  return (
+    <ul aria-label={t('admin.promos.tags_for', { name: p.name_th })} className="flex flex-wrap gap-1.5">
+      {tiers.map((tier) => (
+        <li key={tier.min_units} className={`${tag} bg-accent-strong/10 text-accent-strong`}>
+          {t('admin.promos.tier_tag', { count: tier.min_units, amount: amountText(tier, t) })}
+        </li>
+      ))}
+      {p.gift_every && p.gift_quantity ? (
+        <li className={`${tag} border border-accent-strong/40 text-ink`}>{t('admin.promos.gift_tag', { every: p.gift_every, gift: p.gift_quantity })}</li>
+      ) : null}
+      <li className={`${tag} ${p.stacking === 'stackable' ? 'bg-sunken text-ink' : 'font-normal text-muted'}`}>
+        {t(`admin.promos.tag_${p.stacking === 'stackable' ? 'stackable' : 'exclusive'}`)}
+      </li>
+    </ul>
+  );
+};
 
 const PromotionForm: React.FC<{
   editing: AdminPromotion | 'new' | null;
@@ -145,7 +170,7 @@ const PromotionForm: React.FC<{
       onClose();
       onSaved();
     } catch (err: any) {
-      setError(err.message);
+      setError(errorMessage(err, t));
     } finally {
       setSaving(false);
     }
@@ -232,7 +257,7 @@ const PromotionForm: React.FC<{
                 onChange={(e) => setTier(i, { value: e.target.value })}
                 className={`${fieldClass()} w-28`}
               />
-              <button type="button" onClick={() => set({ tiers: form.tiers.filter((_, j) => j !== i) })} aria-label={t('admin.promos.remove_tier', { n: i + 1 })} className="rounded-lg p-2 text-muted hover:text-danger">
+              <button type="button" onClick={() => set({ tiers: form.tiers.filter((_, j) => j !== i) })} aria-label={t('admin.promos.remove_tier', { n: i + 1 })} className={`${iconButton} hover:text-danger`}>
                 <Trash2 className="h-4 w-4" aria-hidden />
               </button>
             </div>
@@ -293,6 +318,26 @@ const PromotionForm: React.FC<{
           </div>
         </fieldset>
 
+        <fieldset disabled={started} className="space-y-2">
+          <legend className={fieldLabel}>{t('admin.promos.stacking_label')}</legend>
+          {(['exclusive', 'stackable'] as const).map((kind) => (
+            <label key={kind} className="flex items-start gap-2">
+              <input
+                type="radio"
+                name="promo-stacking"
+                value={kind}
+                className="mt-1 accent-accent-strong"
+                checked={form.stacking === kind}
+                onChange={() => set({ stacking: kind })}
+              />
+              <span>
+                <span className="block text-ink">{t(`admin.promos.${kind}`)}</span>
+                <span className="block text-muted">{t(`admin.promos.${kind}_hint`)}</span>
+              </span>
+            </label>
+          ))}
+        </fieldset>
+
         <label className="flex items-center gap-2">
           <input type="checkbox" className="accent-accent-strong" checked={form.is_active} onChange={(e) => set({ is_active: e.target.checked })} />
           {t('admin.promos.on')}
@@ -315,11 +360,47 @@ const PromotionForm: React.FC<{
 };
 
 /** Admin list of Promotions with create / edit / delete. */
+/** design.md "Destructive": deleting asks first, in one sentence, with focus on keeping the Promotion. */
+const DeletePromotion: React.FC<{ promotion: AdminPromotion | null; onKeep: () => void; onDelete: (p: AdminPromotion) => void }> = ({
+  promotion,
+  onKeep,
+  onDelete,
+}) => {
+  const { t } = useTranslation();
+  const keepRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!promotion) return;
+    // After the Modal has moved focus into its panel
+    const id = setTimeout(() => keepRef.current?.focus());
+    return () => clearTimeout(id);
+  }, [promotion]);
+
+  return (
+    <Modal isOpen={!!promotion} onClose={onKeep} title={promotion ? t('admin.promos.delete_title', { name: promotion.name_th }) : ''} maxWidth="md">
+      {promotion && (
+        <div className="space-y-4 text-sm">
+          <p className="text-ink">{t('admin.promos.delete_text')}</p>
+          <div className="flex justify-end gap-2">
+            <button ref={keepRef} type="button" onClick={onKeep} className={secondaryButton}>
+              {t('admin.promos.keep')}
+            </button>
+            <button type="button" onClick={() => onDelete(promotion)} className={dangerButton}>
+              <Trash2 className="h-4 w-4" aria-hidden />
+              {t('admin.common.delete')}
+            </button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
 const PromotionsEditor: React.FC = () => {
   const { t } = useTranslation();
   const [list, setList] = useState<AdminPromotion[] | null>(null);
   const [products, setProducts] = useState<ProductOption[]>([]);
   const [editing, setEditing] = useState<AdminPromotion | 'new' | null>(null);
+  const [deleting, setDeleting] = useState<AdminPromotion | null>(null);
   const [error, setError] = useState('');
 
   const load = useCallback(() => {
@@ -338,12 +419,13 @@ const PromotionsEditor: React.FC = () => {
   }, [load]);
 
   const remove = async (p: AdminPromotion) => {
+    setDeleting(null);
     setError('');
     try {
       await api.delete(`/admin/promotions/${p.id}`);
       load();
     } catch (err: any) {
-      setError(err.message);
+      setError(errorMessage(err, t));
     }
   };
 
@@ -392,15 +474,15 @@ const PromotionsEditor: React.FC = () => {
                 </td>
                 <td className="p-3 whitespace-nowrap text-muted">{`${bangkokDate(p.starts_at)} – ${bangkokDate(p.ends_at)}`}</td>
                 <td className="p-3 text-ink">
-                  {[...p.discount_tiers.map((tier) => tierSummary(tier, t)), ...(p.gift_every ? [t('admin.promos.gift_summary', { every: p.gift_every, gift: p.gift_quantity })] : [])].join(', ') || '—'}
+                  <PromotionTags promotion={p} t={t} />
                 </td>
-                <td className="p-3 whitespace-nowrap text-muted">{t('admin.promos.redemptions', { redemptions: p.redemptions, customers: p.customers })}</td>
+                <td className="p-3 whitespace-nowrap text-muted">{`${t('admin.promos.redemptions_n', { count: p.redemptions })} · ${t('admin.promos.customers_n', { count: p.customers })}`}</td>
                 <td className="p-3 text-muted">{state(p)}</td>
                 <td className="p-3 text-right whitespace-nowrap">
-                  <button type="button" onClick={() => setEditing(p)} aria-label={t('admin.products.edit_named', { name: p.name_th })} className="rounded-lg p-2 text-ink hover:bg-sunken">
+                  <button type="button" onClick={() => setEditing(p)} aria-label={t('admin.products.edit_named', { name: p.name_th })} className={iconButton}>
                     <Pencil className="h-4 w-4" aria-hidden />
                   </button>
-                  <button type="button" onClick={() => remove(p)} aria-label={t('admin.promos.delete_named', { name: p.name_th })} className="rounded-lg p-2 text-ink hover:bg-danger/10 hover:text-danger">
+                  <button type="button" onClick={() => setDeleting(p)} aria-label={t('admin.promos.delete_named', { name: p.name_th })} className={`${iconButton} hover:text-danger`}>
                     <Trash2 className="h-4 w-4" aria-hidden />
                   </button>
                 </td>
@@ -416,6 +498,7 @@ const PromotionsEditor: React.FC = () => {
       </div>
 
       <PromotionForm editing={editing} products={products} onClose={() => setEditing(null)} onSaved={load} />
+      <DeletePromotion promotion={deleting} onKeep={() => setDeleting(null)} onDelete={remove} />
     </section>
   );
 };

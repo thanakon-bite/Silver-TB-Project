@@ -60,7 +60,7 @@ const Navbar: React.FC = () => {
   const isThai = (i18n.language || 'th').startsWith('th');
   const nav = NAV.filter((n) => !n.only || (n.only === 'admin' ? isAdmin : !!user));
   // One feed for both bells (desktop and phone header); only signed-in Members have one.
-  const notifications = useNotifications(!!user);
+  const notifications = useNotifications(user?.id ?? null);
 
   // A route change closes the mobile menu.
   useEffect(() => setIsOpen(false), [location.pathname]);

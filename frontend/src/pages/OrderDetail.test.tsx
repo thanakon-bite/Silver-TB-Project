@@ -198,12 +198,13 @@ test('a refused cancellation is explained in Thai on the page, not in a popup', 
   expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
 });
 
-test('back from Stripe with the payment already confirmed: the order reads paid and the Cart is emptied', async () => {
+test('back from Stripe with the payment confirmed: the order reads paid and a Cart filled since is left alone', async () => {
+  // The Cart was emptied when the Order was created; anything in it now was added afterwards.
   backend(anOrder({ status: 'waiting_shipping', paid_at: '2026-10-10T07:35:00Z' }));
   visit('/orders/o1?paid=1', [atlas]);
 
   expect(await screen.findByRole('heading', { level: 1, name: 'รอจัดส่ง' })).toBeInTheDocument();
-  await waitFor(() => expect(screen.getByTestId('cart-count')).toHaveTextContent('0'));
+  expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
 });
 
 test('opening a paid order later leaves the current Cart alone', async () => {
@@ -214,7 +215,7 @@ test('opening a paid order later leaves the current Cart alone', async () => {
   expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
 });
 
-test('back from Stripe before the webhook: the page waits, then reads paid and empties the Cart', async () => {
+test('back from Stripe before the webhook: the page waits, then reads paid', async () => {
   jest.useFakeTimers();
   try {
     const paid = anOrder({ status: 'waiting_shipping', paid_at: '2026-10-10T07:35:00Z' });
@@ -235,7 +236,6 @@ test('back from Stripe before the webhook: the page waits, then reads paid and e
 
     expect(await screen.findByRole('heading', { level: 1, name: 'รอจัดส่ง' })).toBeInTheDocument();
     expect(screen.getByRole('status')).toHaveTextContent('ขอบคุณที่สั่งซื้อ');
-    expect(screen.getByTestId('cart-count')).toHaveTextContent('0');
   } finally {
     jest.useRealTimers();
   }

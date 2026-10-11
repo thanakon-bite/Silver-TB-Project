@@ -54,7 +54,7 @@ const ShopHero: React.FC<{ productsId: string }> = ({ productsId }) => {
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setPaused(false)}
       className="relative isolate overflow-hidden bg-scrim text-on-scrim"
     >
-      <div className="relative h-[26rem] sm:h-[30rem] lg:h-[34rem]">
+      <div className="relative h-[18rem] sm:h-[21rem] lg:h-[24rem]">
         {SLIDES.map((s, i) => {
           const active = i === index;
           return (
@@ -74,12 +74,12 @@ const ShopHero: React.FC<{ productsId: string }> = ({ productsId }) => {
               />
               {/* An even scrim (design.md: no gradients) so the words read on any photo, in light and dark themes */}
               <div aria-hidden className="absolute inset-0 bg-scrim/60" />
-              <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-16 sm:px-6 sm:pb-20 lg:px-8">
+              <div className="relative mx-auto flex h-full max-w-7xl flex-col justify-end px-4 pb-14 sm:px-6 sm:pb-16 lg:px-8">
                 <div className={`max-w-xl ${active && !reduced ? 'animate-hero-rise' : ''}`}>
                   <p className="text-sm font-semibold uppercase tracking-[0.18em] text-accent">{t(`hero.slides.${s.key}.eyebrow`)}</p>
-                  <h2 className="mt-2 font-display text-3xl font-bold leading-tight text-on-scrim sm:text-5xl">{t(`hero.slides.${s.key}.title`)}</h2>
-                  <p className="mt-3 max-w-lg text-base leading-relaxed text-on-scrim/85 sm:text-lg">{t(`hero.slides.${s.key}.text`)}</p>
-                  <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <h2 className="mt-1 font-display text-2xl font-bold leading-tight text-on-scrim sm:text-4xl">{t(`hero.slides.${s.key}.title`)}</h2>
+                  <p className="mt-2 line-clamp-2 max-w-lg text-sm leading-relaxed text-on-scrim/85 sm:text-base">{t(`hero.slides.${s.key}.text`)}</p>
+                  <div className="mt-4 flex flex-wrap items-center gap-3">
                     <Link to={`/?category=${s.key}`} tabIndex={active ? 0 : -1} className={primaryButtonInline}>
                       {t(`hero.slides.${s.key}.cta`)}
                       <ArrowRight className="h-5 w-5" aria-hidden />

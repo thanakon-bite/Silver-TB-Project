@@ -11,11 +11,12 @@ import { EmptyState, ErrorBox } from '../component/ui/Feedback';
 import ShopHero from '../component/shop/ShopHero';
 import { chip, primaryButton, secondaryButton, textLink } from '../component/ui/buttonStyles';
 import { fieldClass } from '../component/ui/fieldStyles';
-import { PRODUCT_CATEGORIES } from '../lib/types';
-import { badgeText, promotionName, promotionsFor, tierText, useActivePromotions } from '../lib/promotions';
+import { useCatalogue, useCategoryName } from '../lib/catalogue';
+import { badgeText, bestOptionKey, bestPromotion, promotionName, promotionOptions, promotionsFor, useActivePromotions } from '../lib/promotions';
+import { useLineChoices } from '../lib/lineChoices';
+import PromotionPicker from '../component/products/PromotionPicker';
 import { useFavorites } from '../contexts/FavoritesContext';
 
-const CATEGORIES = ['all', ...PRODUCT_CATEGORIES];
 const SORTS = ['default', 'price_asc', 'price_desc', 'name_asc'] as const;
 type Sort = (typeof SORTS)[number];
 
@@ -28,21 +29,38 @@ const Products: React.FC = () => {
   const text = useProductText();
   const { add, isJustAdded } = useAddToCart();
   const promotions = useActivePromotions();
+  // The Promotion option picked here is the one the Cart prices this product with
+  const { choices: lineChoices, choose: chooseOption } = useLineChoices();
   const { favorites } = useFavorites();
+  // The Admin's Categories and Families, in their order (ADR 0005)
+  const catalogue = useCatalogue();
+  const categoryName = useCategoryName();
+  const CATEGORIES = useMemo(() => ['all', ...catalogue.categories.map((c) => c.slug)], [catalogue.categories]);
 
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<unknown>(null);
   const [search, setSearch] = useState('');
   // A ?category=… link (including old /products links, which App redirects here) opens with that filter.
-  const urlCategory = useSearchParams()[0].get('category');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlCategory = searchParams.get('category');
+  // A ?promotion=… link (from a Promotion Notification) shows only the products that Promotion covers.
+  const promotionFilter = promotions.find((p) => p.id === searchParams.get('promotion')) || null;
+  const clearPromotion = () =>
+    setSearchParams(
+      (params) => {
+        params.delete('promotion');
+        return params;
+      },
+      { replace: true }
+    );
   const [category, setCategory] = useState('all');
   useEffect(() => {
     if (urlCategory && CATEGORIES.includes(urlCategory)) {
       setCategory(urlCategory);
       setFamily('');
     }
-  }, [urlCategory]);
+  }, [urlCategory, CATEGORIES]);
   const [family, setFamily] = useState('');
   const [sort, setSort] = useState<Sort>('default');
   const [selected, setSelected] = useState<ShopProduct | null>(null);
@@ -55,10 +73,12 @@ const Products: React.FC = () => {
       .finally(() => setLoading(false));
   }, []); // once: a language switch only changes which name is shown, not the list
 
-  const families = useMemo(
-    () => Array.from(new Set(products.map((p) => p.attributes?.family).filter(Boolean) as string[])).sort(),
-    [products]
-  );
+  // The Admin's Families that some beetle has, in the Admin's order; a Family not on the list still shows, last
+  const families = useMemo(() => {
+    const used = new Set(products.map((p) => p.attributes?.family).filter(Boolean) as string[]);
+    const listed = catalogue.families.map((f) => f.name).filter((n) => used.has(n));
+    return [...listed, ...Array.from(used).filter((n) => !listed.includes(n)).sort()];
+  }, [products, catalogue.families]);
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -70,7 +90,8 @@ const Products: React.FC = () => {
         );
       const matchCategory = category === 'all' || p.category === category;
       const matchFamily = category !== 'beetle' || !family || p.attributes?.family === family;
-      return matchSearch && matchCategory && matchFamily;
+      const matchPromotion = !promotionFilter || promotionsFor(p.id, [promotionFilter]).length > 0;
+      return matchSearch && matchCategory && matchFamily && matchPromotion;
     });
     if (sort === 'price_asc') list = [...list].sort((a, b) => a.price - b.price);
     if (sort === 'price_desc') list = [...list].sort((a, b) => b.price - a.price);
@@ -81,13 +102,20 @@ const Products: React.FC = () => {
       list = [...list.filter((p) => fav.has(p.id)), ...list.filter((p) => !fav.has(p.id))];
     }
     return list;
-  }, [products, search, category, family, sort, text, favorites]);
+  }, [products, search, category, family, sort, text, favorites, promotionFilter]);
 
-  const filtered = search !== '' || category !== 'all';
+  // A card's badge is its Best Promotion, not just the first one listed
+  const bestBadge = (p: ShopProduct) => {
+    const best = bestPromotion(p, promotions);
+    return best ? badgeText(best, t) : null;
+  };
+
+  const filtered = search !== '' || category !== 'all' || !!promotionFilter;
   const clearFilters = () => {
     setSearch('');
     setCategory('all');
     setFamily('');
+    if (promotionFilter) clearPromotion();
   };
 
   return (
@@ -112,7 +140,7 @@ const Products: React.FC = () => {
                 placeholder={t('search_beetles')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={`${fieldClass()} h-10 rounded-full pl-9 pr-10 [&::-webkit-search-cancel-button]:hidden`}
+                className={`${fieldClass()} h-10 pl-9 pr-10 [&::-webkit-search-cancel-button]:hidden`}
               />
               {search && (
                 <button
@@ -134,7 +162,7 @@ const Products: React.FC = () => {
                 id="product-sort"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as Sort)}
-                className={`${fieldClass()} h-10 w-36 rounded-full sm:w-44`}
+                className={`${fieldClass()} h-10 w-36 sm:w-44`}
               >
                 {SORTS.map((s) => (
                   <option key={s} value={s}>
@@ -160,7 +188,7 @@ const Products: React.FC = () => {
                   }}
                   className={`${chip(category === cat)} shrink-0`}
                 >
-                  {t(cat)}
+                  {cat === 'all' ? t('all') : categoryName(cat)}
                 </button>
               ))}
             </div>
@@ -186,6 +214,15 @@ const Products: React.FC = () => {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 pb-20 pt-2 sm:px-6 lg:px-8">
+        {promotionFilter && (
+          <p role="status" className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-accent-strong/30 bg-accent-strong/5 px-4 py-3 text-sm text-ink">
+            <Tag className="h-4 w-4 text-accent-strong" aria-hidden />
+            <span className="font-medium">{t('products_page.promotion_filter', { name: promotionName(promotionFilter, isThai) })}</span>
+            <button type="button" onClick={clearPromotion} className={textLink}>
+              {t('products_page.promotion_filter_clear')}
+            </button>
+          </p>
+        )}
         <p className="mt-6 text-sm text-muted" aria-live="polite">
           {!loading && !loadError && t('products_page.count', { count: shown.length })}
         </p>
@@ -231,7 +268,7 @@ const Products: React.FC = () => {
                   onOpen={setSelected}
                   onAdd={add}
                   justAdded={isJustAdded(p.id)}
-                  promotionBadge={promotionsFor(p.id, promotions).map((pr) => badgeText(pr, t)).find(Boolean)}
+                  promotionBadge={bestBadge(p)}
                 />
               ))}
             </div>
@@ -260,21 +297,21 @@ const Products: React.FC = () => {
                 )}
 
                 {promotionsFor(selected.id, promotions).length > 0 && (
-                  <section aria-label={t('promotions.title')} className="mt-4 space-y-3 rounded-xl border border-accent-strong/30 bg-accent-strong/5 p-4 text-sm">
-                    {promotionsFor(selected.id, promotions).map((pr) => (
-                      <div key={pr.id}>
-                        <p className="flex items-center gap-1.5 font-semibold text-ink">
-                          <Tag className="h-4 w-4 text-accent-strong" aria-hidden />
-                          <span>{promotionName(pr, isThai)}</span>
-                        </p>
-                        <ul className="mt-1 space-y-0.5 text-ink">
-                          {[...pr.discount_tiers].sort((a, b) => a.min_units - b.min_units).map((tier) => (
-                            <li key={tier.min_units}>{tierText(tier, t)}</li>
-                          ))}
-                          {pr.gift_every && pr.gift_quantity && <li>{t('promotions.gift_line', { every: pr.gift_every, gift: pr.gift_quantity })}</li>}
-                        </ul>
-                      </div>
-                    ))}
+                  <section aria-label={t('promotions.title')} className="mt-4">
+                    {(() => {
+                      const options = promotionOptions(selected.id, promotions);
+                      const stored = lineChoices[selected.id];
+                      const value = options.some((o) => o.key === stored) ? stored : bestOptionKey(selected, promotions);
+                      return (
+                        <PromotionPicker
+                          legend={options.length > 1 ? t('promotions.choose_legend') : t('promotions.title')}
+                          name={`promotion-${selected.id}`}
+                          options={options}
+                          value={value}
+                          onChange={(key) => chooseOption(selected.id, key)}
+                        />
+                      );
+                    })()}
                   </section>
                 )}
 

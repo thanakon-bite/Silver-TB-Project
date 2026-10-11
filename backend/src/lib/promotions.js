@@ -101,6 +101,8 @@ function validatePromotion(body, { requireBenefit = true } = {}) {
       per_customer_limit,
       customer_limit,
       is_active: body.is_active !== false,
+      // ADR 0004: combines with other Stackable Promotions on a line, or applies alone
+      stacking: body.stacking === 'stackable' ? 'stackable' : 'exclusive',
     },
   };
 }
@@ -113,4 +115,30 @@ function editablePromotionFields(existing, now = new Date()) {
   return new Date(existing.starts_at) <= now ? ['name_th', 'name_en', 'ends_at', 'is_active'] : null;
 }
 
-module.exports = { validatePromotion, editablePromotionFields, bangkokRange, bangkokDate };
+const sameSet = (a = [], b = []) => a.length === b.length && [...a].sort().join() === [...b].sort().join();
+const tierKey = (tiers = []) =>
+  JSON.stringify([...tiers].map((t) => [t.min_units, t.type, Number(t.value)]).sort((a, b) => a[0] - b[0]));
+const sameNumber = (a, b) => (a ?? null) === (b ?? null) || Number(a) === Number(b);
+
+/** How each field locked after the start compares, so a value read back from the DB equals the one the form sends. */
+const LOCKED_FIELDS = {
+  starts_at: (a, b) => new Date(a).getTime() === new Date(b).getTime(),
+  applies_to_all: (a, b) => Boolean(a) === Boolean(b),
+  product_ids: sameSet,
+  discount_tiers: (a, b) => tierKey(a) === tierKey(b),
+  gift_every: sameNumber,
+  gift_quantity: sameNumber,
+  gift_product_ids: sameSet,
+  per_customer_limit: sameNumber,
+  customer_limit: sameNumber,
+  stacking: (a, b) => (a || 'exclusive') === (b || 'exclusive'),
+};
+
+/** The locked fields an edit would change on a Promotion that has started (empty when it only touches editable ones). */
+function lockedFieldsChanged(existing, next) {
+  return Object.entries(LOCKED_FIELDS)
+    .filter(([field, same]) => !same(existing[field], next[field]))
+    .map(([field]) => field);
+}
+
+module.exports = { validatePromotion, editablePromotionFields, lockedFieldsChanged, bangkokRange, bangkokDate };

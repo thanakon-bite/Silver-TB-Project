@@ -2,6 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderApp } from './test/renderPage';
 import { api } from './lib/api';
+import { resetCatalogue } from './lib/catalogue';
 
 let mockMember: { id: string; email: string; full_name: string; role: 'user' | 'admin' } | null = null;
 let mockFavorites: string[] = [];
@@ -83,4 +84,45 @@ test('Favorites first stays within the chosen category', async () => {
 test('guests see the shop in its normal order', async () => {
   renderApp('/');
   expect(await productNames()).toEqual(['ด้วงกว่างสามเขา', 'เยลลี่ด้วง', 'เปลือกโอ๊ก', 'ขอนผุ']);
+});
+
+test("the category chips follow the Admin's list, order and wording; the Family filter follows the Admin's Families", async () => {
+  resetCatalogue();
+  const shop = (api.get as jest.Mock).getMockImplementation()!;
+  (api.get as jest.Mock).mockImplementation((path: string) =>
+    path === '/categories'
+      ? Promise.resolve({
+          categories: [
+            { slug: 'food', name_th: 'อาหารด้วง', name_en: 'Beetle food', sort_order: 1, is_system: false },
+            { slug: 'beetle', name_th: 'ด้วงมีชีวิต', name_en: 'Live beetles', sort_order: 2, is_system: true },
+            { slug: 'tools', name_th: 'เครื่องมือ', name_en: 'Tools', sort_order: 3, is_system: false },
+          ],
+          families: [
+            { id: 'fa2', name: 'Stag', sort_order: 1 },
+            { id: 'fa1', name: 'Rhinoceros', sort_order: 2 },
+          ],
+        })
+      : path === '/products?limit=100'
+        ? Promise.resolve({
+            products: [
+              { ...atlas, attributes: { family: 'Rhinoceros' } },
+              { ...atlas, id: 'b2', name: 'Stag beetle', name_th: 'ด้วงคีม', attributes: { family: 'Stag' } },
+              jelly,
+            ],
+          })
+        : shop(path)
+  );
+  try {
+    renderApp('/');
+    const chips = within(await screen.findByRole('group', { name: 'หมวดหมู่' }));
+    await waitFor(() => expect(chips.getAllByRole('button').map((b) => b.textContent)).toEqual(['ทั้งหมด', 'อาหารด้วง', 'ด้วงมีชีวิต', 'เครื่องมือ']));
+    userEvent.click(chips.getByRole('button', { name: 'ด้วงมีชีวิต' }));
+    const families = within(await screen.findByRole('group', { name: 'ประเภทด้วง' }));
+    // In the Admin's order (Stag, then Rhinoceros), each in the shop's Thai wording
+    const names = families.getAllByRole('button').map((b) => b.textContent);
+    expect(names).toHaveLength(3);
+    expect(names[1]).toBe('คีม');
+  } finally {
+    resetCatalogue();
+  }
 });

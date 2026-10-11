@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { validatePromotion, editablePromotionFields, bangkokRange } = require('../../src/lib/promotions');
+const { validatePromotion, editablePromotionFields, lockedFieldsChanged, bangkokRange } = require('../../src/lib/promotions');
 
 const input = (over = {}) => ({
   name_th: 'ลดรับหน้าฝน',
@@ -46,7 +46,18 @@ test('a valid Promotion is normalised: tiers sorted, empty limits mean unlimited
     per_customer_limit: null,
     customer_limit: 50,
     is_active: true,
+    stacking: 'exclusive',
   });
+});
+
+test('a Promotion is Exclusive unless the Admin ticks Stackable, and that choice locks once it starts', () => {
+  const base = { name_th: 'ลด', start_date: '2026-11-01', end_date: '2026-11-30', applies_to_all: true, discount_tiers: [{ min_units: 1, type: 'percent', value: 5 }] };
+  assert.equal(validatePromotion(base).promotion.stacking, 'exclusive');
+  assert.equal(validatePromotion({ ...base, stacking: 'stackable' }).promotion.stacking, 'stackable');
+  assert.equal(validatePromotion({ ...base, stacking: 'anything' }).promotion.stacking, 'exclusive');
+  const existing = { ...validatePromotion(base).promotion, stacking: 'exclusive' };
+  assert.deepEqual(lockedFieldsChanged(existing, { ...existing, stacking: 'stackable' }), ['stacking']);
+  assert.deepEqual(lockedFieldsChanged({ ...existing, stacking: null }, existing), [], 'an old row with no value reads as Exclusive');
 });
 
 test('what a Promotion needs', () => {
@@ -69,4 +80,22 @@ test('once a Promotion has started only its names, end date and on/off can chang
   const now = new Date('2026-10-15T00:00:00Z');
   assert.deepEqual(editablePromotionFields(started, now), ['name_th', 'name_en', 'ends_at', 'is_active']);
   assert.equal(editablePromotionFields(notYet, now), null, 'everything is editable before the start');
+});
+
+test('after the start, an edit that changes a locked field is named so the API can refuse it', () => {
+  const p = validatePromotion(input()).promotion;
+  // As stored and read back: same values, another timestamp spelling, tiers and lists in another order
+  const existing = {
+    ...p,
+    starts_at: new Date(p.starts_at).toISOString().replace('Z', '+00:00'),
+    discount_tiers: [...p.discount_tiers].reverse(),
+    product_ids: [...p.product_ids].reverse(),
+  };
+  assert.deepEqual(lockedFieldsChanged(existing, { ...p, name_th: 'ใหม่', ends_at: '2026-12-31T16:59:59.999Z', is_active: false }), [], 'names, end date and on/off may change');
+  assert.deepEqual(lockedFieldsChanged(existing, validatePromotion(input({ start_date: '2026-11-02' })).promotion), ['starts_at']);
+  assert.deepEqual(
+    lockedFieldsChanged(existing, validatePromotion(input({ discount_tiers: [{ min_units: 1, type: 'percent', value: 50 }], per_customer_limit: 2 })).promotion),
+    ['discount_tiers', 'per_customer_limit']
+  );
+  assert.deepEqual(lockedFieldsChanged(existing, { ...p, product_ids: ['22222222-2222-2222-2222-222222222222'] }), ['product_ids']);
 });

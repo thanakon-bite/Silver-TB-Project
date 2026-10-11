@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { priceCart, validateShippingRule } = require('../../src/lib/pricing');
+const { priceCart, validateShippingRule, checkPayableTotal } = require('../../src/lib/pricing');
 
 // The example from the shop owner: 1 unit 10 baht, 2–5 units 50 baht, 6+ 80 baht
 const rule = {
@@ -59,4 +59,14 @@ test('tiers given out of order are sorted before checking', () => {
   const r = validateShippingRule({ tiers: [rule.tiers[2], rule.tiers[0], rule.tiers[1]], free_threshold: null });
   assert.equal(r.ok, true);
   assert.deepEqual(r.rule.tiers.map((t) => t.min_units), [1, 2, 6]);
+});
+
+test('an order total Stripe cannot charge (under ฿10 in THB) is refused before the order is made', () => {
+  assert.deepEqual(checkPayableTotal(10), { ok: true });
+  assert.deepEqual(checkPayableTotal(4275), { ok: true });
+  for (const total of [9, 9.99, 0]) {
+    const check = checkPayableTotal(total);
+    assert.equal(check.ok, false);
+    assert.equal(check.code, 'BELOW_MINIMUM_TOTAL');
+  }
 });

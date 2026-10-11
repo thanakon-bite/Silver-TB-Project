@@ -6,22 +6,25 @@
  */
 
 class HttpError extends Error {
-  constructor(status, message, code) {
+  /** `params` (optional) are numbers the client puts into its own wording of `code`, e.g. { count: 3 }. */
+  constructor(status, message, code, params) {
     super(message);
     this.status = status;
     this.code = code;
+    if (params) this.params = params;
     this.expose = true;
   }
 }
 
 const badRequest = (message, code) => new HttpError(400, message, code);
 const notFound = (message = 'Not found') => new HttpError(404, message, 'NOT_FOUND');
-const conflict = (message, code) => new HttpError(409, message, code);
+const conflict = (message, code, params) => new HttpError(409, message, code, params);
 const forbidden = (message = 'Forbidden') => new HttpError(403, message, 'FORBIDDEN');
 
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // Errors raised by our SQL functions (RAISE EXCEPTION '<CODE>')
+// [status, message from DETAIL, params from DETAIL (optional)]
 const DB_ERRORS = {
   INVALID_ITEMS: [400, () => 'Your cart is empty or invalid.'],
   INVALID_QUANTITY: [400, () => 'Each quantity must be a whole number between 1 and 99.'],
@@ -32,7 +35,10 @@ const DB_ERRORS = {
   ORDER_NOT_FOUND: [404, () => 'Order not found.'],
   INVALID_STATUS: [409, (d) => `This order can no longer be cancelled${d ? ` (status: ${d})` : ''}.`],
   REFUND_REQUIRED: [409, () => 'This order is paid — refund it instead of cancelling.'],
-  INVALID_DELTA: [400, () => 'Stock adjustment must be a non-zero whole number.'],
+  INVALID_ON_HAND: [400, () => 'On Hand must be a whole number from 0.'],
+  BELOW_RESERVED: [409, (d) => `On Hand cannot go below the ${d || ''} unit(s) reserved by open orders.`, (d) => (d ? { reserved: Number(d) } : undefined)],
+  SYSTEM_CATEGORY: [409, () => 'The beetle Category can be renamed but not deleted.'],
+  FAMILY_NOT_FOUND: [404, () => 'Family not found.'],
   PRODUCT_NOT_FOUND: [404, () => 'Product not found.'],
   STOCK_BELOW_ZERO: [409, () => 'Stock cannot go below zero.'],
   INVALID_DISCOUNT: [500, () => 'A discount did not match its Promotion.'],
@@ -45,8 +51,8 @@ function fromDbError(error) {
   if (!error) return null;
   const mapped = DB_ERRORS[error.message];
   if (mapped) {
-    const [status, msg] = mapped;
-    return new HttpError(status, msg(error.details), error.message);
+    const [status, msg, params] = mapped;
+    return new HttpError(status, msg(error.details), error.message, params?.(error.details));
   }
   if (error.code === '23505') return conflict('This record already exists.', 'DUPLICATE');
   if (error.code === '23503') return badRequest('A referenced record does not exist.', 'FOREIGN_KEY');

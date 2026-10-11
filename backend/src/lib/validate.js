@@ -129,6 +129,16 @@ function giftChoices(value) {
   return out;
 }
 
+/** The Customer's pick per Cart line: product id -> 'none' | 'stack' | an Exclusive Promotion's id. */
+function promotionChoices(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out = {};
+  for (const [product, pick] of Object.entries(value).slice(0, 50)) {
+    if (UUID_RE.test(product) && typeof pick === 'string' && (pick === 'none' || pick === 'stack' || UUID_RE.test(pick))) out[product] = pick;
+  }
+  return out;
+}
+
 /** Product images: only https URLs (Supabase Storage public URLs or other https hosts). */
 function imageUrls(value, field = 'images') {
   if (value === undefined) return undefined;
@@ -159,7 +169,6 @@ function likePattern(value) {
   return `%${String(value).slice(0, 100).replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 }
 
-const PRODUCT_CATEGORIES = ['beetle', 'food', 'log', 'gear'];
 const BEETLE_SEX = ['male', 'female', 'pair', 'trio', 'unsexed'];
 const BEETLE_STAGE = ['egg', 'L1', 'L2', 'L3', 'pupa', 'adult'];
 
@@ -189,7 +198,6 @@ function productAttributes(value, field = 'attributes') {
 }
 
 module.exports = {
-  PRODUCT_CATEGORIES,
   BEETLE_SEX,
   BEETLE_STAGE,
   productAttributes,
@@ -207,6 +215,7 @@ module.exports = {
   oneOf,
   cartItems,
   giftChoices,
+  promotionChoices,
   imageUrls,
   pagination,
   likePattern,

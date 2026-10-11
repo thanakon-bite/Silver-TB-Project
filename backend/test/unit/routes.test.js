@@ -47,6 +47,15 @@ test('protected endpoints require a session', async () => {
     ['GET', '/api/notifications?before=2026-10-11T03%3A00%3A00Z&before_id=00000000-0000-0000-0000-000000000000'],
     ['POST', '/api/notifications/read-all'],
     ['POST', '/api/notifications/00000000-0000-0000-0000-000000000000/read'],
+    ['POST', '/api/categories'],
+    ['POST', '/api/categories/reorder'],
+    ['PATCH', '/api/categories/food'],
+    ['DELETE', '/api/categories/food'],
+    ['POST', '/api/categories/families'],
+    ['PATCH', '/api/categories/families/00000000-0000-0000-0000-000000000000'],
+    ['DELETE', '/api/categories/families/00000000-0000-0000-0000-000000000000'],
+    ['POST', '/api/products/00000000-0000-0000-0000-000000000000/stock'],
+    ['GET', '/api/products/00000000-0000-0000-0000-000000000000/stock-history'],
   ]) {
     const res = await call(path, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : '{}' });
     assert.equal(res.status, 401, `${method} ${path}`);

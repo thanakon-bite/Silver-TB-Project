@@ -1,5 +1,8 @@
 const express = require('express');
-const { asyncHandler } = require('../lib/http');
+const supabase = require('../config/supabase');
+const { asyncHandler, unwrap } = require('../lib/http');
+const { optionalAuth } = require('../middleware/auth');
+const { redeemablePromotions } = require('../lib/pricing');
 const pricing = require('../services/pricing');
 const promotions = require('../services/promotions');
 
@@ -13,11 +16,20 @@ router.get(
   })
 );
 
-// GET /api/rules/promotions — Promotions running now, for badges on product cards and tiers on product pages
+// GET /api/rules/promotions — Promotions running now that this shopper can still redeem, for badges on
+// product cards and tiers on product pages. Signed in, the Customer's own Redemptions count.
 router.get(
   '/promotions',
+  optionalAuth,
   asyncHandler(async (req, res) => {
-    const list = await promotions.activePromotions();
+    const active = await promotions.activePromotions();
+    const standing = await promotions.redemptionsFor(req.user?.id || null, active.map((p) => p.id));
+    const list = redeemablePromotions(active, standing);
+    // Gift products' prices, so a Gift can be valued against a Discount (Best Promotion)
+    const giftIds = [...new Set(list.flatMap((p) => p.gift_product_ids || []))];
+    const giftPrices = giftIds.length
+      ? Object.fromEntries(unwrap(await supabase.from('products').select('id, price').in('id', giftIds)).map((g) => [g.id, Number(g.price)]))
+      : {};
     res.json(
       list.map((p) => ({
         id: p.id,
@@ -29,6 +41,8 @@ router.get(
         discount_tiers: p.discount_tiers,
         gift_every: p.gift_every,
         gift_quantity: p.gift_quantity,
+        gift_prices: (p.gift_product_ids || []).map((id) => giftPrices[id]).filter((n) => n !== undefined),
+        stacking: p.stacking || 'exclusive',
       }))
     );
   })

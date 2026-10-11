@@ -11,7 +11,7 @@ Anything listed in the shop, live beetle or goods. One kind of thing, with a **C
 _Avoid_: Item (reserved for order lines), listing
 
 **Category**:
-The kind of product: `beetle`, `food`, `log` (logs and substrate) or `gear`.
+The kind of product (หมวดหมู่), and the first filter shoppers use. Admins add, rename, reorder and delete Categories, each with a Thai and English name; a Category that still holds products cannot be deleted. `beetle` is the one system Category: it can be renamed but never deleted, and only its products carry Beetle Attributes, a Family, and the Shipping Day limit.
 _Avoid_: Type, family (when meaning category)
 
 **Beetle Attributes**:
@@ -19,7 +19,7 @@ The facts that describe a live beetle product: family, species, locality, sex, s
 _Avoid_: Specs, details
 
 **Family**:
-The beetle group shown to shoppers, e.g. Rhinoceros, Stag, Flower. A Beetle Attribute, not a Category.
+The beetle group shown to shoppers, e.g. Rhinoceros, Stag, Flower (วงศ์), and the second filter once shoppers pick the beetle Category. A Beetle Attribute, not a Category. Admins keep the list of Families; a beetle's Family is picked from it, and a Family still used by a product cannot be deleted.
 
 **Sex**:
 `male`, `female`, `pair` (1 male + 1 female), `trio` (1 male + 2 females) or `unsexed`.
@@ -28,12 +28,12 @@ The beetle group shown to shoppers, e.g. Rhinoceros, Stag, Flower. A Beetle Attr
 Life stage of a live beetle: `egg`, `L1`, `L2`, `L3` (larval instars), `pupa`, `adult`.
 
 **On Hand**:
-Units of a product the shop is still responsible for: in the warehouse, or on their way to a customer who has not yet confirmed receipt. Goes up only when an Admin receives stock; goes down only when an order becomes **Confirmed**. Admin screens may label it Onhand.
+Units of a product the shop is still responsible for: in the warehouse, or on their way to a customer who has not yet confirmed receipt. Goes up only when an Admin receives stock; goes down only when an order becomes **Confirmed**. Shown in Thai as คงคลัง. An Admin changes it by setting a new count (never below the units Reserved), optionally with a note.
 _Avoid_: Stock (alone), inventory count
 
 **Available**:
-Units of a product that can still be ordered, and the number shoppers see. Equals On Hand minus the units in orders that are neither Confirmed nor Cancelled. Goes down when an order is created, comes back when an order is Cancelled. Many beetles are one-of-a-kind (Available 1). Admin screens may label it Stockmove.
-_Avoid_: Stock (alone), stock move (which suggests a movement record, not a balance)
+Units of a product that can still be ordered, and the number shoppers see. Equals On Hand minus the units in orders that are neither Confirmed nor Cancelled. Goes down when an order is created, comes back when an order is Cancelled. Many beetles are one-of-a-kind (Available 1). Shown in Thai as พร้อมขาย. A Customer can never put more of a product in their Cart than is Available.
+_Avoid_: Stock (alone), stock move / Stockmove (which suggests a movement record, not a balance)
 
 **In Transit**:
 Units in **Shipping** orders: still On Hand but no longer on the shelf. Shown on the stock screen so a physical count can be reconciled.
@@ -42,10 +42,17 @@ Units in **Shipping** orders: still On Hand but no longer on the shelf. Shown on
 The Available units an order takes the moment it is created, held until it is Confirmed (when they leave On Hand) or Cancelled (when they return to Available).
 _Avoid_: Hold, lock
 
+**Stock History**:
+A product's record of every **Stock Change** (ประวัติสต็อก), newest first, kept from the moment it was introduced; earlier changes are summed up in one opening entry.
+
+**Stock Change**:
+One entry in Stock History: the product being created, an Admin setting On Hand, an order being created (Available down), Cancelled (Available back) or Confirmed (On Hand down). Each says who or what caused it, when, the order if any, the note if any, and On Hand and Available after it.
+_Avoid_: Stock move, movement (alone), adjustment (which is only the Admin kind)
+
 ### Ordering
 
 **Cart**:
-The products a signed-in Customer has picked but not yet ordered (ตะกร้า), kept on their own device under their account, so people sharing a device never see each other's Cart. Guests have no Cart. A Cart holds no stock; a **Reservation** starts only when the customer continues to payment and an Order is created.
+The products a signed-in Customer has picked but not yet ordered (ตะกร้า), kept on their own device under their account, so people sharing a device never see each other's Cart. Guests have no Cart. A Cart holds no stock; a **Reservation** starts only when the customer continues to payment and an Order is created, and at that moment the Cart is emptied: from then on the customer pays, or cancels, from the Order itself.
 _Avoid_: Basket, bag; never call an Order a cart
 
 **Favorite**:
@@ -71,8 +78,17 @@ _Avoid_: Shipping cost setting, delivery rule
 ### Promotions
 
 **Promotion**:
-A time-boxed offer an Admin sets up (โปรโมชั่น) with a Thai and optional English name, a start and end date (Thai time, both days included), the products it covers (all or a chosen list), and a **Discount**, a **Gift**, or both. Applied automatically, with no code to enter. A product may sit in several Promotions at once, but an order line gets only the one that benefits the customer most; Promotions never stack. Once anyone has redeemed a Promotion it can be ended but never deleted, and what it covers and gives is fixed from its start date.
+A time-boxed offer an Admin sets up (โปรโมชั่น) with a Thai and optional English name, a start and end date (Thai time, both days included), the products it covers (all or a chosen list), and a **Discount**, a **Gift**, or both. Applied automatically, with no code to enter. A product may sit in several Promotions at once. Each Promotion is either **Stackable** (ใช้ร่วมกับโปรโมชั่นอื่นได้) or **Exclusive** (ใช้ได้เฉพาะโปรโมชั่นเดียว). An order line gets either one Exclusive Promotion or all of its Stackable Promotions together; the Cart picks whichever benefits the customer most and lets them choose another per line. A Promotion a customer can no longer redeem is not offered or shown to them. Once anyone has redeemed a Promotion it can be ended but never deleted, and what it covers and gives is fixed from its start date.
 _Avoid_: Promotion Plan, deal, coupon (no codes exist)
+
+**Stackable**:
+A Promotion that combines with every other Stackable Promotion on the same order line: percentage Discounts apply one after another to the already-reduced price, baht Discounts come straight off, the price never goes below zero, and every Gift is earned.
+
+**Exclusive**:
+A Promotion that applies to an order line on its own, never together with another.
+
+**Best Promotion**:
+The Promotion worth the most to a customer buying one unit (or, when none gives anything for one unit, at each one's lowest tier), a Gift valued at the gift's price shared over the units it takes to earn it. It is the one a product card shows.
 
 **Discount**:
 The price cut part of a Promotion, given as **Discount Tiers**: "buy N or more, get X% or X baht off each unit". Units of every product covered by the same Promotion count together, and only the highest tier reached applies.
@@ -83,7 +99,7 @@ The free-goods part of a Promotion (ของแถม): every X paid units of c
 _Avoid_: Freebie, bonus item
 
 **Redemption**:
-One use of a Promotion by one Customer, counted when the order is created and given back when that order is Cancelled. A Promotion may cap Redemptions per Customer, and cap how many different Customers may redeem it, or leave either unlimited.
+One use of a Promotion by one Customer, counted when the order is created and given back when that order is Cancelled. An order counts once for each Promotion it uses, however many lines or Stackable partners it shares. A Promotion may cap Redemptions per Customer, and cap how many different Customers may redeem it, or leave either unlimited.
 _Avoid_: Usage, claim
 
 **Order Number**:
@@ -127,7 +143,7 @@ The money the shop has actually earned: the totals customers paid (after discoun
 _Avoid_: Sales (which may include unconfirmed orders)
 
 **Notification**:
-A message in a signed-in Member's bell (การแจ้งเตือน), in the site only. Sent when an order is Awaiting Payment, goes Shipping, is still unconfirmed 3 days after Shipping (asking the customer to confirm receipt), or is Cancelled (with the Cancel Reason), and to every Customer when a Promotion starts.
+A message in a signed-in Member's bell (การแจ้งเตือน), in the site only. A Customer is notified when their order is Awaiting Payment, goes Shipping (with the carrier and Tracking Number), is still unconfirmed 3 days after Shipping (asking them to confirm receipt), is Confirmed by an Admin or automatically, or is Cancelled (with the Cancel Reason). Every Admin is notified when a customer confirms receipt or an order is confirmed automatically. Every Customer is notified when a Promotion is announced (with its dates) and again when it starts, once only when both fall on the same day.
 _Avoid_: Alert (which means the LINE message to the Owner)
 
 **Tracking Number**:
@@ -165,7 +181,7 @@ A person with the `admin` role who runs the shop.
 _Avoid_: Owner (unless meaning the LINE recipient), staff
 
 **Owner**:
-The person who receives the LINE message for every Paid order.
+The person who receives the LINE message for every Paid order and every order a customer confirms receiving.
 
 **Saved Address**:
 A shipping address a customer keeps in their account; at most one is the **Default Address**.

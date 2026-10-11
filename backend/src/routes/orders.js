@@ -3,7 +3,9 @@ const rateLimit = require('express-rate-limit');
 const supabase = require('../config/supabase');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { asyncHandler, unwrap, badRequest, notFound, conflict, forbidden, fromDbError } = require('../lib/http');
-const { checkAdminTransition, checkCancelReason, checkCustomerCancel, checkCustomerConfirm, orderActions, ORDER_STATUSES } = require('../lib/orderStatus');
+const { checkAdminTransition, checkCancelReason, checkCustomerCancel, checkCustomerConfirm, ORDER_STATUSES, orderDeadline } = require('../lib/orderStatus');
+const { orderForViewer, ordersForCustomer } = require('../lib/orderView');
+const { checkPayableTotal } = require('../lib/pricing');
 const { buildSnapshot } = require('../lib/thaiAddress');
 const v = require('../lib/validate');
 const addresses = require('../services/addresses');
@@ -62,12 +64,14 @@ router.post(
       if (existing.status === 'cancelled') {
         throw conflict('This checkout expired. Please review your cart and try again.', 'ORDER_EXPIRED');
       }
-      return res.status(200).json(existing);
+      return res.status(200).json(orderForViewer(await fetchOrder(existing.id, req.user), req.user));
     }
 
     const shipping = await resolveShipping(req);
     // Priced with today's prices and Shipping Rule; the order keeps this fee even if the rule changes later
-    const priced = await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices));
+    const priced = await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices), v.promotionChoices(req.body.promotion_choices));
+    const payable = checkPayableTotal(priced.total);
+    if (!payable.ok) throw badRequest(payable.reason, payable.code);
     await orders.releaseOtherPendingOrders(req.user.id, requestId);
 
     const { data: order, error } = await supabase.rpc('create_order', {
@@ -86,12 +90,12 @@ router.post(
         const again = await orders.getOrderWithItems(
           (await supabase.from('orders').select('id').eq('user_id', req.user.id).eq('client_request_id', requestId).single()).data.id
         );
-        return res.status(200).json(forViewer(again, req.user));
+        return res.status(200).json(orderForViewer(again, req.user));
       }
       throw fromDbError(error);
     }
 
-    res.status(201).json(forViewer(await fetchOrder(order.id, req.user), req.user));
+    res.status(201).json(orderForViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 
@@ -102,7 +106,7 @@ router.post(
   authenticate,
   asyncHandler(async (req, res) => {
     const items = v.cartItems(req.body.items);
-    res.json(await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices)));
+    res.json(await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices), v.promotionChoices(req.body.promotion_choices)));
   })
 );
 
@@ -120,7 +124,7 @@ router.get(
         .order('created_at', { ascending: false })
         .range(from, to)
     );
-    res.json(data);
+    res.json(ordersForCustomer(data));
   })
 );
 
@@ -143,7 +147,8 @@ router.get(
 
     const { data, error, count } = await query;
     if (error) throw error;
-    res.json({ orders: data, total: count, page, limit });
+    // Each order's countdown: Reservation end (Awaiting Payment) or automatic Confirmed (Shipping)
+    res.json({ orders: data.map((o) => ({ ...o, deadline: orderDeadline(o) })), total: count, page, limit });
   })
 );
 
@@ -161,24 +166,12 @@ async function loadOrderFor(req) {
   return order;
 }
 
-/** One order as the signed-in viewer may see it: admin-only fields hidden from customers, and what they may do with it. */
-function forViewer(order, user) {
-  const admin = user.role === 'admin';
-  if (!admin) {
-    delete order.admin_note;
-    delete order.needs_attention;
-    delete order.admin_notified_at;
-    delete order.client_request_id;
-  }
-  return { ...order, actions: orderActions(order, { owner: order.user_id === user.id, admin }) };
-}
-
 // GET /api/orders/:id — owner or admin. Used by the checkout page to poll server-verified status.
 router.get(
   '/:id',
   authenticate,
   asyncHandler(async (req, res) => {
-    res.json(forViewer(await loadOrderFor(req), req.user));
+    res.json(orderForViewer(await loadOrderFor(req), req.user));
   })
 );
 
@@ -192,7 +185,7 @@ router.post(
     const check = checkCustomerCancel(order);
     if (!check.ok) throw conflict(check.reason, check.code);
     await orders.cancelUnpaidOrder(order, 'customer_cancelled');
-    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+    res.json(orderForViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 
@@ -206,7 +199,9 @@ router.post(
     const check = checkCustomerConfirm(order);
     if (!check.ok) throw conflict(check.reason, check.code);
     unwrap(await supabase.rpc('confirm_order', { p_order_id: order.id, p_by: 'customer' }));
-    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+    // The Admins' bells are notified by the database; the Owner also gets a LINE message
+    orders.notifyAdminsOrderReceived(order.id).catch((err) => console.error('LINE (order received) failed:', err.message));
+    res.json(orderForViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 
@@ -232,12 +227,12 @@ router.patch(
       if (check.refund) await orders.refundAndCancel(order, reason);
       else if (order.refunded_at) unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason, p_refunded: true }));
       else await orders.cancelUnpaidOrder(order, reason);
-      return res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+      return res.json(orderForViewer(await fetchOrder(order.id, req.user), req.user));
     }
 
     if (next === 'confirmed') {
       unwrap(await supabase.rpc('confirm_order', { p_order_id: order.id, p_by: 'admin' }));
-      return res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+      return res.json(orderForViewer(await fetchOrder(order.id, req.user), req.user));
     }
 
     const updates = { status: next };
@@ -252,7 +247,7 @@ router.patch(
       await supabase.from('orders').update(updates).eq('id', order.id).eq('status', order.status).select('id')
     );
     if (!updated.length) throw conflict('Order changed while you were editing. Refresh and try again.');
-    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+    res.json(orderForViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 
@@ -272,7 +267,7 @@ router.patch(
     }
     if (!Object.keys(updates).length) throw badRequest('Nothing to update');
     unwrap(await supabase.from('orders').update(updates).eq('id', order.id));
-    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+    res.json(orderForViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 

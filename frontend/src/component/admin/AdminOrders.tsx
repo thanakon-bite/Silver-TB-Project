@@ -8,6 +8,7 @@ import { ORDER_STATUSES, type Order, type OrderStatus } from '../../lib/types';
 import Modal from '../common/Modal';
 import { showAdminError } from './adminError';
 import Pager, { PAGE_SIZE } from './Pager';
+import Countdown from './Countdown';
 import { dangerButton, dangerLink, primaryButtonInline, secondaryButton } from '../ui/buttonStyles';
 
 const CARRIERS = ['Thailand Post (EMS)', 'Kerry Express', 'Flash Express', 'J&T Express', 'Lalamove', 'Other'];
@@ -179,6 +180,7 @@ const AdminOrders: React.FC<Props> = ({ initialFilter, initialOrderId }) => {
                 <td className="p-3 text-right font-semibold text-ink">{baht(o.total)}</td>
                 <td className="p-3">
                   <span className={`px-2 py-1 text-xs rounded-md font-semibold ${ORDER_STATUS_STYLE[o.status]}`}>{statusLabel(o)}</span>
+                  {o.deadline && <Countdown deadline={o.deadline} />}
                 </td>
                 <td className="p-3 min-w-[12rem]" onClick={(e) => e.stopPropagation()}>
                   <input

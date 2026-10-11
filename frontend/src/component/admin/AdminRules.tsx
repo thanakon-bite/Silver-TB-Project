@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Plus, Trash2, Truck } from 'lucide-react';
+import { errorMessage } from '../../lib/errorMessage';
 import { api } from '../../lib/api';
 import { baht, tierLabel } from '../../lib/format';
 import type { ShippingRule } from '../../lib/types';
-import { primaryButtonInline, secondaryButton } from '../ui/buttonStyles';
+import { iconButton, primaryButtonInline, secondaryButton } from '../ui/buttonStyles';
 import { fieldClass, fieldLabel } from '../ui/fieldStyles';
 import PromotionsEditor from './PromotionsEditor';
 
@@ -87,7 +88,7 @@ const ShippingRuleEditor: React.FC = () => {
       setRows(toRows(rule));
       setSaved(true);
     } catch (err: any) {
-      setError(err.message);
+      setError(errorMessage(err, t));
     } finally {
       setSaving(false);
     }
@@ -131,7 +132,9 @@ const ShippingRuleEditor: React.FC = () => {
                         <td className="py-2 pr-3 whitespace-nowrap text-ink">{tierLabel(tiers[i], t)}</td>
                         <td className="py-2 pr-3">
                           {last ? (
-                            <span className="text-muted">{t('admin.rules.or_more')}</span>
+                            <span className="text-muted" aria-hidden>
+                              —
+                            </span>
                           ) : (
                             <input
                               type="number"
@@ -161,7 +164,7 @@ const ShippingRuleEditor: React.FC = () => {
                               type="button"
                               onClick={() => removeTier(i)}
                               aria-label={t('admin.rules.remove_tier', { n: i + 1 })}
-                              className="rounded-lg p-2 text-muted hover:bg-danger/10 hover:text-danger"
+                              className={`${iconButton} hover:text-danger`}
                             >
                               <Trash2 className="h-4 w-4" aria-hidden />
                             </button>

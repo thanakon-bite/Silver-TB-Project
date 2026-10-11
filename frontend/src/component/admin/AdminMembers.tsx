@@ -2,13 +2,14 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Pencil, Plus, Search, ShieldCheck, Trash2 } from 'lucide-react';
 import Swal from 'sweetalert2';
 import { useTranslation } from 'react-i18next';
+import { errorMessage } from '../../lib/errorMessage';
 import { api, ApiError } from '../../lib/api';
 import { baht, localDateTime } from '../../lib/format';
 import { useAuth } from '../../contexts/AuthContext';
 import Modal from '../common/Modal';
 import { showAdminError } from './adminError';
 import Pager, { PAGE_SIZE } from './Pager';
-import { dangerButton, primaryButtonInline, secondaryButton } from '../ui/buttonStyles';
+import { dangerButton, iconButton, primaryButtonInline, secondaryButton } from '../ui/buttonStyles';
 import { fieldClass, fieldLabel } from '../ui/fieldStyles';
 
 type Role = 'user' | 'admin';
@@ -184,7 +185,7 @@ const RemoveMember: React.FC<{ member: Member | null; onClose: () => void; onRem
       onClose();
       onRemoved();
     } catch (err: any) {
-      setError(err.message);
+      setError(errorMessage(err, t));
     } finally {
       setBusy(false);
     }
@@ -312,7 +313,7 @@ const AdminMembers: React.FC = () => {
                         onClick={() => setEditing(m)}
                         aria-label={t('admin.products.edit_named', { name: m.full_name })}
                         title={t('admin.members.edit_role')}
-                        className="p-2 text-ink hover:bg-sunken rounded-lg"
+                        className={iconButton}
                       >
                         <Pencil className="w-4 h-4" aria-hidden />
                       </button>
@@ -321,7 +322,7 @@ const AdminMembers: React.FC = () => {
                         onClick={() => setRemoving(m)}
                         aria-label={t('admin.members.remove_named', { name: m.full_name })}
                         title={t('admin.members.remove')}
-                        className="p-2 text-ink hover:bg-danger/10 hover:text-danger rounded-lg"
+                        className={`${iconButton} hover:text-danger`}
                       >
                         <Trash2 className="w-4 h-4" aria-hidden />
                       </button>

@@ -70,6 +70,20 @@ function checkCustomerConfirm(order) {
   return { ok: false, reason: 'Only orders in Shipping can be confirmed as received.', code: 'ORDER_NOT_CONFIRMABLE' };
 }
 
+/**
+ * An admin's refund-then-cancel goes ahead only when Stripe reports the refund `succeeded` (spec: "Only
+ * when it succeeds"). A pending refund finishes later through the charge.refunded webhook, which marks
+ * the order refunded so the admin can then cancel it without refunding twice.
+ * @returns {{ ok: true } | { ok: false, reason: string, code: string }}
+ */
+function checkRefund(refund) {
+  if (refund?.status === 'succeeded') return { ok: true };
+  if (refund?.status === 'pending' || refund?.status === 'requires_action') {
+    return { ok: false, reason: 'Stripe is still processing the refund. Cancel the order once it has gone through.', code: 'REFUND_PENDING' };
+  }
+  return { ok: false, reason: 'Stripe could not refund this payment. Check the Stripe Dashboard.', code: 'REFUND_FAILED' };
+}
+
 /** Cancel Reasons the system writes; the UI shows them translated (frontend lib/format.ts). */
 const SYSTEM_CANCEL_REASONS = ['payment_timeout', 'customer_cancelled', 'replaced_by_new_checkout', 'admin_cancelled', 'refunded_by_admin'];
 
@@ -101,10 +115,22 @@ function orderActions(order, { owner, admin }) {
   };
 }
 
+/**
+ * When an order's clock runs out, for the Admin's countdown: an Awaiting Payment order's Reservation
+ * ends at expires_at; a Shipping order becomes Confirmed AUTO_CONFIRM_DAYS after it shipped (the job's own number).
+ */
+function orderDeadline(order) {
+  if (order.status === 'awaiting_payment' && order.expires_at) return { kind: 'payment', at: order.expires_at };
+  if (order.status === 'shipping' && order.shipped_at) {
+    return { kind: 'auto_confirm', at: new Date(new Date(order.shipped_at).getTime() + AUTO_CONFIRM_DAYS * 86400000).toISOString() };
+  }
+  return null;
+}
+
 function isPayable(order, now = new Date()) {
   if (order.status !== 'awaiting_payment') return false;
   if (order.expires_at && new Date(order.expires_at) <= now) return false;
   return true;
 }
 
-module.exports = { ORDER_STATUSES, AUTO_CONFIRM_DAYS, CONFIRM_REQUEST_DAYS, PAID_STATUSES, ADMIN_TRANSITIONS, checkAdminTransition, checkCustomerCancel, checkCustomerConfirm, checkCancelReason, SYSTEM_CANCEL_REASONS, orderActions, isPayable };
+module.exports = { ORDER_STATUSES, AUTO_CONFIRM_DAYS, CONFIRM_REQUEST_DAYS, PAID_STATUSES, ADMIN_TRANSITIONS, checkAdminTransition, checkCustomerCancel, checkCustomerConfirm, checkCancelReason, SYSTEM_CANCEL_REASONS, orderActions, checkRefund, isPayable, orderDeadline };

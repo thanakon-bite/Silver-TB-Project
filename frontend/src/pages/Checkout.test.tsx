@@ -5,6 +5,7 @@ import { Route } from 'react-router-dom';
 import Checkout from './Checkout';
 import Cart from './Cart';
 import { renderPage } from '../test/renderPage';
+import { useCart } from '../contexts/CartContext';
 import { api, ApiError } from '../lib/api';
 
 jest.mock('../lib/supabaseClient', () => ({
@@ -221,4 +222,62 @@ test('a reason the shop has no Thai wording for is shown as the server sent it',
   userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Something unusual happened.');
+});
+
+/** What the shop's cart badge would read: the number of products in the Cart. */
+const CartCount = () => <p data-testid="cart-count">{useCart().items.length}</p>;
+
+test('the Cart empties as soon as the Order is created; the customer pays from the Order', async () => {
+  backend({ '/addresses': [home] });
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview' ? Promise.resolve(preview()) : Promise.resolve(pendingOrder(15 * 60 * 1000))
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas], outside: <CartCount /> });
+  await waitFor(() => expect(screen.getByTestId('cart-count')).toHaveTextContent('1'));
+
+  userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
+
+  await waitFor(() => expect(screen.getByTestId('cart-count')).toHaveTextContent('0'));
+  expect(screen.getAllByText('Chalcosoma atlas').length).toBeGreaterThan(0);
+});
+
+test('a failed Order leaves the Cart as it was', async () => {
+  backend({ '/addresses': [home] });
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview' ? Promise.resolve(preview()) : Promise.reject(new ApiError('Not enough stock', 409, 'INSUFFICIENT_STOCK'))
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas], outside: <CartCount /> });
+
+  userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
+
+  expect(await screen.findByRole('alert')).toHaveTextContent('สร้างคำสั่งซื้อไม่สำเร็จ');
+  expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
+});
+
+test('an Order whose Reservation runs out on the payment step puts its products back in the Cart', async () => {
+  backend({ '/addresses': [home] });
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview' ? Promise.resolve(preview()) : Promise.resolve(pendingOrder(-1000))
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas], outside: <CartCount /> });
+
+  userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
+
+  expect(await screen.findByRole('status')).toHaveTextContent('หมดเวลาการจอง');
+  expect(screen.getByTestId('cart-count')).toHaveTextContent('1');
+});
+
+test('the Promotion option picked in the Cart goes with the preview and the order; picks for other products stay behind', async () => {
+  localStorage.setItem('stb_line_choices', JSON.stringify({ p1: 'stack', gone: 'stack' }));
+  backend({ '/addresses': [home] });
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview' ? Promise.resolve(preview()) : Promise.reject(new ApiError('stop here', 409, 'SOMETHING_NEW'))
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
+
+  userEvent.click(await screen.findByRole('button', { name: 'ดำเนินการชำระเงิน' }));
+  await screen.findByRole('alert');
+  expect(api.post).toHaveBeenCalledWith('/orders/price-preview', { items: [{ product_id: 'p1', quantity: 1 }], promotion_choices: { p1: 'stack' } });
+  expect(api.post).toHaveBeenCalledWith('/orders', expect.objectContaining({ items: [{ product_id: 'p1', quantity: 1 }], promotion_choices: { p1: 'stack' } }));
+  localStorage.removeItem('stb_line_choices');
 });

@@ -15,6 +15,7 @@ const addressRoutes = require('./src/routes/addresses');
 const geoRoutes = require('./src/routes/geo');
 const adminRoutes = require('./src/routes/admin');
 const ruleRoutes = require('./src/routes/rules');
+const categoryRoutes = require('./src/routes/categories');
 const { startOrderJobs } = require('./src/services/orders');
 
 const app = express();
@@ -66,6 +67,7 @@ app.use('/api/addresses', addressRoutes);
 app.use('/api/geo', geoRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/rules', ruleRoutes);
+app.use('/api/categories', categoryRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));
@@ -92,7 +94,8 @@ app.use((err, req, res, next) => {
     console.error(err.stack || err);
     return res.status(500).json({ error: 'Internal server error' });
   }
-  res.status(status).json({ error: err.expose === false ? 'Request failed' : err.message, code: err.code });
+  const exposed = err.expose !== false;
+  res.status(status).json({ error: exposed ? err.message : 'Request failed', code: err.code, ...(exposed && err.params ? { params: err.params } : {}) });
 });
 
 if (require.main === module) {

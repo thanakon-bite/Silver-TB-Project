@@ -5,10 +5,13 @@ const BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
 export class ApiError extends Error {
   status: number;
   code?: string;
-  constructor(message: string, status: number, code?: string) {
+  /** Numbers for the shop's own wording of `code`, e.g. { count: 3 } products still in a Category. */
+  params?: Record<string, number | string>;
+  constructor(message: string, status: number, code?: string, params?: Record<string, number | string>) {
     super(message);
     this.status = status;
     this.code = code;
+    this.params = params;
   }
 }
 
@@ -41,8 +44,20 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   } catch {
     data = null;
   }
-  if (!res.ok) throw new ApiError(data?.error || `Request failed (${res.status})`, res.status, data?.code);
+  if (!res.ok) throw new ApiError(data?.error || `Request failed (${res.status})`, res.status, data?.code, data?.params);
+  if (options.method && options.method !== 'GET' && typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent<ApiWrite>(API_WRITE_EVENT, { detail: { path } }));
+  }
   return data as T;
+}
+
+/**
+ * Fired on window after a request that may have changed data succeeded, so views that show what such
+ * a change causes (the Notification bell) can refresh at once instead of on their next poll.
+ */
+export const API_WRITE_EVENT = 'stb:api-write';
+export interface ApiWrite {
+  path: string;
 }
 
 export const api = {

@@ -5,7 +5,7 @@ const supabase = require('../config/supabase');
 const { unwrap } = require('../lib/http');
 
 const PROMO_FIELDS =
-  'id, name_th, name_en, starts_at, ends_at, applies_to_all, discount_tiers, gift_every, gift_quantity, per_customer_limit, customer_limit, is_active, announced_at, created_at, promotion_products(product_id), promotion_gift_products(product_id)';
+  'id, name_th, name_en, starts_at, ends_at, applies_to_all, discount_tiers, gift_every, gift_quantity, per_customer_limit, customer_limit, is_active, stacking, announced_at, created_at, promotion_products(product_id), promotion_gift_products(product_id)';
 
 /** Flatten the join tables into product_ids / gift_product_ids. */
 const shape = (p) => {
@@ -39,8 +39,8 @@ async function redemptionsFor(userId, promotionIds) {
   for (const id of promotionIds) {
     const mineRows = rows.filter((r) => r.promotion_id === id);
     const people = new Set(mineRows.map((r) => r.user_id));
-    const mine = mineRows.filter((r) => r.user_id === userId).length;
-    standing[id] = { mine, customers: people.size, counted: people.has(userId) };
+    const mine = userId ? mineRows.filter((r) => r.user_id === userId).length : 0;
+    standing[id] = { mine, customers: people.size, counted: Boolean(userId) && people.has(userId) };
   }
   return standing;
 }

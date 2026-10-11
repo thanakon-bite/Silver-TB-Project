@@ -80,7 +80,7 @@ frontend/src/
 │   ├── auth/RouteGuards.tsx     ← RequireAuth / RequireAdmin
 │   ├── address/                 ← ThaiAddressPicker, AddressForm
 │   ├── checkout/PaymentStep.tsx ← Stripe PaymentElement
-│   └── admin/                   ← Overview, Products, Orders, Members, Settings, Pager
+│   └── admin/                   ← Overview, Products (+ Stock History), Orders, Categories, Members, Rules, Settings, Pager
 └── pages/                       ← Products (the shop, at /), About, Favorites, Login, ResetPassword, Checkout,
                                    Orders, OrderDetail, Account, AdminDashboard
 ```
@@ -92,8 +92,13 @@ frontend/src/
 ### 1. Supabase
 1. **SQL Editor** → run `backend/src/db/schema.sql` (new projects only), then `seed.sql` (optional sample products).
 2. **SQL Editor** → run the migrations in order: `001_secure_commerce.sql`, `002_spec_alignment.sql`,
-   `003_product_categories.sql`, `004_favorites_rls.sql`, `005_order_flow.sql` (all in `backend/src/db/migrations/`).
-   Each is idempotent and keeps existing data; once 005 has run, don't re-run 001–004 (005 removes `payment_status`). 003 moves Rhinoceros/Stag/Flower into `attributes.family` and turns other old categories into
+   `003_product_categories.sql`, `004_favorites_rls.sql`, `005_order_flow.sql`,
+   `006_categories_stock_history_stacking.sql` (all in `backend/src/db/migrations/`).
+   Each is idempotent and keeps existing data; once 005 has run, don't re-run 001–004 (005 removes `payment_status`).
+   006 adds Admin-managed Categories and beetle Families (seeded from today's products), Stock History
+   (one opening entry per product), Stackable / Exclusive Promotions (existing ones become Exclusive),
+   the Confirmed and Promotion-announcement Notifications, and publishes `notifications` to Supabase
+   Realtime so the bell updates at once. Run it before deploying the matching backend and frontend. 003 moves Rhinoceros/Stag/Flower into `attributes.family` and turns other old categories into
    `gear` — review those products afterwards.
    The Shipping Rule lives in the `shipping_tiers` table (one row per Shipping Tier) plus the
    `free_shipping_threshold` key in `app_settings`; edit it in Admin → Rules, which saves both at once
@@ -118,7 +123,8 @@ frontend/src/
    UPDATE public.profiles SET role = 'admin'
    WHERE id = (SELECT id FROM auth.users WHERE email = 'you@example.com');
    ```
-   After that, create Members and change roles from **Admin → Members**.
+   After that, create Members and change roles from **Admin → Members**, and manage the shop's
+   Categories and beetle Families in **Admin → Categories** (the beetle Category can be renamed, never deleted).
 
 ### 2. Stripe
 1. Use **test mode** (`sk_test_…`) in development. Only the secret key is needed (backend); the frontend has no Stripe key.

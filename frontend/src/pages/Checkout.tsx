@@ -11,6 +11,7 @@ import { formatAddressLines, uuidv4 } from '../lib/format';
 import type { Address, Order } from '../lib/types';
 import { pricingBody, usePricedCart } from '../lib/usePricedCart';
 import { readGiftChoices } from '../lib/giftChoices';
+import { readLineChoices } from '../lib/lineChoices';
 import AddressForm, { emptyAddress, validateAddress, pruneErrors, toAddressPayload, AddressFormValue } from '../component/address/AddressForm';
 import PaymentStep from '../component/checkout/PaymentStep';
 import { CheckoutHeader, CheckoutFooter } from '../component/checkout/FocusedChrome';
@@ -55,7 +56,7 @@ const optionClass = (active: boolean) =>
 const Checkout = () => {
   const { t, i18n } = useTranslation();
   const text = useProductText();
-  const { items, totalPrice } = useCart();
+  const { items, totalPrice, clearCart, restoreCart } = useCart();
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -69,6 +70,8 @@ const Checkout = () => {
   const [submitting, setSubmitting] = useState(false);
   const [orderError, setOrderError] = useState('');
   const [reservationExpired, setReservationExpired] = useState(false);
+  // The Cart as it was when the Order was created: the Cart empties then (CONTEXT.md: Cart), and comes back if the Order expires here.
+  const [orderedItems, setOrderedItems] = useState<typeof items>([]);
   const formRef = useRef<HTMLFormElement>(null);
 
   // The Cart belongs to the signed-in Customer, so it is only known to be empty once they are.
@@ -96,10 +99,11 @@ const Checkout = () => {
     [items]
   );
 
-  // Before the order exists, the server prices the Cart (Shipping Rule, Promotions, the Gifts picked in the Cart)
-  // so the summary matches what will be charged.
+  // Before the order exists, the server prices the Cart (Shipping Rule, Promotions, the Gifts and Promotion
+  // options picked in the Cart) so the summary matches what will be charged.
   const [giftChoices] = useState(readGiftChoices);
-  const priced = usePricedCart(items, true, giftChoices);
+  const [lineChoices] = useState(readLineChoices);
+  const priced = usePricedCart(items, true, giftChoices, lineChoices);
 
   const updateForm = (next: AddressFormValue) => {
     setErrors((e) => pruneErrors(e, form, next));
@@ -125,7 +129,7 @@ const Checkout = () => {
     }
 
     const signature = `${cartSignature}|${JSON.stringify(shipping)}`;
-    const body = { ...pricingBody(items, giftChoices), ...shipping };
+    const body = { ...pricingBody(items, giftChoices, lineChoices), ...shipping };
 
     setSubmitting(true);
     setOrderError('');
@@ -142,8 +146,10 @@ const Checkout = () => {
           throw err;
         }
       }
+      setOrderedItems(items);
       setOrder(created);
       setStep(2);
+      clearCart();
     } catch (err: any) {
       setOrderError(errorMessage(err, t));
     } finally {
@@ -153,6 +159,7 @@ const Checkout = () => {
 
   const handleExpired = () => {
     resetRequestId();
+    if (orderedItems.length) restoreCart(orderedItems);
     setOrder(null);
     setStep(1);
     setReservationExpired(true);
@@ -161,7 +168,7 @@ const Checkout = () => {
   if (!user || (items.length === 0 && !order)) return null;
 
   // Order items keep the picture they had at checkout; fall back to the Cart's for older orders.
-  const imageOf = (productId: string | null) => items.find((i) => i.product_id === productId)?.image;
+  const imageOf = (productId: string | null) => [...items, ...orderedItems].find((i) => i.product_id === productId)?.image;
   const summary =
     step === 2 && order ? (
       <OrderSummary

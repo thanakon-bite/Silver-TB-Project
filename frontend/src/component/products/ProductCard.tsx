@@ -8,6 +8,7 @@ import { useRequireSignIn } from '../auth/RouteGuards';
 import { baht } from '../../lib/format';
 import type { Product } from '../../lib/types';
 import { compactButton } from '../ui/buttonStyles';
+import { useCategoryName } from '../../lib/catalogue';
 
 /** What the shop's public product list returns (admin-only fields are optional). */
 export type ShopProduct = Omit<Product, 'is_active'> & { is_active?: boolean };
@@ -16,11 +17,12 @@ export type ShopProduct = Omit<Product, 'is_active'> & { is_active?: boolean };
 export const useProductText = () => {
   const { t, i18n } = useTranslation();
   const isThai = (i18n.language || 'th').startsWith('th');
+  const categoryName = useCategoryName();
   return {
     /** Works for Cart items too, so their names follow the language like the shop's. */
     name: (p: { name: string; name_th?: string | null }) => (isThai && p.name_th ? p.name_th : p.name),
     description: (p: ShopProduct) => (isThai && p.description_th ? p.description_th : p.description) || '',
-    category: (p: ShopProduct) => (p.category === 'beetle' && p.attributes?.family ? t(p.attributes.family) : t(p.category)),
+    category: (p: ShopProduct) => (p.category === 'beetle' && p.attributes?.family ? t(p.attributes.family) : categoryName(p.category)),
   };
 };
 

@@ -6,7 +6,6 @@ import { api } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
 import { cancelReasonText, formatAddressLines, orderStatusKey } from '../lib/format';
 import type { Order } from '../lib/types';
-import { useCart } from '../contexts/CartContext';
 import PaymentStep from '../component/checkout/PaymentStep';
 import OrderSummary from '../component/checkout/OrderSummary';
 import OrderJourney from '../component/orders/OrderJourney';
@@ -33,7 +32,6 @@ const OrderDetail: React.FC = () => {
   const { t } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const [params, setParams] = useSearchParams();
-  const { clearCart } = useCart();
   const justPaid = params.get('paid') === '1';
 
   const [order, setOrder] = useState<Order | null>(null);
@@ -69,8 +67,8 @@ const OrderDetail: React.FC = () => {
     return () => clearInterval(timer);
   }, [waiting, reload]);
 
-  // Seeing this order Paid on the way back from Stripe ends the purchase, whenever the webhook landed:
-  // empty the Cart once. Opening an old order without ?paid=1 never touches the Cart.
+  // Seeing this order Paid on the way back from Stripe ends the purchase, whenever the webhook landed.
+  // The Cart was already emptied when the Order was created (CONTEXT.md: Cart).
   useEffect(() => {
     if (!justPaid || !order) return;
     if (!order.paid_at) {
@@ -80,7 +78,6 @@ const OrderDetail: React.FC = () => {
     }
     setWaiting(false);
     setThanked(true);
-    clearCart();
     try {
       sessionStorage.removeItem('stb_checkout_request');
     } catch {
@@ -93,7 +90,7 @@ const OrderDetail: React.FC = () => {
       },
       { replace: true }
     );
-  }, [justPaid, order, clearCart, setParams]);
+  }, [justPaid, order, setParams]);
 
   if (error) {
     return (

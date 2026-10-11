@@ -1,20 +1,22 @@
 import React, { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Scale } from 'lucide-react';
+import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Scale, Tags } from 'lucide-react';
 import AdminOverview from '../component/admin/AdminOverview';
 import AdminProducts from '../component/admin/AdminProducts';
 import AdminOrders from '../component/admin/AdminOrders';
 import AdminMembers from '../component/admin/AdminMembers';
 import AdminSettings from '../component/admin/AdminSettings';
 import AdminRules from '../component/admin/AdminRules';
+import AdminCategories from '../component/admin/AdminCategories';
 
-type Tab = 'overview' | 'products' | 'orders' | 'members' | 'rules' | 'settings';
+type Tab = 'overview' | 'products' | 'orders' | 'categories' | 'members' | 'rules' | 'settings';
 
 const TABS: { key: Tab; icon: React.FC<{ className?: string }> }[] = [
   { key: 'overview', icon: LayoutDashboard },
   { key: 'orders', icon: ShoppingBag },
   { key: 'products', icon: Package },
+  { key: 'categories', icon: Tags },
   { key: 'members', icon: Users },
   { key: 'rules', icon: Scale },
   { key: 'settings', icon: Settings },
@@ -61,6 +63,7 @@ const AdminDashboard = () => {
         {tab === 'overview' && <AdminOverview goTo={goTo} />}
         {tab === 'orders' && <AdminOrders key={filter || 'all'} initialFilter={filter} initialOrderId={deepLinkOrder} />}
         {tab === 'products' && <AdminProducts key={filter || 'all'} initialFilter={filter} />}
+        {tab === 'categories' && <AdminCategories />}
         {tab === 'members' && <AdminMembers />}
         {tab === 'rules' && <AdminRules />}
         {tab === 'settings' && <AdminSettings />}

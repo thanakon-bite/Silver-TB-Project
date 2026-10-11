@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { makeI18n, renderApp } from './test/renderPage';
 
@@ -9,6 +9,7 @@ const renderAdmin = (url = '/admin') => {
   return renderApp(url, { i18n });
 };
 import { api, ApiError } from './lib/api';
+import { resetCatalogue } from './lib/catalogue';
 
 jest.mock('./lib/supabaseClient', () => ({
   supabase: {
@@ -26,7 +27,7 @@ jest.mock('./lib/api', () => {
 });
 
 // Alerts need browser APIs jsdom lacks; what matters here is what the page itself shows.
-jest.mock('sweetalert2', () => ({ __esModule: true, default: { fire: jest.fn(() => Promise.resolve({})) } }));
+jest.mock('sweetalert2', () => ({ __esModule: true, default: { fire: jest.fn(() => Promise.resolve({})), showValidationMessage: jest.fn() } }));
 
 // Canvas does not exist in jsdom; every chart's table view carries the same numbers.
 jest.mock('react-chartjs-2', () => ({ Bar: () => null, Doughnut: () => null }));
@@ -91,8 +92,30 @@ const getCalls = (prefix: string) => (api.get as jest.Mock).mock.calls.map(([p])
 
 beforeEach(() => {
   jest.clearAllMocks();
+  resetCatalogue();
   backend();
 });
+
+/**
+ * Plays a SweetAlert form the way an Admin would: renders its html, fills the fields, presses confirm
+ * (running its preConfirm check) and returns what Swal would. `attempts` are tried in order; each
+ * refused one is left to the validation message.
+ */
+const fillSwalForm = (attempts: Record<string, string>[], seen: { opts?: any } = {}) =>
+  jest.requireMock('sweetalert2').default.fire.mockImplementationOnce(async (opts: any) => {
+    seen.opts = opts;
+    const box = document.createElement('div');
+    box.innerHTML = opts.html;
+    document.body.appendChild(box);
+    let value: unknown = false;
+    for (const fields of attempts) {
+      for (const [id, v] of Object.entries(fields)) (box.querySelector(`#${id}`) as HTMLInputElement).value = v;
+      value = opts.preConfirm();
+      if (value) break;
+    }
+    box.remove();
+    return value ? { isConfirmed: true, value } : { isConfirmed: false, isDismissed: true };
+  });
 
 const openTab = async (name: string) => {
   userEvent.click(await screen.findByRole('tab', { name }));
@@ -319,25 +342,87 @@ test('Orders shows 10 per page with a pager', async () => {
 });
 
 describe('Products & stock', () => {
-  test('each product shows Onhand, Stockmove and In Transit, and receiving stock adds to it', async () => {
-    (api.post as jest.Mock).mockResolvedValue({ ...product('p1', 'Atlas beetle'), on_hand: 9, available: 8 });
-    const Swal = jest.requireMock('sweetalert2').default;
-    Swal.fire.mockResolvedValueOnce({ isConfirmed: true, value: '3' });
+  test('each product shows On Hand, Available and In Transit', async () => {
     renderAdmin();
     await openTab('Products & stock');
-
     const row = await screen.findByRole('row', { name: /Atlas beetle/ });
-    expect(screen.getByRole('columnheader', { name: 'Onhand' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Stockmove' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'On Hand' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Available' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'In transit' })).toBeInTheDocument();
-    expect(within(row).getByLabelText('Onhand')).toHaveTextContent('6');
-    expect(within(row).getByLabelText('Stockmove')).toHaveTextContent('5');
+    expect(within(row).getByLabelText('On Hand')).toHaveTextContent('6');
+    expect(within(row).getByLabelText('Available')).toHaveTextContent('5');
     expect(within(row).getByLabelText('In transit')).toHaveTextContent('1');
+    expect(screen.queryByText(/Onhand|Stockmove/)).not.toBeInTheDocument();
+  });
 
-    userEvent.click(within(row).getByRole('button', { name: 'Receive stock' }));
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/products/p1/stock', { delta: 3 }));
-    await waitFor(() => expect(within(row).getByLabelText('Onhand')).toHaveTextContent('9'));
-    expect(within(row).getByLabelText('Stockmove')).toHaveTextContent('8');
+  test('one button sets On Hand: the form opens on today\'s count, refuses less than Reserved, and sends the count and note', async () => {
+    (api.post as jest.Mock).mockResolvedValue({ ...product('p1', 'Atlas beetle'), on_hand: 9, available: 8 });
+    const Swal = jest.requireMock('sweetalert2').default;
+    const seen: { opts?: any } = {};
+    fillSwalForm([{ 'stb-on-hand': '0' }, { 'stb-on-hand': '9', 'stb-on-hand-note': 'รับของเข้า' }], seen);
+    renderAdmin();
+    await openTab('Products & stock');
+    const row = await screen.findByRole('row', { name: /Atlas beetle/ });
+
+    userEvent.click(within(row).getByRole('button', { name: 'Set On Hand of Atlas beetle' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/products/p1/stock', { on_hand: 9, note: 'รับของเข้า' }));
+    expect(seen.opts.titleText).toBe('Set On Hand — Atlas beetle');
+    expect(seen.opts.html).toContain('value="6"');
+    expect(seen.opts.html).toContain('min="1"');
+    expect(Swal.showValidationMessage).toHaveBeenCalledWith("Can't go below 1: customers have reserved them");
+    await waitFor(() => expect(within(row).getByLabelText('On Hand')).toHaveTextContent('9'));
+    expect(within(row).getByLabelText('Available')).toHaveTextContent('8');
+  });
+
+  test('a count the server refuses as below Reserved says the minimum', async () => {
+    (api.post as jest.Mock).mockRejectedValue(new ApiError('On Hand cannot go below the 2 unit(s) reserved by open orders.', 409, 'BELOW_RESERVED', { reserved: 2 }));
+    const Swal = jest.requireMock('sweetalert2').default;
+    fillSwalForm([{ 'stb-on-hand': '3' }]);
+    renderAdmin();
+    await openTab('Products & stock');
+    const row = await screen.findByRole('row', { name: /Atlas beetle/ });
+    userEvent.click(within(row).getByRole('button', { name: 'Set On Hand of Atlas beetle' }));
+    await waitFor(() => expect(Swal.fire).toHaveBeenLastCalledWith(expect.any(String), "On Hand can't go below 2: customers have reserved them", 'error'));
+    expect(within(row).getByLabelText('On Hand')).toHaveTextContent('6');
+  });
+
+  test('the history icon after Edit opens the Stock History, newest first, a page at a time', async () => {
+    const change = (id: number, over: Record<string, unknown>) => ({
+      id, kind: 'set_on_hand', on_hand_delta: 0, available_delta: 0, on_hand_after: 6, available_after: 5, note: null,
+      created_at: '2026-10-11T03:00:00Z', order_number: null, actor: null, ...over,
+    });
+    backend({
+      '/products/p1/stock-history': {
+        changes: [
+          change(3, { kind: 'set_on_hand', on_hand_delta: 3, available_delta: 3, on_hand_after: 9, available_after: 8, note: 'รับของเข้า', actor: 'เจ้าของร้าน' }),
+          change(2, { kind: 'order_created', available_delta: -1, on_hand_after: 6, available_after: 5, order_number: 'STB-261010-00007' }),
+          change(1, { kind: 'opening', on_hand_after: 6, available_after: 6 }),
+        ],
+        total: 4,
+      },
+    });
+    renderAdmin();
+    await openTab('Products & stock');
+    const row = await screen.findByRole('row', { name: /Atlas beetle/ });
+    const buttons = within(row).getAllByRole('button').map((b) => b.getAttribute('aria-label'));
+    expect(buttons.indexOf('Stock History of Atlas beetle')).toBe(buttons.indexOf('Edit Atlas beetle') + 1);
+
+    userEvent.click(within(row).getByRole('button', { name: 'Stock History of Atlas beetle' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Stock History — Atlas beetle' }));
+    const rows = await dialog.findAllByRole('row');
+    expect(rows).toHaveLength(4);
+    expect(rows[1]).toHaveTextContent('On Hand set');
+    expect(rows[1]).toHaveTextContent('“รับของเข้า”');
+    expect(rows[1]).toHaveTextContent('9(+3)');
+    expect(rows[1]).toHaveTextContent('เจ้าของร้าน');
+    expect(rows[2]).toHaveTextContent('Ordered (reserved)');
+    expect(rows[2]).toHaveTextContent('STB-261010-00007');
+    expect(rows[2]).toHaveTextContent('5(−1)');
+    expect(rows[3]).toHaveTextContent('Opening balance');
+    expect(getCalls('/products/p1/stock-history').at(-1)).toContain('page=1');
+
+    userEvent.click(dialog.getByRole('button', { name: 'Show more' }));
+    await waitFor(() => expect(getCalls('/products/p1/stock-history').at(-1)).toContain('page=2'));
   });
 
   test('a switch turns a product off for the shop', async () => {
@@ -446,6 +531,71 @@ describe('Rules: Promotions', () => {
     expect(within(row).getByText('4 redemptions · 3 customers')).toBeInTheDocument();
   });
 
+  test('Discount Tiers read as tags from fewest units up, the Gift as its own tag, and how it combines', async () => {
+    const promo = { id: 'pr1', name_th: 'ลดรับหน้าฝน', name_en: null, starts_at: '2026-10-01T17:00:00.000Z', ends_at: '2026-11-30T16:59:59.999Z',
+      applies_to_all: true, product_ids: [], gift_product_ids: ['p1'],
+      discount_tiers: [{ min_units: 3, type: 'percent', value: 10 }, { min_units: 1, type: 'baht', value: 20 }],
+      gift_every: 3, gift_quantity: 1, per_customer_limit: null, customer_limit: null, stacking: 'stackable', is_active: true, redemptions: 0, customers: 0 };
+    const plain = { ...promo, id: 'pr2', name_th: 'ลดปกติ', discount_tiers: [{ min_units: 2, type: 'percent', value: 5 }], gift_every: null, gift_quantity: null, stacking: 'exclusive' };
+    backend({ '/admin/promotions': [promo, plain] });
+    renderAdmin();
+    await openTab('Rules');
+    const tags = await screen.findByRole('list', { name: 'Discounts and gifts of ลดรับหน้าฝน' });
+    expect(within(tags).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['1+ units −฿20 each', '3+ units −10%', 'Buy 3 get 1', 'Stackable']);
+    const other = screen.getByRole('list', { name: 'Discounts and gifts of ลดปกติ' });
+    expect(within(other).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['2+ units −5%', 'Exclusive']);
+  });
+
+  test('a new Promotion is Exclusive unless the Admin picks Stackable, and the choice is sent', async () => {
+    (api.post as jest.Mock).mockResolvedValue({ id: 'pr9' });
+    renderAdmin();
+    await openTab('Rules');
+    userEvent.click(await within(await screen.findByRole('region', { name: 'Promotions' })).findByRole('button', { name: 'New promotion' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'New promotion' }));
+    const exclusive = dialog.getByRole('radio', { name: /Exclusive: used on its own/ });
+    const stackable = dialog.getByRole('radio', { name: /Stackable: combines with other promotions/ });
+    expect(exclusive).toBeChecked();
+    userEvent.type(dialog.getByLabelText('Name (Thai)'), 'ลดรวม');
+    userEvent.type(dialog.getByLabelText('Start date'), '2026-12-01');
+    userEvent.type(dialog.getByLabelText('End date'), '2026-12-31');
+    userEvent.click(dialog.getByRole('checkbox', { name: 'All products' }));
+    userEvent.click(dialog.getByRole('button', { name: 'Add discount tier' }));
+    userEvent.type(dialog.getByRole('spinbutton', { name: 'Discount, tier 1' }), '5');
+    userEvent.click(stackable);
+    userEvent.click(dialog.getByRole('button', { name: 'Save promotion' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/admin/promotions', expect.objectContaining({ stacking: 'stackable' })));
+  });
+
+  test('Rules tags read in Thai', async () => {
+    const promo = { id: 'pr1', name_th: 'ลดรับหน้าฝน', name_en: null, starts_at: '2026-10-01T17:00:00.000Z', ends_at: '2026-11-30T16:59:59.999Z',
+      applies_to_all: true, product_ids: [], gift_product_ids: ['p1'], discount_tiers: [{ min_units: 3, type: 'percent', value: 10 }],
+      gift_every: 3, gift_quantity: 1, per_customer_limit: null, customer_limit: null, stacking: 'exclusive', is_active: true, redemptions: 0, customers: 0 };
+    backend({ '/admin/promotions': [promo] });
+    renderApp('/admin');
+    userEvent.click(await screen.findByRole('tab', { name: 'กฎ' }));
+    const tags = await screen.findByRole('list', { name: 'ส่วนลดและของแถมของ ลดรับหน้าฝน' });
+    expect(within(tags).getAllByRole('listitem').map((li) => li.textContent)).toEqual(['3+ ชิ้น −10%', 'ซื้อ 3 แถม 1', 'ใช้เดี่ยว']);
+  });
+
+  test('one Redemption by one Customer reads in the singular', async () => {
+    const promo = { id: 'pr1', name_th: 'ลดรับหน้าฝน', name_en: null, starts_at: '2026-10-01T17:00:00.000Z', ends_at: '2026-11-30T16:59:59.999Z',
+      applies_to_all: true, product_ids: [], gift_product_ids: [], discount_tiers: [{ min_units: 3, type: 'percent', value: 10 }],
+      gift_every: null, gift_quantity: null, per_customer_limit: null, customer_limit: null, is_active: true, redemptions: 1, customers: 1 };
+    backend({ '/admin/promotions': [promo] });
+    renderAdmin();
+    await openTab('Rules');
+    const row = await within(await screen.findByRole('region', { name: 'Promotions' })).findByRole('row', { name: /ลดรับหน้าฝน/ });
+    expect(within(row).getByText('1 redemption · 1 customer')).toBeInTheDocument();
+  });
+
+  test('the last Shipping Tier does not say "or more" twice', async () => {
+    renderAdmin();
+    await openTab('Rules');
+    const section = within(await screen.findByRole('region', { name: 'Shipping Rule' }));
+    expect(await section.findByText('6 items or more')).toBeInTheDocument();
+    expect(section.queryByText('or more')).not.toBeInTheDocument();
+  });
+
   test('creating a Promotion sends dates, products, discount tiers and limits', async () => {
     (api.post as jest.Mock).mockResolvedValue({ id: 'pr9' });
     renderAdmin();
@@ -518,13 +668,39 @@ describe('Rules: Promotions', () => {
     expect(dialog.getByLabelText('Name (Thai)')).toBeEnabled();
   });
 
+  test('when the API refuses an edit, the reason is shown in the shop’s own words', async () => {
+    (api.patch as jest.Mock).mockRejectedValue(new ApiError('This promotion has started, so discount_tiers can no longer change', 409, 'PROMOTION_LOCKED'));
+    renderAdmin();
+    await openTab('Rules');
+    const section = within(await screen.findByRole('region', { name: 'Promotions' }));
+    userEvent.click(await section.findByRole('button', { name: 'Edit ลดรับหน้าฝน' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'ลดรับหน้าฝน' }));
+    userEvent.click(dialog.getByRole('button', { name: 'Save promotion' }));
+    expect(await dialog.findByRole('alert')).toHaveTextContent(
+      'This promotion has started: only its names, end date and on/off can change. Reload to see what is saved.'
+    );
+  });
+
   test('a Promotion Customers have used cannot be deleted', async () => {
     (api.delete as jest.Mock).mockRejectedValue(new ApiError('Customers have used this promotion, so it can only be ended or turned off', 409, 'PROMOTION_IN_USE'));
     renderAdmin();
     await openTab('Rules');
     const section = within(await screen.findByRole('region', { name: 'Promotions' }));
     userEvent.click(await section.findByRole('button', { name: 'Delete ลดรับหน้าฝน' }));
+    userEvent.click(within(await screen.findByRole('dialog', { name: 'Delete ลดรับหน้าฝน?' })).getByRole('button', { name: 'Delete' }));
     expect(await section.findByRole('alert')).toHaveTextContent('can only be ended or turned off');
+  });
+
+  test('deleting a Promotion asks first, with focus on keeping it', async () => {
+    renderAdmin();
+    await openTab('Rules');
+    const section = within(await screen.findByRole('region', { name: 'Promotions' }));
+    userEvent.click(await section.findByRole('button', { name: 'Delete ลดรับหน้าฝน' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Delete ลดรับหน้าฝน?' }));
+    await waitFor(() => expect(dialog.getByRole('button', { name: 'Keep promotion' })).toHaveFocus());
+    userEvent.click(dialog.getByRole('button', { name: 'Keep promotion' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    expect(api.delete).not.toHaveBeenCalled();
   });
 });
 
@@ -647,7 +823,8 @@ describe('in Thai', () => {
 
     userEvent.click(screen.getByRole('tab', { name: 'สินค้าและสต็อก' }));
     expect(await screen.findByRole('button', { name: /เพิ่มสินค้า/ })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Onhand' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'คงคลัง' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'พร้อมขาย' })).toBeInTheDocument();
 
     userEvent.click(screen.getByRole('tab', { name: 'สมาชิก' }));
     expect(await screen.findByRole('button', { name: /เพิ่มสมาชิก/ })).toBeInTheDocument();
@@ -656,5 +833,179 @@ describe('in Thai', () => {
     expect(await screen.findByRole('region', { name: 'กฎค่าจัดส่ง' })).toBeInTheDocument();
     expect(screen.getByRole('region', { name: 'โปรโมชัน' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /สร้างโปรโมชัน/ })).toBeInTheDocument();
+  });
+});
+
+describe('countdowns on the orders list', () => {
+  const NOW = new Date('2026-10-11T10:00:00Z');
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.setSystemTime(NOW);
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+  const at = (ms: number) => new Date(NOW.getTime() + ms).toISOString();
+
+  test('an Awaiting Payment order counts down to its payment deadline, ticking each second in the last hour', async () => {
+    // Half a minute of slack: finding the row lets a little fake time pass
+    const due = at(61 * 60_000 + 30_000);
+    const unpaid = anOrder({ status: 'awaiting_payment', paid_at: null, expires_at: due, deadline: { kind: 'payment', at: due } });
+    backend({ '/orders/admin/all': { orders: [unpaid], total: 1, page: 1, limit: 10 } });
+    renderAdmin();
+    await openTab('Orders');
+    const row = await screen.findByRole('row', { name: /STB-261010-00007/ });
+    const countdown = within(row).getByText(/Payment due in/);
+    expect(countdown).toHaveTextContent('Payment due in 1h 1m');
+    expect(countdown).not.toHaveAttribute('data-warning');
+
+    act(() => {
+      jest.advanceTimersByTime(2 * 60_000);
+    });
+    const lastHour = within(row).getByText(/Payment due in/);
+    expect(lastHour).toHaveTextContent(/^Payment due in 59:\d\d$/);
+    expect(lastHour).toHaveAttribute('data-warning', 'true');
+
+    // In the last hour it ticks every second
+    const before = lastHour.textContent;
+    act(() => {
+      jest.advanceTimersByTime(1_000);
+    });
+    expect(within(row).getByText(/Payment due in/).textContent).not.toBe(before);
+
+  });
+
+  test('a countdown that runs out reads Processing, never a negative time', async () => {
+    const due = at(30_000);
+    const unpaid = anOrder({ status: 'awaiting_payment', paid_at: null, expires_at: due, deadline: { kind: 'payment', at: due } });
+    backend({ '/orders/admin/all': { orders: [unpaid], total: 1, page: 1, limit: 10 } });
+    renderAdmin();
+    await openTab('Orders');
+    const row = await screen.findByRole('row', { name: /STB-261010-00007/ });
+    expect(within(row).getByText(/Payment due in 00:\d\d/)).toBeInTheDocument();
+    act(() => {
+      jest.advanceTimersByTime(60_000);
+    });
+    expect(within(row).queryByText(/Payment due in/)).not.toBeInTheDocument();
+    expect(within(row).getByText('Processing')).toBeInTheDocument();
+  });
+
+  test('a Shipping order counts down to its automatic Confirmed time and warns in the last day', async () => {
+    const shipped = anOrder({ status: 'shipping', shipped_at: '2026-10-05T10:00:00Z', deadline: { kind: 'auto_confirm', at: at(2 * 86_400_000 + 3 * 3_600_000 + 30 * 60_000) } });
+    const soon = anOrder({ id: 'o2', order_number: 'STB-261010-00008', status: 'shipping', deadline: { kind: 'auto_confirm', at: at(20 * 3_600_000 + 30 * 60_000) } });
+    const noClock = anOrder({ id: 'o3', order_number: 'STB-261010-00009' });
+    backend({ '/orders/admin/all': { orders: [shipped, soon, noClock], total: 3, page: 1, limit: 10 } });
+    renderAdmin();
+    await openTab('Orders');
+    const first = await screen.findByRole('row', { name: /STB-261010-00007/ });
+    expect(within(first).getByText(/Auto-confirms in/)).toHaveTextContent('Auto-confirms in 2d 3h');
+    expect(within(first).getByText(/Auto-confirms in/)).not.toHaveAttribute('data-warning');
+    const second = screen.getByRole('row', { name: /STB-261010-00008/ });
+    expect(within(second).getByText(/Auto-confirms in/)).toHaveTextContent('Auto-confirms in 20h 29m');
+    expect(within(second).getByText(/Auto-confirms in/)).toHaveAttribute('data-warning', 'true');
+    expect(within(screen.getByRole('row', { name: /STB-261010-00009/ })).queryByText(/in \d/)).not.toBeInTheDocument();
+  });
+
+  test('the countdown reads in Thai', async () => {
+    const unpaid = anOrder({ status: 'awaiting_payment', deadline: { kind: 'payment', at: at(2 * 3_600_000 + 30_000) } });
+    backend({ '/orders/admin/all': { orders: [unpaid], total: 1, page: 1, limit: 10 } });
+    renderApp('/admin');
+    userEvent.click(await screen.findByRole('tab', { name: 'คำสั่งซื้อ' }));
+    expect(await screen.findByText('หมดเวลาชำระใน 2 ชม. 0 นาที')).toBeInTheDocument();
+  });
+});
+
+describe('Categories', () => {
+  const catalogue = () => ({
+    categories: [
+      { slug: 'beetle', name_th: 'ด้วง', name_en: 'Beetles', sort_order: 1, is_system: true },
+      { slug: 'food', name_th: 'อาหาร', name_en: 'Food', sort_order: 2, is_system: false },
+    ],
+    families: [{ id: 'fa1', name: 'Rhinoceros', sort_order: 1 }],
+  });
+  const openCategories = async () => {
+    backend({ '/categories': catalogue() });
+    renderAdmin();
+    await openTab('Categories');
+    return within(await screen.findByRole('region', { name: 'Product Categories' }));
+  };
+
+  test('lists Categories with their slug; the beetle Category is marked System and has no delete button', async () => {
+    const section = await openCategories();
+    const beetle = await section.findByRole('row', { name: /ด้วง.*Beetles/ });
+    expect(within(beetle).getByText('System')).toBeInTheDocument();
+    expect(within(beetle).queryByRole('button', { name: 'Delete ด้วง' })).not.toBeInTheDocument();
+    expect(within(beetle).getByRole('button', { name: 'Edit ด้วง' })).toBeInTheDocument();
+    const food = section.getByRole('row', { name: /อาหาร.*Food/ });
+    expect(within(food).getByText('food')).toBeInTheDocument();
+    expect(within(food).getByRole('button', { name: 'Delete อาหาร' })).toBeInTheDocument();
+  });
+
+  test('adding a Category needs both names, sends them and reloads the list', async () => {
+    (api.post as jest.Mock).mockResolvedValue({ slug: 'tools' });
+    const Swal = jest.requireMock('sweetalert2').default;
+    fillSwalForm([{ 'stb-cat-th': 'เครื่องมือ', 'stb-cat-en': '' }, { 'stb-cat-th': 'เครื่องมือ', 'stb-cat-en': 'Tools' }]);
+    const section = await openCategories();
+    await section.findByRole('row', { name: /อาหาร/ });
+    const before = getCalls('/categories').length;
+    userEvent.click(section.getByRole('button', { name: 'Add Category' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/categories', { name_th: 'เครื่องมือ', name_en: 'Tools' }));
+    expect(Swal.showValidationMessage).toHaveBeenCalledWith('Enter both a Thai and an English name');
+    await waitFor(() => expect(getCalls('/categories').length).toBeGreaterThan(before));
+  });
+
+  test('renaming keeps the slug: the new names go to that Category', async () => {
+    (api.patch as jest.Mock).mockResolvedValue({});
+    const seen: { opts?: any } = {};
+    fillSwalForm([{ 'stb-cat-th': 'อาหารด้วง', 'stb-cat-en': 'Beetle food' }], seen);
+    const section = await openCategories();
+    userEvent.click(await section.findByRole('button', { name: 'Edit อาหาร' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/categories/food', { name_th: 'อาหารด้วง', name_en: 'Beetle food' }));
+    expect(seen.opts.html).toContain('value="อาหาร"');
+  });
+
+  test('moving a Category down sends the new order', async () => {
+    (api.post as jest.Mock).mockResolvedValue({});
+    const section = await openCategories();
+    userEvent.click(await section.findByRole('button', { name: 'Move ด้วง down' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/categories/reorder', { slugs: ['food', 'beetle'] }));
+    expect(section.getByRole('button', { name: 'Move ด้วง up' })).toBeDisabled();
+  });
+
+  test('deleting a Category that still has products is refused with how many', async () => {
+    (api.delete as jest.Mock).mockRejectedValue(new ApiError('2 product(s) are still in this Category', 409, 'CATEGORY_IN_USE', { count: 2 }));
+    const Swal = jest.requireMock('sweetalert2').default;
+    Swal.fire.mockResolvedValueOnce({ isConfirmed: true });
+    const section = await openCategories();
+    userEvent.click(await section.findByRole('button', { name: 'Delete อาหาร' }));
+    await waitFor(() => expect(api.delete).toHaveBeenCalledWith('/categories/food'));
+    await waitFor(() =>
+      expect(Swal.fire).toHaveBeenLastCalledWith(expect.any(String), 'Products still in this Category: 2. Move them to another Category first', 'error')
+    );
+  });
+
+  test('Families: add, rename (which renames the beetles too) and a refused delete', async () => {
+    (api.post as jest.Mock).mockResolvedValue({});
+    (api.patch as jest.Mock).mockResolvedValue({});
+    (api.delete as jest.Mock).mockRejectedValue(new ApiError('1 beetle(s) still have this Family', 409, 'FAMILY_IN_USE', { count: 1 }));
+    const Swal = jest.requireMock('sweetalert2').default;
+    await openCategories();
+    const families = within(screen.getByRole('region', { name: 'Beetle Families' }));
+    await families.findByRole('row', { name: /Rhinoceros/ });
+
+    Swal.fire.mockResolvedValueOnce({ isConfirmed: true, value: '  Stag ' });
+    userEvent.click(families.getByRole('button', { name: 'Add Family' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/categories/families', { name: 'Stag' }));
+
+    Swal.fire.mockResolvedValueOnce({ isConfirmed: true, value: 'Rhino' });
+    userEvent.click(families.getByRole('button', { name: 'Edit Rhinoceros' }));
+    await waitFor(() => expect(api.patch).toHaveBeenCalledWith('/categories/families/fa1', { name: 'Rhino' }));
+    expect(Swal.fire).toHaveBeenCalledWith(expect.objectContaining({ text: 'Every beetle in this Family is renamed too', inputValue: 'Rhinoceros' }));
+
+    Swal.fire.mockResolvedValueOnce({ isConfirmed: true });
+    userEvent.click(families.getByRole('button', { name: 'Delete Rhinoceros' }));
+    await waitFor(() =>
+      expect(Swal.fire).toHaveBeenLastCalledWith(expect.any(String), 'Beetles still in this Family: 1. Change their Family first', 'error')
+    );
   });
 });

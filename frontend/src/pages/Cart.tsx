@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import Swal from 'sweetalert2';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { X, Plus, Minus, ShoppingBag, Gift } from 'lucide-react';
@@ -10,7 +11,9 @@ import { useProductText } from '../component/products/ProductCard';
 import { iconButton, primaryButton, primaryButtonInline, quietLink } from '../component/ui/buttonStyles';
 import { usePricedCart } from '../lib/usePricedCart';
 import { useGiftChoices } from '../lib/giftChoices';
-import { amountText, promotionName } from '../lib/promotions';
+import { useLineChoices } from '../lib/lineChoices';
+import { amountText, promotionName, useActivePromotions } from '../lib/promotions';
+import PromotionPicker from '../component/products/PromotionPicker';
 
 const stepper =
   'flex h-9 w-9 items-center justify-center rounded-lg border border-line text-ink transition-colors hover:border-muted disabled:pointer-events-none disabled:opacity-30 motion-reduce:transition-none';
@@ -19,17 +22,49 @@ const stepper =
 const Cart: React.FC = () => {
   const { t, i18n } = useTranslation();
   const isThai = (i18n.language || 'th').startsWith('th');
-  const { items, isOpen, closeCart, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
+  const { items, isOpen, closeCart, removeItem, updateQuantity, syncAvailable, totalPrice, totalItems } = useCart();
   const text = useProductText();
   // Priced by the server while the drawer is open: Promotions, hints and the Shipping Fee match checkout.
   const { choices: giftChoices, choose: chooseGift } = useGiftChoices();
-  const priced = usePricedCart(items, isOpen, giftChoices);
+  const { choices: lineChoices, choose: chooseOption } = useLineChoices();
+  const priced = usePricedCart(items, isOpen, giftChoices, lineChoices);
   const pricedLine = (productId: string) => priced?.lines.find((l) => l.product_id === productId);
-  const promoNameOf = (id: string | null) => {
-    const p = priced?.promotions_applied?.find((x) => x.id === id);
-    return p ? promotionName(p, isThai) : '';
-  };
+  // A stacked line used several Promotions: name them all
+  const promoNamesOf = (line: { promotion_id: string | null; promotion_ids?: string[] }) =>
+    (line.promotion_ids?.length ? line.promotion_ids : [line.promotion_id])
+      .map((id) => priced?.promotions_applied?.find((x) => x.id === id))
+      .filter((p): p is NonNullable<typeof p> => Boolean(p))
+      .map((p) => promotionName(p, isThai))
+      .join(' + ');
+  // The running Promotions' tiers and Gifts, so each option card says what it gives
+  const running = useActivePromotions();
+  const withDetails = <P extends { id: string }>(p: P) => ({ ...p, ...running.find((r) => r.id === p.id), ...p });
   const closeRef = useRef<HTMLButtonElement>(null);
+
+  // Quantities never stay above today's Available: lower them and say which products changed
+  const [lowered, setLowered] = useState<string[]>([]);
+  useEffect(() => {
+    if (!priced) return;
+    const available = Object.fromEntries(priced.lines.filter((l) => l.available !== undefined).map((l) => [l.product_id, l.available as number]));
+    const changed = syncAvailable(available);
+    if (changed.length) setLowered((prev) => Array.from(new Set([...prev, ...changed])));
+  }, [priced, syncAvailable]);
+  useEffect(() => {
+    if (!isOpen) setLowered([]);
+  }, [isOpen]);
+
+  /** Removing a product (button, or stepping down from 1) asks first. */
+  const confirmRemove = async (item: { product_id: string; name: string; name_th?: string | null }) => {
+    const ok = await Swal.fire({
+      icon: 'question',
+      title: t('cart_page.remove_title'),
+      text: t('cart_page.remove_text', { name: text.name(item) }),
+      showCancelButton: true,
+      confirmButtonText: t('cart_page.remove_confirm'),
+      cancelButtonText: t('cart_page.keep'),
+    });
+    if (ok.isConfirmed) removeItem(item.product_id);
+  };
 
   useEffect(() => {
     if (!isOpen) return;
@@ -82,6 +117,11 @@ const Cart: React.FC = () => {
             </div>
 
             <div className="flex-1 overflow-y-auto overscroll-contain px-5">
+              {lowered.length > 0 && items.length > 0 && (
+                <p role="status" className="mt-4 rounded-xl border border-line bg-sunken px-3 py-2 text-xs text-ink">
+                  {t('cart_page.lowered_to_available')}
+                </p>
+              )}
               {items.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center py-16 text-center">
                   <ShoppingBag className="h-10 w-10 text-muted" aria-hidden />
@@ -122,16 +162,36 @@ const Cart: React.FC = () => {
                         {!!pricedLine(item.product_id)?.discount_per_unit && (
                           <p className="mt-0.5 text-xs font-medium text-accent-strong">
                             {t('promotions.cart_line', {
-                              name: promoNameOf(pricedLine(item.product_id)!.promotion_id),
+                              name: promoNamesOf(pricedLine(item.product_id)!),
                               amount: baht(pricedLine(item.product_id)!.discount_per_unit),
                             })}
                           </p>
+                        )}
+                        {(pricedLine(item.product_id)?.options?.length ?? 0) > 1 && (
+                          <div className="mt-2">
+                            <PromotionPicker
+                              compact
+                              legend={t('cart_page.option_legend', { name: text.name(item) })}
+                              name={`promotion-option-${item.product_id}`}
+                              value={pricedLine(item.product_id)!.option || null}
+                              onChange={(key) => chooseOption(item.product_id, key)}
+                              options={pricedLine(item.product_id)!.options!.map((o) => ({
+                                key: o.key,
+                                kind: o.kind,
+                                promotions: o.promotions.map(withDetails),
+                                note: o.saving > 0 ? t('cart_page.option_saving', { amount: baht(o.saving) }) : t('cart_page.option_nothing'),
+                              }))}
+                            />
+                          </div>
+                        )}
+                        {item.max_quantity !== undefined && item.quantity >= item.max_quantity && (
+                          <p className="mt-0.5 text-xs text-muted">{t('cart_page.max_reached', { count: item.max_quantity })}</p>
                         )}
                         <div className="mt-auto flex items-center justify-between pt-2">
                           <div className="flex items-center gap-1" role="group" aria-label={`${t('quantity')} · ${text.name(item)}`}>
                             <button
                               type="button"
-                              onClick={() => updateQuantity(item.product_id, item.quantity - 1)}
+                              onClick={() => (item.quantity <= 1 ? confirmRemove(item) : updateQuantity(item.product_id, item.quantity - 1))}
                               aria-label={t('cart_page.decrease')}
                               className={stepper}
                             >
@@ -152,7 +212,7 @@ const Cart: React.FC = () => {
                           </div>
                           <button
                             type="button"
-                            onClick={() => removeItem(item.product_id)}
+                            onClick={() => confirmRemove(item)}
                             className="min-h-[36px] px-1 text-sm text-muted underline-offset-4 hover:text-danger hover:underline"
                           >
                             {t('remove')}
@@ -186,7 +246,7 @@ const Cart: React.FC = () => {
                                   aria-label={t('promotions.gift_pick', { name: promo })}
                                   value={g.product_id || ''}
                                   onChange={(e) => chooseGift(g.promotion_id, e.target.value)}
-                                  className="min-w-0 rounded-lg border border-line bg-paper px-2 py-1.5 text-sm text-ink"
+                                  className="min-w-0 rounded-xl border border-line bg-paper px-2 py-1.5 text-sm text-ink"
                                 >
                                   {g.options.map((o) => (
                                     <option key={o.product_id} value={o.product_id} disabled={o.available < g.quantity}>
@@ -211,12 +271,12 @@ const Cart: React.FC = () => {
             {items.length > 0 && (
               <div className="border-t border-line bg-sunken px-5 pb-6 pt-4">
                 {priced?.next_tiers?.map((h) => (
-                  <p key={h.promotion_id} className="mb-2 rounded-lg bg-accent-strong/10 px-3 py-2 text-xs font-medium text-accent-strong">
+                  <p key={h.promotion_id} className="mb-2 rounded-xl bg-accent-strong/10 px-3 py-2 text-xs font-medium text-accent-strong">
                     {t('promotions.next_tier', { count: h.units_needed, amount: amountText(h.tier, t), name: promotionName(h, isThai) })}
                   </p>
                 ))}
                 {priced?.next_gifts?.map((h) => (
-                  <p key={`gift-${h.promotion_id}`} className="mb-2 rounded-lg bg-accent-strong/10 px-3 py-2 text-xs font-medium text-accent-strong">
+                  <p key={`gift-${h.promotion_id}`} className="mb-2 rounded-xl bg-accent-strong/10 px-3 py-2 text-xs font-medium text-accent-strong">
                     {t('promotions.next_gift', { count: h.units_needed, gift: h.gift_quantity, name: promotionName(h, isThai) })}
                   </p>
                 ))}
@@ -228,7 +288,7 @@ const Cart: React.FC = () => {
                 {priced ? (
                   <dl className="space-y-1 text-sm">
                     <div className="flex justify-between text-muted">
-                      <dt id="cart-subtotal">{t('subtotal')}</dt>
+                      <dt id="cart-subtotal">{t('cart_page.item_subtotal')}</dt>
                       <dd aria-labelledby="cart-subtotal" className="font-mono tabular-nums">{baht(priced.items_subtotal)}</dd>
                     </div>
                     {priced.discount_total > 0 && (
@@ -251,7 +311,7 @@ const Cart: React.FC = () => {
                 ) : (
                   <>
                     <div className="flex items-baseline justify-between">
-                      <span className="text-sm font-semibold text-ink">{t('subtotal')}</span>
+                      <span className="text-sm font-semibold text-ink">{t('cart_page.item_subtotal')}</span>
                       <span className="font-mono text-xl font-medium tabular-nums text-ink">{baht(totalPrice)}</span>
                     </div>
                     <p className="mt-1 text-xs text-muted">{t('cart_page.shipping_note')}</p>

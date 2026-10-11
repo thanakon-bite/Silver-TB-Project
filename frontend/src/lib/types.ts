@@ -1,8 +1,8 @@
 export const ORDER_STATUSES = ['awaiting_payment', 'paid', 'waiting_shipping', 'shipping', 'confirmed', 'cancelled'] as const;
 export type OrderStatus = (typeof ORDER_STATUSES)[number];
 
-export type ProductCategory = 'beetle' | 'food' | 'log' | 'gear';
-export const PRODUCT_CATEGORIES: ProductCategory[] = ['beetle', 'food', 'log', 'gear'];
+/** A Category's slug. The Admin keeps the list (lib/catalogue); `beetle` is the one system Category. */
+export type ProductCategory = string;
 export const BEETLE_SEXES = ['male', 'female', 'pair', 'trio', 'unsexed'] as const;
 export const BEETLE_STAGES = ['egg', 'L1', 'L2', 'L3', 'pupa', 'adult'] as const;
 
@@ -72,6 +72,12 @@ export interface OrderActions {
   admin: { ship: boolean; confirm: boolean; cancel: boolean; refund_on_cancel: boolean } | null;
 }
 
+/** When an Order's clock runs out: payment for Awaiting Payment, automatic Confirmed for Shipping (admin list only). */
+export interface OrderDeadline {
+  kind: 'payment' | 'auto_confirm';
+  at: string;
+}
+
 export interface Order {
   id: string;
   order_number: string;
@@ -103,6 +109,7 @@ export interface Order {
   // admin-only
   admin_note?: string | null;
   needs_attention?: boolean;
+  deadline?: OrderDeadline | null;
   admin_notified_at?: string | null;
   profiles?: { full_name: string; email: string | null; phone: string | null } | null;
 }
@@ -167,6 +174,16 @@ export interface PricedGift {
 }
 
 /** POST /orders/price-preview: what the Cart costs today, priced by the server. */
+/** One way a Cart line can take its Promotions: one Exclusive Promotion, or every Stackable one together (ADR 0004). */
+export interface LineOption {
+  /** 'stack', or the Exclusive Promotion's id: what the Cart sends back as the line's choice. */
+  key: string;
+  kind: 'exclusive' | 'stack';
+  promotions: { id: string; name_th: string; name_en: string | null }[];
+  /** What the whole Cart saves with this option (Discounts plus Gifts' worth), the other lines as chosen. */
+  saving: number;
+}
+
 export interface PricedCart {
   lines: {
     product_id: string;
@@ -177,6 +194,14 @@ export interface PricedCart {
     discount_per_unit: number;
     line_total: number;
     promotion_id: string | null;
+    /** Every Promotion this line used: one Exclusive, or the Stackable set. */
+    promotion_ids?: string[];
+    /** The option the line was priced with: 'none', 'stack' or a Promotion id. */
+    option?: string;
+    /** The options to choose from, only when there are two or more. */
+    options?: LineOption[];
+    /** Today's Available for the product (Cart preview only). */
+    available?: number;
   }[];
   gifts: PricedGift[];
   next_gifts?: { promotion_id: string; name_th: string; name_en: string | null; units_needed: number; gift_quantity: number }[];

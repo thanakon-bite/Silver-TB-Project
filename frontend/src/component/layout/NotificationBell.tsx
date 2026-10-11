@@ -2,21 +2,51 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
-import { Bell } from 'lucide-react';
-import { api } from '../../lib/api';
-import { cancelReasonText, localDateTime } from '../../lib/format';
+import { Bell, Check, Copy } from 'lucide-react';
+import type { RealtimeChannel } from '@supabase/supabase-js';
+import { api, API_WRITE_EVENT, type ApiWrite } from '../../lib/api';
+import { supabase } from '../../lib/supabaseClient';
+import { cancelReasonText, localDate, localDateTime } from '../../lib/format';
 import { iconButton } from '../ui/buttonStyles';
 
 export interface AppNotification {
   id: string;
-  type: 'awaiting_payment' | 'shipping' | 'confirm_request' | 'cancelled' | 'promotion';
+  type:
+    | 'awaiting_payment'
+    | 'shipping'
+    | 'confirm_request'
+    | 'cancelled'
+    | 'confirmed_by_admin'
+    | 'confirmed_auto'
+    | 'admin_confirmed_by_customer'
+    | 'admin_confirmed_auto'
+    | 'promotion_new'
+    | 'promotion';
   order_id: string | null;
-  data: { order_number?: string; tracking_number?: string; carrier?: string; cancel_reason?: string; refunded?: boolean; name_th?: string; name_en?: string };
+  promotion_id?: string | null;
+  data: {
+    order_number?: string;
+    tracking_number?: string;
+    carrier?: string;
+    cancel_reason?: string;
+    refunded?: boolean;
+    customer?: string;
+    name_th?: string;
+    name_en?: string;
+    promotion_id?: string;
+    starts_at?: string;
+    ends_at?: string;
+  };
   read_at: string | null;
   created_at: string;
 }
 
+/** A safety net only: Realtime, the Member's own actions and coming back to the tab refresh sooner. */
 const POLL_MS = 60_000;
+/** Several triggers at once (a Realtime row plus the action that caused it) make one request. */
+const REFRESH_DELAY_MS = 300;
+/** Writes that cannot create a Notification for this Member: marking read, pricing the Cart. */
+const QUIET_WRITES = ['/notifications', '/orders/price-preview'];
 
 interface NotificationPage {
   notifications: AppNotification[];
@@ -25,20 +55,28 @@ interface NotificationPage {
 }
 
 /**
- * A signed-in Member's Notifications (CONTEXT.md), fetched once and then about every minute while
- * the tab is visible. Navbar owns one of these and hands it to each bell it draws.
+ * A signed-in Member's Notifications (CONTEXT.md). They refresh at once when Supabase Realtime reports a
+ * new or changed row for this Member, after any of their own actions succeeds, when they come back to the
+ * tab and when they open the bell; a poll about every minute covers a dropped Realtime connection.
+ * Navbar owns one of these and hands it to each bell it draws.
  */
-export function useNotifications(enabled: boolean) {
+export function useNotifications(userId: string | null) {
+  const enabled = Boolean(userId);
   const [items, setItems] = useState<AppNotification[]>([]);
   const [unread, setUnread] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   // Older pages the Member opened stay while the poll refreshes the newest page.
   const olderLoaded = useRef(false);
+  // Only the newest request may update the list: a reply that left before the Member marked
+  // something read would bring the old unread state back.
+  const generation = useRef(0);
 
   const load = useCallback(async () => {
+    const mine = ++generation.current;
     try {
       const data = await api.get<NotificationPage>('/notifications');
+      if (mine !== generation.current) return;
       const latest = data.notifications || [];
       setUnread(data.unread || 0);
       if (!olderLoaded.current) {
@@ -88,41 +126,85 @@ export function useNotifications(enabled: boolean) {
       return;
     }
     load();
-    const timer = setInterval(() => {
-      if (typeof document === 'undefined' || document.visibilityState !== 'hidden') load();
-    }, POLL_MS);
-    return () => clearInterval(timer);
-  }, [enabled, load]);
+    const visible = () => typeof document === 'undefined' || document.visibilityState !== 'hidden';
+    let soon: ReturnType<typeof setTimeout> | undefined;
+    const refreshSoon = () => {
+      clearTimeout(soon);
+      soon = setTimeout(load, REFRESH_DELAY_MS);
+    };
+    const timer = setInterval(() => visible() && load(), POLL_MS);
+    const onBack = () => visible() && refreshSoon();
+    const onWrite = (e: Event) => {
+      const path = (e as CustomEvent<ApiWrite>).detail?.path || '';
+      if (!QUIET_WRITES.some((p) => path.startsWith(p))) refreshSoon();
+    };
+    document.addEventListener('visibilitychange', onBack);
+    window.addEventListener('focus', onBack);
+    window.addEventListener(API_WRITE_EVENT, onWrite);
+
+    // Realtime sends only rows this Member may read (RLS), filtered to theirs; migration 006 publishes the table
+    let channel: RealtimeChannel | null = null;
+    try {
+      if (typeof supabase.channel === 'function') {
+        channel = supabase
+          .channel(`notifications:${userId}`)
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}` }, refreshSoon)
+          .subscribe();
+      }
+    } catch {
+      /* no Realtime: the poll and the other triggers still refresh */
+    }
+
+    return () => {
+      clearInterval(timer);
+      clearTimeout(soon);
+      document.removeEventListener('visibilitychange', onBack);
+      window.removeEventListener('focus', onBack);
+      window.removeEventListener(API_WRITE_EVENT, onWrite);
+      if (channel) supabase.removeChannel(channel);
+    };
+  }, [enabled, userId, load]);
 
   const markRead = (n: AppNotification) => {
     if (n.read_at) return;
+    generation.current++;
     setItems((list) => list.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)));
     setUnread((u) => Math.max(0, u - 1));
     api.post(`/notifications/${n.id}/read`, {}).catch(() => {});
   };
 
   const markAllRead = () => {
+    generation.current++;
     setItems((list) => list.map((x) => (x.read_at ? x : { ...x, read_at: new Date().toISOString() })));
     setUnread(0);
     api.post('/notifications/read-all', {}).catch(() => {});
   };
 
-  return { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead };
+  return { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead, refresh: load };
 }
 
 export type NotificationsState = ReturnType<typeof useNotifications>;
 
 /** Title and detail line for one Notification, in the reader's language. */
-function describe(n: AppNotification, t: TFunction, isThai: boolean): { title: string; body?: string; to: string } {
+function describe(n: AppNotification, t: TFunction, isThai: boolean, lang: string): { title: string; body?: string; to: string } {
   const number = n.data.order_number || '';
   const toOrder = n.order_id ? `/orders/${n.order_id}` : '/orders';
+  // Notifications for Admins open the order on the admin page
+  const toAdminOrder = n.order_id ? `/admin?order=${n.order_id}` : '/admin';
+  const promotionId = n.promotion_id || n.data.promotion_id;
+  const toPromotion = promotionId ? `/?promotion=${promotionId}` : '/';
+  const promoName = (isThai ? n.data.name_th : n.data.name_en || n.data.name_th) || '';
   switch (n.type) {
     case 'awaiting_payment':
       return { title: t('notifications.awaiting_payment', { number }), body: t('notifications.awaiting_payment_body'), to: toOrder };
     case 'shipping':
       return {
         title: t('notifications.shipping', { number }),
-        body: n.data.tracking_number ? t('notifications.shipping_body', { tracking: n.data.tracking_number }) : undefined,
+        body: n.data.tracking_number
+          ? n.data.carrier
+            ? t('notifications.shipping_body_carrier', { carrier: n.data.carrier, tracking: n.data.tracking_number })
+            : t('notifications.shipping_body', { tracking: n.data.tracking_number })
+          : undefined,
         to: toOrder,
       };
     case 'confirm_request':
@@ -133,21 +215,64 @@ function describe(n: AppNotification, t: TFunction, isThai: boolean): { title: s
         body: n.data.cancel_reason ? t('notifications.cancelled_body', { reason: cancelReasonText(n.data.cancel_reason, t) }) : undefined,
         to: toOrder,
       };
-    case 'promotion': {
-      const name = (isThai ? n.data.name_th : n.data.name_en || n.data.name_th) || '';
-      return { title: t('notifications.promotion', { name }), body: t('notifications.promotion_body'), to: '/' };
-    }
+    case 'confirmed_by_admin':
+      return { title: t('notifications.confirmed_by_admin', { number }), body: t('notifications.confirmed_body'), to: toOrder };
+    case 'confirmed_auto':
+      return { title: t('notifications.confirmed_auto', { number }), body: t('notifications.confirmed_body'), to: toOrder };
+    case 'admin_confirmed_by_customer':
+      return { title: t('notifications.admin_confirmed_by_customer', { number }), body: n.data.customer ? t('notifications.admin_confirmed_body', { customer: n.data.customer }) : undefined, to: toAdminOrder };
+    case 'admin_confirmed_auto':
+      return { title: t('notifications.admin_confirmed_auto', { number }), body: n.data.customer ? t('notifications.admin_confirmed_body', { customer: n.data.customer }) : undefined, to: toAdminOrder };
+    case 'promotion_new':
+      return {
+        title: t('notifications.promotion_new', { name: promoName }),
+        body: t('notifications.promotion_new_body', { from: localDate(n.data.starts_at, lang), to: localDate(n.data.ends_at, lang) }),
+        to: toPromotion,
+      };
+    case 'promotion':
+      return { title: t('notifications.promotion', { name: promoName }), body: t('notifications.promotion_body'), to: toPromotion };
     default:
       return { title: '', to: '/' };
   }
 }
+
+/** Copies a Tracking Number to paste into the carrier's site; sits beside the link, never inside it. */
+const CopyTracking: React.FC<{ tracking: string }> = ({ tracking }) => {
+  const { t } = useTranslation();
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    Promise.resolve(navigator.clipboard?.writeText(tracking))
+      .then(() => setCopied(true))
+      .catch(() => {});
+  };
+  useEffect(() => {
+    if (!copied) return;
+    const timer = setTimeout(() => setCopied(false), 1500);
+    return () => clearTimeout(timer);
+  }, [copied]);
+  return (
+    <button
+      type="button"
+      onClick={copy}
+      aria-label={copied ? t('notifications.copied') : t('notifications.copy_tracking', { tracking })}
+      className={`${iconButton} absolute right-2 top-2`}
+    >
+      {copied ? <Check className="h-4 w-4 text-accent-strong" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
+    </button>
+  );
+};
 
 const NotificationBell: React.FC<{ state: NotificationsState; className?: string }> = ({ state, className = '' }) => {
   const { t, i18n } = useTranslation();
   const isThai = (i18n.language || 'th').startsWith('th');
   const [open, setOpen] = useState(false);
   const wrapper = useRef<HTMLDivElement>(null);
-  const { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead } = state;
+  const { items, unread, hasMore, loadingMore, loadMore, markRead, markAllRead, refresh } = state;
+  const toggle = () => {
+    // Opening the bell shows the newest, whatever the last refresh caught
+    if (!open) refresh();
+    setOpen((o) => !o);
+  };
 
   // Clicking elsewhere or pressing Escape closes the panel.
   useEffect(() => {
@@ -170,7 +295,7 @@ const NotificationBell: React.FC<{ state: NotificationsState; className?: string
     <div ref={wrapper} className="relative">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         className={`${iconButton} relative ${className}`}
         aria-label={label}
         aria-expanded={open}
@@ -205,9 +330,9 @@ const NotificationBell: React.FC<{ state: NotificationsState; className?: string
           ) : (
             <ul className="max-h-[60vh] divide-y divide-line overflow-y-auto">
               {items.map((n) => {
-                const d = describe(n, t, isThai);
+                const d = describe(n, t, isThai, i18n.language);
                 return (
-                  <li key={n.id}>
+                  <li key={n.id} className="relative">
                     <Link
                       to={d.to}
                       onClick={() => {
@@ -226,6 +351,7 @@ const NotificationBell: React.FC<{ state: NotificationsState; className?: string
                         <span className="block font-mono text-xs tabular-nums text-muted">{localDateTime(n.created_at, i18n.language)}</span>
                       </span>
                     </Link>
+                    {n.type === 'shipping' && n.data.tracking_number && <CopyTracking tracking={n.data.tracking_number} />}
                   </li>
                 );
               })}

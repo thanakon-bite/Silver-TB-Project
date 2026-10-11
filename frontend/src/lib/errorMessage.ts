@@ -8,7 +8,7 @@ import { ApiError } from './api';
 export function errorMessage(err: unknown, t: TFunction): string {
   if (err instanceof ApiError && err.code) {
     const key = `api_errors.${err.code}`;
-    const text = t(key);
+    const text: string = t(key, { ...err.params });
     if (text !== key) return text;
   }
   return err instanceof Error ? err.message : String(err);

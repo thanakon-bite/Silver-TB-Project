@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { checkAdminTransition, checkCustomerCancel, checkCustomerConfirm, isPayable, orderActions } = require('../../src/lib/orderStatus');
+const { checkAdminTransition, checkCustomerCancel, checkCustomerConfirm, isPayable, orderActions, checkRefund } = require('../../src/lib/orderStatus');
 
 const order = (status, extra = {}) => ({ status, ...extra });
 
@@ -95,4 +95,23 @@ test('orderActions tells each viewer what they may do, from the same rules the r
     customer: { cancel: false, confirm: false },
     admin: { ship: false, confirm: false, cancel: false, refund_on_cancel: false },
   });
+});
+
+test('an order is cancelled as refunded only once Stripe says the refund succeeded', () => {
+  assert.deepEqual(checkRefund({ status: 'succeeded' }), { ok: true });
+  for (const status of ['pending', 'requires_action']) {
+    assert.equal(checkRefund({ status }).ok, false);
+    assert.equal(checkRefund({ status }).code, 'REFUND_PENDING');
+  }
+  for (const status of ['failed', 'canceled', undefined]) {
+    assert.equal(checkRefund({ status }).ok, false);
+    assert.equal(checkRefund({ status }).code, 'REFUND_FAILED');
+  }
+});
+
+test('the Admin countdown: Reservation end while Awaiting Payment, automatic Confirmed 7 days after Shipping', () => {
+  const { orderDeadline } = require('../../src/lib/orderStatus');
+  assert.deepEqual(orderDeadline(order('awaiting_payment', { expires_at: '2026-10-11T03:30:00.000Z' })), { kind: 'payment', at: '2026-10-11T03:30:00.000Z' });
+  assert.deepEqual(orderDeadline(order('shipping', { shipped_at: '2026-10-01T00:00:00.000Z' })), { kind: 'auto_confirm', at: '2026-10-08T00:00:00.000Z' });
+  for (const s of ['paid', 'waiting_shipping', 'confirmed', 'cancelled']) assert.equal(orderDeadline(order(s, { expires_at: '2026-10-11T03:30:00.000Z' })), null, s);
 });

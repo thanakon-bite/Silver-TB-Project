@@ -54,3 +54,16 @@ test('formatAddress uses ต./อ./จ. outside Bangkok', () => {
   assert.match(text, /จ\.เชียงใหม่ 50200/);
   assert.equal(formatAddress('legacy text address'), 'legacy text address');
 });
+
+test('the order-received message names the order, the customer and the amount, and links to the admin page', () => {
+  const text = line.buildOrderReceivedMessage(
+    { ...order, status: 'confirmed', confirmed_at: '2026-10-11T05:00:00Z' },
+    { frontendUrl: 'https://shop.example/' }
+  );
+  assert.match(text, /ลูกค้ายืนยันได้รับสินค้าแล้ว/);
+  assert.match(text, /STB-261010-00001/);
+  assert.match(text, /สมชาย ใจดี/);
+  assert.match(text, /฿8,550/);
+  assert.match(text, /https:\/\/shop\.example\/admin\?order=o1/);
+  assert.doesNotMatch(text, /0812345678/, 'no phone number in a message that only says it arrived');
+});

@@ -85,8 +85,22 @@ function buildOrderPaidMessage(order, items, { frontendUrl = process.env.FRONTEN
   ].join('\n');
 }
 
+/** A customer said they received their order: it is now Confirmed and counts as Revenue. */
+function buildOrderReceivedMessage(order, { frontendUrl = process.env.FRONTEND_URL } = {}) {
+  const at = order.confirmed_at ? new Date(order.confirmed_at) : new Date();
+  return [
+    '📦 ลูกค้ายืนยันได้รับสินค้าแล้ว (Order received)',
+    `เลขที่: ${order.order_number}`,
+    `ลูกค้า: ${order.shipping_address?.recipient_name || '-'}`,
+    `ยอด: ${baht(order.total)}`,
+    `เวลา: ${at.toLocaleString('th-TH', { timeZone: 'Asia/Bangkok' })}`,
+    ...(frontendUrl ? ['', `ดูออเดอร์: ${frontendUrl.replace(/\/$/, '')}/admin?order=${order.id}`] : []),
+  ].join('\n');
+}
+
 module.exports = {
   isConfigured,
+  buildOrderReceivedMessage,
   verifySignature,
   getAdminTargets,
   pushToAdmins,

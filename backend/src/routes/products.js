@@ -118,7 +118,7 @@ function productInput(body, { partial }) {
   if (!partial || has('description')) out.description = v.str(body.description, 'description', { required: false, max: 5000 });
   if (!partial || has('description_th')) out.description_th = v.str(body.description_th, 'description_th', { required: false, max: 5000 });
   if (!partial || has('price')) out.price = v.money(body.price, 'price');
-  if (!partial || has('category')) out.category = v.oneOf(body.category, 'category', v.PRODUCT_CATEGORIES);
+  if (!partial || has('category')) out.category = v.str(body.category, 'category', { max: 40 });
   if (has('attributes')) out.attributes = v.productAttributes(body.attributes);
   // Beetle Attributes only describe live beetles (CONTEXT.md)
   if (out.category && out.category !== 'beetle' && out.attributes && Object.keys(out.attributes).length) {
@@ -130,6 +130,22 @@ function productInput(body, { partial }) {
   return out;
 }
 
+/** The Category must be one the Admin keeps; a beetle's Family one from their list (ADR 0005). */
+async function checkCatalogue(input, id = null) {
+  let category = input.category;
+  if (!category && id && input.attributes?.family) {
+    category = unwrap(await supabase.from('products').select('category').eq('id', id).maybeSingle())?.category;
+  }
+  if (input.category) {
+    const found = unwrap(await supabase.from('categories').select('slug').eq('slug', input.category).maybeSingle());
+    if (!found) throw badRequest("Choose one of the shop's Categories", 'UNKNOWN_CATEGORY');
+  }
+  if (category === 'beetle' && input.attributes?.family) {
+    const found = unwrap(await supabase.from('beetle_families').select('id').eq('name', input.attributes.family).maybeSingle());
+    if (!found) throw badRequest("Choose one of the shop's Families", 'UNKNOWN_FAMILY');
+  }
+}
+
 // POST /api/products — admin only
 router.post(
   '/',
@@ -137,6 +153,7 @@ router.post(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const input = productInput(req.body, { partial: false });
+    await checkCatalogue(input);
     // New stock starts both On Hand and Available
     input.on_hand = v.int(req.body.on_hand, 'on_hand', { min: 0, max: 100000 });
     input.available = input.on_hand;
@@ -159,26 +176,57 @@ router.patch(
   asyncHandler(async (req, res) => {
     const id = v.uuid(req.params.id, 'id');
     if (['stock', 'on_hand', 'available'].some((k) => req.body[k] !== undefined)) {
-      throw badRequest('Use POST /api/products/:id/stock to receive or correct stock');
+      throw badRequest('Use POST /api/products/:id/stock to set On Hand');
     }
     const updates = productInput(req.body, { partial: true });
     if (!Object.keys(updates).length) throw badRequest('Nothing to update');
+    await checkCatalogue(updates, id);
     const data = unwrap(await supabase.from('products').update(updates).eq('id', id).select().maybeSingle());
     if (!data) throw notFound('Product not found');
     res.json(data);
   })
 );
 
-// POST /api/products/:id/stock — admin: receive (+) or correct (−) stock { delta }; moves On Hand and Available together
+// POST /api/products/:id/stock — admin sets On Hand to a counted number { on_hand, note? }. Available moves by
+// the same difference; a count below the units Reserved by open orders is refused. Recorded in Stock History.
 router.post(
   '/:id/stock',
   authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
     const id = v.uuid(req.params.id, 'id');
-    const delta = v.int(req.body.delta, 'delta', { min: -100000, max: 100000 });
-    const data = unwrap(await supabase.rpc('adjust_product_stock', { p_product_id: id, p_delta: delta }));
+    const onHand = v.int(req.body.on_hand, 'on_hand', { min: 0, max: 100000 });
+    const note = v.str(req.body.note, 'note', { required: false, max: 300 }) || null;
+    const data = unwrap(
+      await supabase.rpc('set_product_on_hand', { p_product_id: id, p_on_hand: onHand, p_actor: req.user.id, p_note: note })
+    );
     res.json(data);
+  })
+);
+
+// GET /api/products/:id/stock-history?page= — admin: the product's Stock Changes, newest first
+router.get(
+  '/:id/stock-history',
+  authenticate,
+  requireAdmin,
+  asyncHandler(async (req, res) => {
+    const id = v.uuid(req.params.id, 'id');
+    const { page, limit, from, to } = v.pagination(req.query, { defaultLimit: 20, maxLimit: 100 });
+    const { data, error, count } = await supabase
+      .from('stock_changes')
+      .select('id, kind, on_hand_delta, available_delta, on_hand_after, available_after, note, created_at, order_id, orders(order_number), profiles(full_name, email)', {
+        count: 'exact',
+      })
+      .eq('product_id', id)
+      .order('id', { ascending: false })
+      .range(from, to);
+    if (error) throw error;
+    const changes = data.map(({ orders, profiles, ...c }) => ({
+      ...c,
+      order_number: orders?.order_number || null,
+      actor: profiles ? profiles.full_name || profiles.email : null,
+    }));
+    res.json({ changes, total: count, page, limit });
   })
 );
 
