@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Heart } from 'lucide-react';
 import { useFavorites } from '../contexts/FavoritesContext';
-import { api } from '../lib/api';
+import { fetchShopProducts } from '../lib/shopProducts';
 import { errorMessage } from '../lib/errorMessage';
 import ProductCard, { useAddToCart, type ShopProduct } from '../component/products/ProductCard';
 import { EmptyState, ErrorBox, PageHeader } from '../component/ui/Feedback';
@@ -21,9 +21,8 @@ const Favorites: React.FC = () => {
 
   React.useEffect(() => {
     if (!hasFavorites) return;
-    api
-      .get<{ products: ShopProduct[] }>('/products?limit=100')
-      .then(({ products: list }) => setProducts(Object.fromEntries(list.map((p) => [p.id, p]))))
+    fetchShopProducts()
+      .then((list) => setProducts(Object.fromEntries(list.map((p) => [p.id, p]))))
       .catch((err) => setError(errorMessage(err, t)));
   }, [hasFavorites, t]);
 

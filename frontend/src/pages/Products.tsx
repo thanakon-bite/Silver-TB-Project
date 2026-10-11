@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Search, X, ShoppingBag, Star, PackageSearch, ShieldCheck, Tag } from 'lucide-react';
-import { api } from '../lib/api';
+import { fetchShopProducts } from '../lib/shopProducts';
+import ShopPager, { SHOP_PAGE_SIZE } from '../component/products/ShopPager';
 import { errorMessage } from '../lib/errorMessage';
 import { baht } from '../lib/format';
 import Modal from '../component/common/Modal';
@@ -21,6 +22,7 @@ const SORTS = ['default', 'price_asc', 'price_desc', 'name_asc'] as const;
 type Sort = (typeof SORTS)[number];
 
 const PRODUCTS_ID = 'shop';
+const RESULTS_ID = 'shop-results';
 
 /** The shop: the front page of the site, the hero above every product for sale. */
 const Products: React.FC = () => {
@@ -66,9 +68,8 @@ const Products: React.FC = () => {
   const [selected, setSelected] = useState<ShopProduct | null>(null);
 
   useEffect(() => {
-    api
-      .get<{ products: ShopProduct[] }>('/products?limit=100')
-      .then((data) => setProducts(data.products || []))
+    fetchShopProducts()
+      .then(setProducts)
       .catch(setLoadError)
       .finally(() => setLoading(false));
   }, []); // once: a language switch only changes which name is shown, not the list
@@ -109,6 +110,29 @@ const Products: React.FC = () => {
     const best = bestPromotion(p, promotions);
     return best ? badgeText(best, t) : null;
   };
+
+  // 20 cards a page (?page=N, so a page can be linked and Back returns to it); only these are drawn
+  const pages = Math.max(1, Math.ceil(shown.length / SHOP_PAGE_SIZE));
+  const page = Math.min(pages, Math.max(1, Number.parseInt(searchParams.get('page') || '1', 10) || 1));
+  const onPage = shown.slice((page - 1) * SHOP_PAGE_SIZE, page * SHOP_PAGE_SIZE);
+  const goToPage = (n: number) => {
+    setSearchParams((params) => {
+      if (n <= 1) params.delete('page');
+      else params.set('page', String(n));
+      return params;
+    });
+    document.getElementById(RESULTS_ID)?.scrollIntoView?.({ block: 'start' });
+  };
+  // A new search, filter or sort starts again from page 1 (not on first load, so a ?page= link holds)
+  const filterKey = [search, category, family, sort, promotionFilter?.id || ''].join('|');
+  const lastFilterKey = useRef(filterKey);
+  useEffect(() => {
+    if (lastFilterKey.current === filterKey) return;
+    lastFilterKey.current = filterKey;
+    if (searchParams.has('page')) goToPage(1);
+    // goToPage only writes the URL; the key is what matters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
 
   const filtered = search !== '' || category !== 'all' || !!promotionFilter;
   const clearFilters = () => {
@@ -213,7 +237,8 @@ const Products: React.FC = () => {
         </div>
       </div>
 
-      <div className="mx-auto max-w-7xl px-4 pb-20 pt-2 sm:px-6 lg:px-8">
+      {/* The results start here; a page change scrolls back to it, below the sticky toolbar */}
+      <div id={RESULTS_ID} className="mx-auto max-w-7xl scroll-mt-40 px-4 pb-20 pt-2 sm:px-6 lg:px-8">
         {promotionFilter && (
           <p role="status" className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl border border-accent-strong/30 bg-accent-strong/5 px-4 py-3 text-sm text-ink">
             <Tag className="h-4 w-4 text-accent-strong" aria-hidden />
@@ -261,7 +286,7 @@ const Products: React.FC = () => {
             />
           ) : (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
-              {shown.map((p) => (
+              {onPage.map((p) => (
                 <ProductCard
                   key={p.id}
                   product={p}
@@ -274,6 +299,7 @@ const Products: React.FC = () => {
               ))}
             </div>
           )}
+          {!loading && !loadError && <ShopPager page={page} total={shown.length} onPage={goToPage} />}
         </div>
 
         <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? text.name(selected) : ''} maxWidth="3xl">

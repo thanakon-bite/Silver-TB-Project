@@ -342,7 +342,12 @@
     "views": "ยอดเข้าชม",
     "toolbar": "ค้นหาและกรองสินค้า",
     "promotion_filter": "สินค้าในโปรโมชัน {{name}}",
-    "promotion_filter_clear": "ดูสินค้าทั้งหมด"
+    "promotion_filter_clear": "ดูสินค้าทั้งหมด",
+    "pages": "หน้ารายการสินค้า",
+    "previous": "ก่อนหน้า",
+    "next": "ถัดไป",
+    "page_n": "หน้า {{n}}",
+    "page_summary": "หน้า {{page}} จาก {{pages}} · {{count}} รายการ"
   },
   "favorites_page": {
     "title": "รายการโปรด",

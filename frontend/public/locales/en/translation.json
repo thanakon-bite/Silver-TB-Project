@@ -345,7 +345,12 @@
     "views": "Views",
     "toolbar": "Search and filter products",
     "promotion_filter": "Products in {{name}}",
-    "promotion_filter_clear": "Show all products"
+    "promotion_filter_clear": "Show all products",
+    "pages": "Product pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page_n": "Page {{n}}",
+    "page_summary": "Page {{page}} of {{pages}} · {{count}} products"
   },
   "favorites_page": {
     "title": "Favorites",
