@@ -148,6 +148,8 @@ const PromotionForm: React.FC<{
   const [saving, setSaving] = useState(false);
   // After the start, Customers may have redeemed it: what it covers and gives stays fixed.
   const started = editing !== null && editing !== 'new' && new Date(editing.starts_at) <= new Date();
+  // A started gift whose products were all deleted: its products can be ticked again (the numbers stay locked)
+  const giftProductsGone = started && editing !== null && typeof editing !== 'string' && Boolean(editing.gift_every) && (editing.gift_product_ids || []).length === 0;
 
   useEffect(() => {
     if (!editing) return;
@@ -274,17 +276,17 @@ const PromotionForm: React.FC<{
           </button>
         </fieldset>
 
-        <fieldset disabled={started} className="space-y-2">
+        <fieldset className="space-y-2">
           <legend className={fieldLabel}>{t('promotions.gift_label')}</legend>
           <p className="text-muted">{t('admin.promos.gift_note')}</p>
           <div className="flex flex-wrap items-end gap-3">
             <div>
               <label htmlFor="promo-gift-every" className={fieldLabel}>{t('admin.promos.gift_every')}</label>
-              <input id="promo-gift-every" type="number" min={1} step={1} placeholder={t('admin.promos.no_gift')} value={form.gift_every} onChange={(e) => set({ gift_every: e.target.value })} className={`${fieldClass()} w-36`} />
+              <input id="promo-gift-every" type="number" disabled={started} min={1} step={1} placeholder={t('admin.promos.no_gift')} value={form.gift_every} onChange={(e) => set({ gift_every: e.target.value })} className={`${fieldClass()} w-36`} />
             </div>
             <div>
               <label htmlFor="promo-gift-qty" className={fieldLabel}>{t('admin.promos.gift_qty')}</label>
-              <input id="promo-gift-qty" type="number" min={1} step={1} value={form.gift_quantity} onChange={(e) => set({ gift_quantity: e.target.value })} className={`${fieldClass()} w-28`} />
+              <input id="promo-gift-qty" type="number" disabled={started} min={1} step={1} value={form.gift_quantity} onChange={(e) => set({ gift_quantity: e.target.value })} className={`${fieldClass()} w-28`} />
             </div>
           </div>
           <div role="group" aria-label={t('admin.promos.gift_products')} className="max-h-40 space-y-1 overflow-y-auto rounded-lg border border-line p-3">
@@ -293,6 +295,7 @@ const PromotionForm: React.FC<{
                 <input
                   type="checkbox"
                   className="accent-accent-strong"
+                  disabled={started && !giftProductsGone}
                   checked={form.gift_product_ids.includes(p.id)}
                   onChange={() =>
                     set({

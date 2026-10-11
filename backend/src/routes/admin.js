@@ -299,13 +299,15 @@ router.patch(
     if (!check.ok) throw badRequest(check.reason, 'INVALID_PROMOTION');
     const p = check.promotion;
     if (locked) {
-      const changed = lockedFieldsChanged(existing, p);
+      // Gift products all deleted: the Admin may tick new ones, the gift's numbers stay locked
+      const changed = lockedFieldsChanged(existing, p).filter((f) => !(giftProductsGone && f === 'gift_product_ids'));
       if (changed.length) {
         throw conflict(`This promotion has started, so ${changed.join(', ')} can no longer change`, 'PROMOTION_LOCKED');
       }
       const updates = Object.fromEntries(locked.map((k) => [k, p[k]]));
       if (updates.ends_at < existing.starts_at) throw badRequest('The end date cannot be before the start date', 'INVALID_PROMOTION');
       unwrap(await supabase.from('promotions').update(updates).eq('id', id));
+      if (giftProductsGone && p.gift_product_ids.length) await promotionsService.setProducts(id, existing.product_ids, p.gift_product_ids);
     } else {
       unwrap(await supabase.from('promotions').update(promotionRow(p)).eq('id', id));
       await promotionsService.setProducts(id, p.product_ids, p.gift_product_ids || []);
