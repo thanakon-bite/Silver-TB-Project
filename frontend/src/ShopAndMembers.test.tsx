@@ -31,7 +31,7 @@ const otherCustomer = { id: 'u2', email: 'somchai@example.com', full_name: 'ส�
 const admin = { id: 'a1', email: 'owner@example.com', full_name: 'เจ้าของร้าน', role: 'admin' as const };
 
 const product = (id: string, name: string, name_th: string, category: string) => ({
-  id, name, name_th, description: null, price: 3200, stock: 2, category, attributes: {}, images: [], is_best_seller: false, views: 0,
+  id, name, name_th, description: null, price: 3200, available: 2, category, attributes: {}, images: [], is_best_seller: false, views: 0,
 });
 const atlas = product('b1', 'Atlas beetle', 'ด้วงกว่างสามเขา', 'beetle');
 const jelly = product('f1', 'Beetle jelly', 'เยลลี่ด้วง', 'food');
@@ -40,7 +40,7 @@ function backend() {
   (api.get as jest.Mock).mockImplementation((path: string) => {
     if (path === '/auth/me') return mockMember ? Promise.resolve(mockMember) : Promise.reject(new Error('no session'));
     if (path === '/products?limit=100') return Promise.resolve({ products: [atlas, jelly] });
-    if (path === '/orders/shipping-fee') return Promise.resolve({ shipping_fee: 0 });
+    if (path === '/rules/shipping') return Promise.resolve({ tiers: [], free_threshold: null, fallback_fee: 0 });
     return Promise.reject(new Error(`unexpected GET ${path}`));
   });
 }
@@ -84,6 +84,19 @@ describe('the shop is the front page', () => {
     expect(main.getByRole('heading', { level: 1, name: 'เกี่ยวกับเรา' })).toBeInTheDocument();
     expect(main.getByRole('heading', { name: 'รู้จักด้วงของคุณ' })).toBeInTheDocument();
     expect(main.queryByRole('link', { name: /095 681 2084/ })).not.toBeInTheDocument();
+  });
+
+  test('"know your beetle" alternates a credited beetle photo and an icon-headed story, row by row', async () => {
+    renderApp('/about');
+    const section = within(screen.getByRole('region', { name: 'รู้จักด้วงของคุณ' }));
+    const rows = section.getAllByRole('article');
+    expect(rows).toHaveLength(4);
+    rows.forEach((row) => {
+      expect(within(row).getByRole('img')).toHaveAttribute('alt', expect.stringMatching(/ด้วง/));
+      expect(within(row).getByRole('heading', { level: 3 })).toBeInTheDocument();
+      expect(within(row).getByText(/ภาพโดย/)).toBeInTheDocument();
+    });
+    expect(within(rows[0]).getByRole('heading', { level: 3 })).toHaveTextContent('การเปลี่ยนแปลงรูปร่าง');
   });
 });
 

@@ -24,6 +24,7 @@ const call = (path, opts = {}) => fetch(`${base}${path}`, opts);
 test('protected endpoints require a session', async () => {
   for (const [method, path] of [
     ['POST', '/api/orders'],
+    ['POST', '/api/orders/00000000-0000-0000-0000-000000000000/confirm'],
     ['GET', '/api/orders'],
     ['GET', '/api/orders/admin/all'],
     ['GET', '/api/products/admin/all'],
@@ -34,6 +35,18 @@ test('protected endpoints require a session', async () => {
     ['GET', '/api/addresses'],
     ['POST', '/api/payments/checkout-session'],
     ['POST', '/api/notifications/broadcast'],
+    ['DELETE', '/api/admin/customers/00000000-0000-0000-0000-000000000000'],
+    ['GET', '/api/admin/rules/shipping'],
+    ['PUT', '/api/admin/rules/shipping'],
+    ['POST', '/api/orders/price-preview'],
+    ['GET', '/api/admin/promotions'],
+    ['POST', '/api/admin/promotions'],
+    ['PATCH', '/api/admin/promotions/00000000-0000-0000-0000-000000000000'],
+    ['DELETE', '/api/admin/promotions/00000000-0000-0000-0000-000000000000'],
+    ['GET', '/api/notifications'],
+    ['GET', '/api/notifications?before=2026-10-11T03%3A00%3A00Z&before_id=00000000-0000-0000-0000-000000000000'],
+    ['POST', '/api/notifications/read-all'],
+    ['POST', '/api/notifications/00000000-0000-0000-0000-000000000000/read'],
   ]) {
     const res = await call(path, { method, headers: { 'Content-Type': 'application/json' }, body: method === 'GET' ? undefined : '{}' });
     assert.equal(res.status, 401, `${method} ${path}`);
@@ -71,8 +84,8 @@ test('geo endpoints validate input', async () => {
   assert.equal(res.status, 400);
 });
 
-test('the Shipping Fee is public so the cart can show it before checkout', async () => {
-  const res = await call('/api/orders/shipping-fee');
-  assert.equal(res.status, 200);
-  assert.deepEqual(await res.json(), { shipping_fee: 0 });
+test('the Shipping Rule is public (no session needed) so the cart can show it before checkout', async () => {
+  const res = await call('/api/rules/shipping');
+  assert.notEqual(res.status, 401);
+  assert.notEqual(res.status, 404);
 });

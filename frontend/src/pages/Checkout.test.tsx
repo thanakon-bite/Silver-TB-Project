@@ -32,7 +32,7 @@ const home = {
 
 /** A Pending Order as the backend returns it after reserving stock. */
 const pendingOrder = (expiresInMs: number) => ({
-  id: 'o1', order_number: 'STB-261010-00007', status: 'pending', payment_status: 'unpaid',
+  id: 'o1', order_number: 'STB-261010-00007', status: 'awaiting_payment',
   subtotal: 3200, shipping_fee: 0, total: 3200, currency: 'thb',
   shipping_address: { ...home }, expires_at: new Date(Date.now() + expiresInMs).toISOString(),
   order_items: [{ id: 'i1', product_id: 'p1', product_name: 'Chalcosoma atlas', quantity: 1, unit_price: 3200, line_total: 3200 }],
@@ -43,7 +43,6 @@ function backend(overrides: Record<string, unknown> = {}) {
   const responses: Record<string, unknown> = {
     '/auth/me': customer,
     '/addresses': [],
-    '/orders/shipping-fee': { shipping_fee: 0 },
     '/geo/provinces': [],
     ...overrides,
   };
@@ -52,9 +51,63 @@ function backend(overrides: Record<string, unknown> = {}) {
   );
 }
 
+/** POST /orders/price-preview as the server prices the Cart: free shipping unless a test says otherwise. */
+const preview = (overrides: Record<string, unknown> = {}) => ({
+  lines: [], gifts: [], paid_units: 1, items_subtotal: 3200, discount_total: 0, item_total: 3200, shipping_fee: 0, total: 3200,
+  ...overrides,
+});
+
 beforeEach(() => {
   jest.clearAllMocks();
   backend();
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview' ? Promise.resolve(preview()) : Promise.reject(new Error(`unexpected POST ${path}`))
+  );
+});
+
+test('the gift the Customer picked in the Cart goes with the preview and the order, and shows as free', async () => {
+  localStorage.setItem('stb_gift_choices', JSON.stringify({ g1: 's2' }));
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview'
+      ? Promise.resolve(
+          preview({
+            gifts: [{ promotion_id: 'g1', name_th: 'ซื้อ 1 แถม 1', name_en: null, product_id: 's2', name: 'Spoon', name_th_product: 'ช้อน', quantity: 1, out_of_stock: false, options: [] }],
+          })
+        )
+      : Promise.reject(new Error('stop here'))
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
+
+  const summary = within(await screen.findByRole('region', { name: 'สรุปคำสั่งซื้อ' }));
+  expect(await summary.findByText('ช้อน (ของแถม)')).toBeInTheDocument();
+  expect(api.post).toHaveBeenCalledWith('/orders/price-preview', { items: [{ product_id: 'p1', quantity: 1 }], gift_choices: { g1: 's2' } });
+  localStorage.removeItem('stb_gift_choices');
+});
+
+test('the summary shows the Promotion discount the server priced', async () => {
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview'
+      ? Promise.resolve(preview({ items_subtotal: 3200, discount_total: 320, item_total: 2880, total: 2880 }))
+      : Promise.reject(new Error('unexpected'))
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
+
+  const summary = within(await screen.findByRole('region', { name: 'สรุปคำสั่งซื้อ' }));
+  expect(await summary.findByText('ส่วนลดโปรโมชัน')).toBeInTheDocument();
+  expect(summary.getByText('−฿320')).toBeInTheDocument();
+  expect(summary.getAllByText('฿2,880').length).toBeGreaterThan(0);
+});
+
+test('the summary before ordering shows the Shipping Fee and total the server priced', async () => {
+  (api.post as jest.Mock).mockImplementation((path: string) =>
+    path === '/orders/price-preview' ? Promise.resolve(preview({ shipping_fee: 50, total: 3250 })) : Promise.reject(new Error('unexpected'))
+  );
+  renderPage(<Checkout />, { path: '/checkout', cart: [atlas] });
+
+  const summary = within(await screen.findByRole('region', { name: 'สรุปคำสั่งซื้อ' }));
+  await waitFor(() => expect(summary.getAllByRole('definition')[0]).toHaveTextContent('฿50'));
+  expect(summary.getAllByText('฿3,250').length).toBeGreaterThan(0);
+  expect(api.post).toHaveBeenCalledWith('/orders/price-preview', { items: [{ product_id: 'p1', quantity: 1 }] });
 });
 
 test('the order summary shows the Shipping Fee as free when it is zero', async () => {

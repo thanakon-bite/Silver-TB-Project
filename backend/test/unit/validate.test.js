@@ -67,3 +67,18 @@ test('productAttributes keeps known beetle fields and rejects the rest', () => {
   assert.throws(() => v.productAttributes({ size_mm: -1 }), /size_mm/);
   assert.throws(() => v.productAttributes([]), /must be an object/);
 });
+
+test('gift choices keep only promotion → product pairs of ids', () => {
+  const other = '1b4e7a0e-5b2b-4b8e-9a51-3f1f0f1b2c3d';
+  assert.deepEqual(v.giftChoices({ [PID]: other, nope: other, [other]: 'x' }), { [PID]: other });
+  assert.deepEqual(v.giftChoices(null), {});
+  assert.deepEqual(v.giftChoices([PID]), {});
+});
+
+test('timestamp keeps an ISO time exactly (microseconds included) and refuses anything that could break a filter', () => {
+  assert.equal(v.timestamp('2026-10-11T03:00:00.123456+00:00', 'before'), '2026-10-11T03:00:00.123456+00:00');
+  assert.equal(v.timestamp('2026-10-11T03:00:00Z', 'before'), '2026-10-11T03:00:00Z');
+  for (const bad of ['yesterday', '2026-10-11', '2026-13-40T99:00:00Z', '2026-10-11T03:00:00Z,id.gt.0', '2026-10-11T03:00:00Z)', 42]) {
+    assert.throws(() => v.timestamp(bad, 'before'), /before/);
+  }
+});

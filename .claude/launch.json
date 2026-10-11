@@ -3,12 +3,9 @@
   "configurations": [
     {
       "name": "backend",
-      "runtimeExecutable": "npm",
+      "runtimeExecutable": "node",
       "runtimeArgs": [
-        "--prefix",
-        "backend",
-        "run",
-        "dev"
+        ".claude/dev-backend.js"
       ],
       "port": 5000,
       "url": "http://localhost:5000"

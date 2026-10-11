@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, ShoppingBag, Star, PackageSearch, ShieldCheck } from 'lucide-react';
+import { Search, X, ShoppingBag, Star, PackageSearch, ShieldCheck, Tag } from 'lucide-react';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
 import { baht } from '../lib/format';
@@ -12,6 +12,8 @@ import ShopHero from '../component/shop/ShopHero';
 import { chip, primaryButton, secondaryButton, textLink } from '../component/ui/buttonStyles';
 import { fieldClass } from '../component/ui/fieldStyles';
 import { PRODUCT_CATEGORIES } from '../lib/types';
+import { badgeText, promotionName, promotionsFor, tierText, useActivePromotions } from '../lib/promotions';
+import { useFavorites } from '../contexts/FavoritesContext';
 
 const CATEGORIES = ['all', ...PRODUCT_CATEGORIES];
 const SORTS = ['default', 'price_asc', 'price_desc', 'name_asc'] as const;
@@ -21,9 +23,12 @@ const PRODUCTS_ID = 'shop';
 
 /** The shop: the front page of the site, the hero above every product for sale. */
 const Products: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isThai = (i18n.language || 'th').startsWith('th');
   const text = useProductText();
   const { add, isJustAdded } = useAddToCart();
+  const promotions = useActivePromotions();
+  const { favorites } = useFavorites();
 
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [loading, setLoading] = useState(true);
@@ -70,8 +75,13 @@ const Products: React.FC = () => {
     if (sort === 'price_asc') list = [...list].sort((a, b) => a.price - b.price);
     if (sort === 'price_desc') list = [...list].sort((a, b) => b.price - a.price);
     if (sort === 'name_asc') list = [...list].sort((a, b) => text.name(a).localeCompare(text.name(b)));
+    // A signed-in Customer's Favorites come first, each group keeping the chosen order.
+    if (favorites.length) {
+      const fav = new Set(favorites);
+      list = [...list.filter((p) => fav.has(p.id)), ...list.filter((p) => !fav.has(p.id))];
+    }
     return list;
-  }, [products, search, category, family, sort, text]);
+  }, [products, search, category, family, sort, text, favorites]);
 
   const filtered = search !== '' || category !== 'all';
   const clearFilters = () => {
@@ -83,18 +93,15 @@ const Products: React.FC = () => {
   return (
     <>
       <ShopHero productsId={PRODUCTS_ID} />
-      <div className="mx-auto max-w-7xl px-4 pb-20 pt-8 sm:px-6 sm:pt-10 lg:px-8">
-        <header className="border-b border-line pb-6">
-          <h2 id={PRODUCTS_ID} tabIndex={-1} className="scroll-mt-24 font-display text-3xl font-bold text-ink outline-none sm:text-4xl">
-            {t('shop_all_beetles')}
-          </h2>
-          <p className="mt-2 max-w-prose text-muted">{t('premium_exotic_beetles_desc')}</p>
-        </header>
-
-        {/* Search, sort and categories read as one toolbar. */}
-        <div className="mt-6 space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row">
-            <div className="relative flex-1">
+      {/* One slim toolbar right after the Hero, sharing its palette; it stays at the top while scrolling. */}
+      <div className="sticky top-16 z-30 border-b border-line bg-paper/95 backdrop-blur supports-[backdrop-filter]:bg-paper/85">
+        <h2 id={PRODUCTS_ID} tabIndex={-1} className="sr-only scroll-mt-24">
+          {t('shop_all_beetles')}
+        </h2>
+        <div role="search" aria-label={t('products_page.toolbar')} className="mx-auto max-w-7xl px-4 py-3 sm:px-6 lg:px-8">
+          {/* Phones: search and sort on one row, categories scroll below. Wide: search | categories | sort. */}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 lg:grid-cols-[18rem_minmax(0,1fr)_auto] lg:gap-4">
+            <div className="relative">
               <label htmlFor="product-search" className="sr-only">
                 {t('search_beetles')}
               </label>
@@ -105,28 +112,29 @@ const Products: React.FC = () => {
                 placeholder={t('search_beetles')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className={`${fieldClass()} h-11 pl-9 pr-10 [&::-webkit-search-cancel-button]:hidden`}
+                className={`${fieldClass()} h-10 rounded-full pl-9 pr-10 [&::-webkit-search-cancel-button]:hidden`}
               />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch('')}
                   aria-label={t('products_page.clear_search')}
-                  className="absolute right-1 top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted hover:text-ink"
+                  className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted hover:text-ink"
                 >
                   <X className="h-4 w-4" aria-hidden />
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <label htmlFor="product-sort" className="whitespace-nowrap text-sm text-muted">
+
+            <div className="flex items-center gap-2 lg:col-start-3 lg:row-start-1">
+              <label htmlFor="product-sort" className="sr-only lg:not-sr-only lg:whitespace-nowrap lg:text-sm lg:text-muted">
                 {t('products_page.sort_label')}
               </label>
               <select
                 id="product-sort"
                 value={sort}
                 onChange={(e) => setSort(e.target.value as Sort)}
-                className={`${fieldClass()} h-11 w-full sm:w-52`}
+                className={`${fieldClass()} h-10 w-36 rounded-full sm:w-44`}
               >
                 {SORTS.map((s) => (
                   <option key={s} value={s}>
@@ -135,26 +143,31 @@ const Products: React.FC = () => {
                 ))}
               </select>
             </div>
+
+            <div
+              role="group"
+              aria-label={t('category')}
+              className="no-scrollbar col-span-2 -mx-4 flex gap-2 overflow-x-auto px-4 lg:col-span-1 lg:col-start-2 lg:row-start-1 lg:mx-0 lg:px-0"
+            >
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  aria-pressed={category === cat}
+                  onClick={() => {
+                    setCategory(cat);
+                    setFamily('');
+                  }}
+                  className={`${chip(category === cat)} shrink-0`}
+                >
+                  {t(cat)}
+                </button>
+              ))}
+            </div>
           </div>
 
-          <div role="group" aria-label={t('category')} className="flex flex-wrap gap-2">
-            {CATEGORIES.map((cat) => (
-              <button
-                key={cat}
-                type="button"
-                aria-pressed={category === cat}
-                onClick={() => {
-                  setCategory(cat);
-                  setFamily('');
-                }}
-                className={chip(category === cat)}
-              >
-                {t(cat)}
-              </button>
-            ))}
-          </div>
           {category === 'beetle' && families.length > 0 && (
-            <div role="group" aria-label={t('products_page.family')} className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <div role="group" aria-label={t('products_page.family')} className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
               <span className="text-muted">{t('products_page.family')}</span>
               {['', ...families].map((f) => (
                 <button
@@ -170,7 +183,9 @@ const Products: React.FC = () => {
             </div>
           )}
         </div>
+      </div>
 
+      <div className="mx-auto max-w-7xl px-4 pb-20 pt-2 sm:px-6 lg:px-8">
         <p className="mt-6 text-sm text-muted" aria-live="polite">
           {!loading && !loadError && t('products_page.count', { count: shown.length })}
         </p>
@@ -210,7 +225,14 @@ const Products: React.FC = () => {
           ) : (
             <div className="grid grid-cols-2 gap-4 lg:grid-cols-3 xl:grid-cols-4">
               {shown.map((p) => (
-                <ProductCard key={p.id} product={p} onOpen={setSelected} onAdd={add} justAdded={isJustAdded(p.id)} />
+                <ProductCard
+                  key={p.id}
+                  product={p}
+                  onOpen={setSelected}
+                  onAdd={add}
+                  justAdded={isJustAdded(p.id)}
+                  promotionBadge={promotionsFor(p.id, promotions).map((pr) => badgeText(pr, t)).find(Boolean)}
+                />
               ))}
             </div>
           )}
@@ -237,6 +259,25 @@ const Products: React.FC = () => {
                   <p className="mt-3 whitespace-pre-line text-[0.9375rem] leading-relaxed text-ink">{text.description(selected)}</p>
                 )}
 
+                {promotionsFor(selected.id, promotions).length > 0 && (
+                  <section aria-label={t('promotions.title')} className="mt-4 space-y-3 rounded-xl border border-accent-strong/30 bg-accent-strong/5 p-4 text-sm">
+                    {promotionsFor(selected.id, promotions).map((pr) => (
+                      <div key={pr.id}>
+                        <p className="flex items-center gap-1.5 font-semibold text-ink">
+                          <Tag className="h-4 w-4 text-accent-strong" aria-hidden />
+                          <span>{promotionName(pr, isThai)}</span>
+                        </p>
+                        <ul className="mt-1 space-y-0.5 text-ink">
+                          {[...pr.discount_tiers].sort((a, b) => a.min_units - b.min_units).map((tier) => (
+                            <li key={tier.min_units}>{tierText(tier, t)}</li>
+                          ))}
+                          {pr.gift_every && pr.gift_quantity && <li>{t('promotions.gift_line', { every: pr.gift_every, gift: pr.gift_quantity })}</li>}
+                        </ul>
+                      </div>
+                    ))}
+                  </section>
+                )}
+
                 <dl className="mt-5 divide-y divide-line border-y border-line text-sm">
                   {selected.category === 'beetle' && selected.attributes && (
                     <>
@@ -256,7 +297,7 @@ const Products: React.FC = () => {
                     </>
                   )}
                   <Row label={t('stock')}>
-                    <StockLine stock={selected.stock} size="text-sm" />
+                    <StockLine stock={selected.available} size="text-sm" />
                   </Row>
                   {selected.views > 0 && (
                     <Row label={t('products_page.views')}>
@@ -285,11 +326,11 @@ const Products: React.FC = () => {
                       add(selected);
                       setSelected(null);
                     }}
-                    disabled={selected.stock <= 0}
+                    disabled={selected.available <= 0}
                     className={`${primaryButton} mt-3`}
                   >
                     <ShoppingBag className="h-5 w-5" aria-hidden />
-                    {selected.stock <= 0 ? t('sold_out') : t('add_to_cart')}
+                    {selected.available <= 0 ? t('sold_out') : t('add_to_cart')}
                   </button>
                 </div>
               </div>

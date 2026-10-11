@@ -1,18 +1,19 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Plus, Edit2, Upload, X, Minus, Search, ArrowLeft, ArrowRight } from 'lucide-react';
+import { Plus, Edit2, Upload, X, Minus, Search, Star, ArrowLeft, ArrowRight } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
 import { supabase } from '../../lib/supabaseClient';
 import { baht, uuidv4 } from '../../lib/format';
 import { BEETLE_SEXES, BEETLE_STAGES, PRODUCT_CATEGORIES, type BeetleAttributes, type Product, type ProductCategory } from '../../lib/types';
 import Modal from '../common/Modal';
+import { showAdminError } from './adminError';
 import Pager, { PAGE_SIZE } from './Pager';
 
 const BUCKET = 'product-images';
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
 const DEFAULT_FAMILIES = ['Rhinoceros', 'Stag', 'Flower'];
-export const CATEGORY_LABELS: Record<ProductCategory, string> = { beetle: 'Beetle', food: 'Food', log: 'Logs & substrate', gear: 'Gear' };
 
 type Attrs = { family: string; species: string; locality: string; sex: string; stage: string; size_mm: string };
 const emptyAttrs = (): Attrs => ({ family: '', species: '', locality: '', sex: '', stage: '', size_mm: '' });
@@ -23,7 +24,7 @@ type Form = {
   description: string;
   description_th: string;
   price: string;
-  stock: string;
+  on_hand: string;
   category: ProductCategory;
   attrs: Attrs;
   images: string[];
@@ -37,7 +38,7 @@ const emptyForm = (): Form => ({
   description: '',
   description_th: '',
   price: '',
-  stock: '0',
+  on_hand: '0',
   category: 'beetle',
   attrs: emptyAttrs(),
   images: [],
@@ -48,30 +49,35 @@ const emptyForm = (): Form => ({
 type ActiveFilter = '' | 'true' | 'false';
 
 /** On/off for one product: on means shoppers can see and buy it. */
-const ActiveSwitch: React.FC<{ product: Product; onToggle: (p: Product) => void }> = ({ product, onToggle }) => (
+const ActiveSwitch: React.FC<{ product: Product; onToggle: (p: Product) => void }> = ({ product, onToggle }) => {
+  const { t } = useTranslation();
+  return (
   <button
     type="button"
     role="switch"
     aria-checked={product.is_active}
-    aria-label={`Show ${product.name} in the shop`}
+    aria-label={t('admin.products.show_in_shop', { name: product.name })}
     onClick={() => onToggle(product)}
-    className="inline-flex items-center gap-2 text-xs font-semibold"
+    className="inline-flex items-center gap-2 whitespace-nowrap text-xs font-semibold"
   >
+    {/* Track 36px, knob 16px with 2px inset: off sits at 2px, on at 18px, so the knob never leaves the track. */}
     <span
       aria-hidden
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors motion-reduce:transition-none ${product.is_active ? 'bg-success' : 'bg-line'}`}
+      className={`relative inline-block h-5 w-9 shrink-0 overflow-hidden rounded-full transition-colors motion-reduce:transition-none ${product.is_active ? 'bg-success' : 'bg-line'}`}
     >
       <span
-        className={`absolute top-0.5 h-4 w-4 rounded-full bg-paper shadow transition-transform motion-reduce:transition-none ${
-          product.is_active ? 'translate-x-[1.125rem]' : 'translate-x-0.5'
+        className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-paper shadow transition-transform motion-reduce:transition-none ${
+          product.is_active ? 'translate-x-4' : 'translate-x-0'
         }`}
       />
     </span>
-    <span className={product.is_active ? 'text-success' : 'text-muted'}>{product.is_active ? 'Active' : 'Inactive'}</span>
+    <span className={`w-14 ${product.is_active ? 'text-success' : 'text-muted'}`}>{product.is_active ? t('admin.products.active') : t('admin.products.inactive')}</span>
   </button>
-);
+  );
+};
 
 const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) => {
+  const { t } = useTranslation();
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -94,13 +100,13 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       setProducts(data.products || []);
       setTotal(data.total || 0);
     } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
+      showAdminError(err, t);
     }
-  }, [page, search, lowOnly, active]);
+  }, [page, search, lowOnly, active, t]);
 
   useEffect(() => {
-    const t = setTimeout(fetchProducts, 250);
-    return () => clearTimeout(t);
+    const timer = setTimeout(fetchProducts, 250);
+    return () => clearTimeout(timer);
   }, [fetchProducts]);
 
   const families = Array.from(new Set([...DEFAULT_FAMILIES, ...products.map((p) => p.attributes?.family).filter(Boolean) as string[]]));
@@ -117,7 +123,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
             description: p.description || '',
             description_th: p.description_th || '',
             price: String(p.price),
-            stock: String(p.stock),
+            on_hand: String(p.on_hand ?? 0),
             category: p.category,
             attrs: {
               family: p.attributes?.family || '',
@@ -138,8 +144,8 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
     if (!files?.length) return;
     const list = Array.from(files);
     const bad = list.find((f) => !IMAGE_TYPES.includes(f.type) || f.size > MAX_IMAGE_BYTES);
-    if (bad) return Swal.fire('Invalid image', 'Use JPG, PNG or WebP files up to 5 MB.', 'error');
-    if (form.images.length + list.length > 10) return Swal.fire('Too many images', 'A product can have up to 10 images.', 'error');
+    if (bad) return Swal.fire(t('admin.products.invalid_image'), t('admin.products.image_rules'), 'error');
+    if (form.images.length + list.length > 10) return Swal.fire(t('admin.products.too_many'), t('admin.products.too_many_text'), 'error');
 
     setUploading(true);
     try {
@@ -154,7 +160,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       }
       setForm((f) => ({ ...f, images: [...f.images, ...urls] }));
     } catch (err: any) {
-      Swal.fire('Upload failed', err.message, 'error');
+      Swal.fire(t('admin.products.upload_failed'), err.message, 'error');
     } finally {
       setUploading(false);
       if (fileInput.current) fileInput.current.value = '';
@@ -195,13 +201,13 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       is_active: form.is_active,
     };
     try {
-      if (editing === 'new') await api.post('/products', { ...payload, stock: Number(form.stock) });
+      if (editing === 'new') await api.post('/products', { ...payload, on_hand: Number(form.on_hand) });
       else if (editing) await api.patch(`/products/${editing.id}`, payload);
       setEditing(null);
       fetchProducts();
-      Swal.fire({ icon: 'success', title: 'Saved', timer: 900, showConfirmButton: false });
+      Swal.fire({ icon: 'success', title: t('admin.common.saved'), timer: 900, showConfirmButton: false });
     } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
+      showAdminError(err, t);
     } finally {
       setSaving(false);
     }
@@ -209,8 +215,8 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
 
   const adjustStock = async (p: Product, sign: 1 | -1) => {
     const { value } = await Swal.fire({
-      title: `${sign > 0 ? 'Add' : 'Remove'} stock — ${p.name}`,
-      text: `Current stock: ${p.stock}`,
+      title: `${sign > 0 ? t('admin.products.receive') : t('admin.products.correct')} — ${p.name}`,
+      text: t('admin.products.adjust_text', { on_hand: p.on_hand ?? 0, available: p.available }),
       input: 'number',
       inputValue: 1,
       inputAttributes: { min: '1', step: '1' },
@@ -220,9 +226,9 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
     if (!value || !Number.isInteger(n) || n <= 0) return;
     try {
       const updated = await api.post<Product>(`/products/${p.id}/stock`, { delta: sign * n });
-      setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, stock: updated.stock } : x)));
+      setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, on_hand: updated.on_hand, available: updated.available } : x)));
     } catch (err: any) {
-      Swal.fire('Error', err.message, 'error');
+      showAdminError(err, t);
     }
   };
 
@@ -235,7 +241,20 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
       await api.patch(`/products/${p.id}`, { is_active });
     } catch (err: any) {
       flip(!is_active);
-      Swal.fire('Error', err.message, 'error');
+      showAdminError(err, t);
+    }
+  };
+
+  // Same as the switch: saves at once, flips back if the server refuses.
+  const toggleBestSeller = async (p: Product) => {
+    const is_best_seller = !p.is_best_seller;
+    const flip = (value: boolean) => setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, is_best_seller: value } : x)));
+    flip(is_best_seller);
+    try {
+      await api.patch(`/products/${p.id}`, { is_best_seller });
+    } catch (err: any) {
+      flip(!is_best_seller);
+      showAdminError(err, t);
     }
   };
 
@@ -247,13 +266,13 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
         <div className="flex flex-wrap gap-3 items-center flex-1">
           <div className="relative flex-1 max-w-sm">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
-            <input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value); }} placeholder="Search products" aria-label="Search products" className={`${input} pl-9`} />
+            <input value={search} onChange={(e) => { setPage(1); setSearch(e.target.value); }} placeholder={t('admin.products.search')} aria-label={t('admin.products.search')} className={`${input} pl-9`} />
           </div>
           <label className="flex items-center gap-2 text-sm text-muted whitespace-nowrap">
             <input type="checkbox" className="accent-accent-strong" checked={lowOnly} onChange={(e) => { setPage(1); setLowOnly(e.target.checked); }} />
-            Low stock only
+            {t('admin.products.low_only')}
           </label>
-          <label htmlFor="product-status" className="text-sm text-muted">Status</label>
+          <label htmlFor="product-status" className="text-sm text-muted">{t('admin.common.status')}</label>
           <select
             id="product-status"
             value={active}
@@ -263,13 +282,13 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
             }}
             className="border border-line rounded-lg px-3 py-2 text-sm bg-paper outline-none focus:ring-2 focus:ring-accent-strong/40"
           >
-            <option value="">All statuses</option>
-            <option value="true">Active</option>
-            <option value="false">Inactive</option>
+            <option value="">{t('admin.common.all_statuses')}</option>
+            <option value="true">{t('admin.products.active')}</option>
+            <option value="false">{t('admin.products.inactive')}</option>
           </select>
         </div>
         <button onClick={() => open('new')} className="flex items-center justify-center gap-2 px-4 py-2 bg-accent-strong text-accent-ink font-bold rounded-lg hover:opacity-90">
-          <Plus className="w-4 h-4" /> Add product
+          <Plus className="w-4 h-4" /> {t('admin.products.add')}
         </button>
       </div>
 
@@ -277,12 +296,14 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
         <table className="w-full text-left border-collapse text-sm">
           <thead>
             <tr className="border-b border-line bg-sunken text-muted">
-              <th className="p-3 font-semibold">Product</th>
-              <th className="p-3 font-semibold">Category</th>
-              <th className="p-3 font-semibold text-right">Price</th>
-              <th className="p-3 font-semibold text-center">Stock</th>
-              <th className="p-3 font-semibold">Status</th>
-              <th className="p-3 font-semibold">Actions</th>
+              <th className="p-3 font-semibold">{t('admin.common.product')}</th>
+              <th className="p-3 font-semibold">{t('category')}</th>
+              <th className="p-3 font-semibold text-right">{t('admin.products.price')}</th>
+              <th className="p-3 font-semibold text-center" title={t('admin.products.on_hand_hint')}>Onhand</th>
+              <th className="p-3 font-semibold text-center" title={t('admin.products.available_hint')}>Stockmove</th>
+              <th className="p-3 font-semibold text-center" title={t('admin.products.in_transit_hint')}>{t('admin.products.in_transit')}</th>
+              <th className="p-3 font-semibold">{t('admin.common.status')}</th>
+              <th className="p-3 font-semibold">{t('admin.common.actions')}</th>
             </tr>
           </thead>
           <tbody>
@@ -295,32 +316,48 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                     </div>
                     <div>
                       <div className="font-semibold text-ink">{p.name}</div>
-                      {p.is_best_seller && <div className="text-xs text-accent-strong">Best seller</div>}
+
                     </div>
                   </div>
                 </td>
                 <td className="p-3 text-muted">
-                  {CATEGORY_LABELS[p.category] || p.category}
+                  {t(p.category)}
                   {p.attributes?.family && <div className="text-xs text-muted">{p.attributes.family}</div>}
                 </td>
                 <td className="p-3 text-ink text-right">{baht(p.price)}</td>
                 <td className="p-3">
                   <div className="flex items-center justify-center gap-1">
-                    <button aria-label="Remove stock" onClick={() => adjustStock(p, -1)} className="p-1 rounded border border-line hover:border-accent-strong" disabled={p.stock === 0}>
+                    <button aria-label={t('admin.products.correct')} onClick={() => adjustStock(p, -1)} className="p-1 rounded border border-line hover:border-accent-strong" disabled={p.available === 0}>
                       <Minus className="w-3 h-3" />
                     </button>
-                    <span className={`w-10 text-center font-semibold ${p.stock === 0 ? 'text-danger' : p.stock <= 2 ? 'text-accent-strong' : 'text-ink'}`}>{p.stock}</span>
-                    <button aria-label="Add stock" onClick={() => adjustStock(p, 1)} className="p-1 rounded border border-line hover:border-accent-strong">
+                    <span aria-label="Onhand" className="w-10 text-center font-semibold font-mono tabular-nums text-ink">{p.on_hand ?? 0}</span>
+                    <button aria-label={t('admin.products.receive')} onClick={() => adjustStock(p, 1)} className="p-1 rounded border border-line hover:border-accent-strong">
                       <Plus className="w-3 h-3" />
                     </button>
                   </div>
                 </td>
-                <td className="p-3">
+                <td className="p-3 text-center">
+                  <span aria-label="Stockmove" className={`font-semibold font-mono tabular-nums ${p.available === 0 ? 'text-danger' : p.available <= 2 ? 'text-accent-strong' : 'text-ink'}`}>{p.available}</span>
+                </td>
+                <td className="p-3 text-center">
+                  <span aria-label={t('admin.products.in_transit')} className="font-mono tabular-nums text-muted">{p.in_transit ?? 0}</span>
+                </td>
+                <td className="p-3 whitespace-nowrap">
                   <ActiveSwitch product={p} onToggle={toggleActive} />
                 </td>
                 <td className="p-3">
                   <div className="flex gap-1">
-                    <button aria-label={`Edit ${p.name}`} onClick={() => open(p)} className="p-2 text-ink hover:bg-sunken rounded-lg">
+                    <button
+                      type="button"
+                      aria-label={t('admin.products.best_seller_for', { name: p.name })}
+                      aria-pressed={!!p.is_best_seller}
+                      title={p.is_best_seller ? t('best_seller') : t('admin.products.mark_best_seller')}
+                      onClick={() => toggleBestSeller(p)}
+                      className="p-2 rounded-lg hover:bg-sunken"
+                    >
+                      <Star className={`w-4 h-4 ${p.is_best_seller ? 'fill-accent-strong text-accent-strong' : 'text-muted'}`} />
+                    </button>
+                    <button aria-label={t('admin.products.edit_named', { name: p.name })} onClick={() => open(p)} className="p-2 text-ink hover:bg-sunken rounded-lg">
                       <Edit2 className="w-4 h-4" />
                     </button>
                   </div>
@@ -329,7 +366,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
             ))}
             {products.length === 0 && (
               <tr>
-                <td colSpan={6} className="p-8 text-center text-muted">No products found.</td>
+                <td colSpan={8} className="p-8 text-center text-muted">{t('admin.products.none')}</td>
               </tr>
             )}
           </tbody>
@@ -338,62 +375,62 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
 
       <Pager page={page} total={total} onPage={setPage} />
 
-      <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? 'Add product' : 'Edit product'} maxWidth="2xl">
+      <Modal isOpen={editing !== null} onClose={() => setEditing(null)} title={editing === 'new' ? t('admin.products.add') : t('admin.products.edit')} maxWidth="2xl">
         <form onSubmit={save} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-ink">Name</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{t('admin.products.name_en')}</label>
               <input required maxLength={200} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} className={input} />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-ink">Name (Thai)</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{t('admin.products.name_th')}</label>
               <input maxLength={200} value={form.name_th} onChange={(e) => setForm({ ...form, name_th: e.target.value })} className={input} />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-ink">Description</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{t('admin.products.desc_en')}</label>
               <textarea maxLength={5000} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className={`${input} min-h-[100px]`} />
             </div>
             <div className="col-span-2">
-              <label className="block text-sm font-medium mb-1 text-ink">Description (Thai)</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{t('admin.products.desc_th')}</label>
               <textarea maxLength={5000} value={form.description_th} onChange={(e) => setForm({ ...form, description_th: e.target.value })} className={`${input} min-h-[80px]`} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-ink">Price (฿)</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{t('admin.products.price_baht')}</label>
               <input required type="number" min="0" step="0.01" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} className={input} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-ink">{editing === 'new' ? 'Initial stock' : 'Stock'}</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{editing === 'new' ? t('admin.products.initial_on_hand') : 'Onhand'}</label>
               {editing === 'new' ? (
-                <input required type="number" min="0" step="1" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })} className={input} />
+                <input required type="number" min="0" step="1" value={form.on_hand} onChange={(e) => setForm({ ...form, on_hand: e.target.value })} className={input} />
               ) : (
-                <p className="py-2 text-sm text-muted">{form.stock} — adjust with +/− in the table</p>
+                <p className="py-2 text-sm text-muted">{t('admin.products.on_hand_note', { n: form.on_hand })}</p>
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1 text-ink">Category</label>
+              <label className="block text-sm font-medium mb-1 text-ink">{t('category')}</label>
               <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value as ProductCategory })} className={input}>
                 {PRODUCT_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{CATEGORY_LABELS[c]}</option>
+                  <option key={c} value={c}>{t(c)}</option>
                 ))}
               </select>
             </div>
             <div className="flex items-center gap-4 mt-6">
               <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-ink">
                 <input type="checkbox" checked={form.is_best_seller} onChange={(e) => setForm({ ...form, is_best_seller: e.target.checked })} className="accent-accent-strong w-4 h-4" />
-                Best seller
+                {t('best_seller')}
               </label>
               <label className="flex items-center gap-2 cursor-pointer text-sm font-medium text-ink">
                 <input type="checkbox" checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} className="accent-accent-strong w-4 h-4" />
-                Available in shop
+                {t('admin.products.in_shop')}
               </label>
             </div>
           </div>
 
           {form.category === 'beetle' && (
             <fieldset className="grid grid-cols-2 gap-4 rounded-xl border border-line p-4">
-              <legend className="px-1 text-sm font-semibold text-ink">Beetle details</legend>
+              <legend className="px-1 text-sm font-semibold text-ink">{t('admin.products.beetle_details')}</legend>
               <div>
-                <label className="block text-sm font-medium mb-1 text-ink">Family</label>
+                <label className="block text-sm font-medium mb-1 text-ink">{t('products_page.family')}</label>
                 <input list="beetle-families" maxLength={50} value={form.attrs.family} onChange={(e) => setAttr('family', e.target.value)} className={input} />
                 <datalist id="beetle-families">
                   {families.map((f) => (
@@ -402,32 +439,32 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                 </datalist>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-ink">Species</label>
+                <label className="block text-sm font-medium mb-1 text-ink">{t('species')}</label>
                 <input maxLength={120} value={form.attrs.species} onChange={(e) => setAttr('species', e.target.value)} placeholder="Dynastes hercules" className={input} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-ink">Locality</label>
+                <label className="block text-sm font-medium mb-1 text-ink">{t('locality')}</label>
                 <input maxLength={120} value={form.attrs.locality} onChange={(e) => setAttr('locality', e.target.value)} className={input} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-ink">Size (mm)</label>
+                <label className="block text-sm font-medium mb-1 text-ink">{t('size')} (mm)</label>
                 <input type="number" min="0.1" max="300" step="0.1" value={form.attrs.size_mm} onChange={(e) => setAttr('size_mm', e.target.value)} className={input} />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-ink">Sex</label>
+                <label className="block text-sm font-medium mb-1 text-ink">{t('sex')}</label>
                 <select value={form.attrs.sex} onChange={(e) => setAttr('sex', e.target.value)} className={input}>
                   <option value="">—</option>
                   {BEETLE_SEXES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>{t(`sex_${s}`)}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1 text-ink">Stage</label>
+                <label className="block text-sm font-medium mb-1 text-ink">{t('stage')}</label>
                 <select value={form.attrs.stage} onChange={(e) => setAttr('stage', e.target.value)} className={input}>
                   <option value="">—</option>
                   {BEETLE_STAGES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
+                    <option key={s} value={s}>{t(`stage_${s}`)}</option>
                   ))}
                 </select>
               </div>
@@ -435,15 +472,15 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
           )}
 
           <div>
-            <label className="block text-sm font-medium mb-2 text-ink">Images (first image is the cover)</label>
+            <label className="block text-sm font-medium mb-2 text-ink">{t('admin.products.images')}</label>
             <div className="flex flex-wrap gap-3">
               {form.images.map((url, i) => (
                 <div key={url} className="relative w-24 h-24 rounded-lg overflow-hidden border border-line group">
                   <img src={url} alt="" className="w-full h-full object-cover" />
-                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-black/50 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
-                    <button type="button" aria-label="Move left" onClick={() => moveImage(i, -1)} className="p-1 text-white"><ArrowLeft className="w-3 h-3" /></button>
-                    <button type="button" aria-label="Remove image" onClick={() => setForm((f) => ({ ...f, images: f.images.filter((u) => u !== url) }))} className="p-1 text-white"><X className="w-3 h-3" /></button>
-                    <button type="button" aria-label="Move right" onClick={() => moveImage(i, 1)} className="p-1 text-white"><ArrowRight className="w-3 h-3" /></button>
+                  <div className="absolute inset-x-0 bottom-0 flex justify-between bg-scrim/60 opacity-0 group-hover:opacity-100 focus-within:opacity-100">
+                    <button type="button" aria-label={t('admin.products.move_left')} onClick={() => moveImage(i, -1)} className="p-1 text-on-scrim"><ArrowLeft className="w-3 h-3" /></button>
+                    <button type="button" aria-label={t('admin.products.remove_image')} onClick={() => setForm((f) => ({ ...f, images: f.images.filter((u) => u !== url) }))} className="p-1 text-on-scrim"><X className="w-3 h-3" /></button>
+                    <button type="button" aria-label={t('admin.products.move_right')} onClick={() => moveImage(i, 1)} className="p-1 text-on-scrim"><ArrowRight className="w-3 h-3" /></button>
                   </div>
                 </div>
               ))}
@@ -454,15 +491,15 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                 className="w-24 h-24 rounded-lg border-2 border-dashed border-line flex flex-col items-center justify-center text-muted hover:border-accent-strong hover:text-accent-strong disabled:opacity-50"
               >
                 <Upload className="w-5 h-5" />
-                <span className="text-xs mt-1">{uploading ? 'Uploading…' : 'Upload'}</span>
+                <span className="text-xs mt-1">{uploading ? t('admin.products.uploading') : t('admin.products.upload')}</span>
               </button>
               <input ref={fileInput} type="file" accept={IMAGE_TYPES.join(',')} multiple hidden onChange={(e) => uploadImages(e.target.files)} />
             </div>
-            <p className="text-xs text-muted mt-2">JPG, PNG or WebP · up to 5 MB each · max 10 images</p>
+            <p className="text-xs text-muted mt-2">{t('admin.products.image_hint')}</p>
           </div>
 
           <button type="submit" disabled={saving || uploading} className="w-full mt-2 py-3 bg-accent-strong text-accent-ink font-bold rounded-xl hover:opacity-90 disabled:opacity-50">
-            {saving ? 'Saving…' : editing === 'new' ? 'Create product' : 'Save changes'}
+            {saving ? t('admin.common.saving') : editing === 'new' ? t('admin.products.create') : t('admin.products.save_changes')}
           </button>
         </form>
       </Modal>

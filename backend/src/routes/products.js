@@ -6,7 +6,7 @@ const v = require('../lib/validate');
 
 const router = express.Router();
 
-const PUBLIC_FIELDS = 'id, name, name_th, description, description_th, price, stock, category, attributes, images, is_best_seller, is_active, views, created_at';
+const PUBLIC_FIELDS = 'id, name, name_th, description, description_th, price, available, category, attributes, images, is_best_seller, is_active, views, created_at';
 
 // GET /api/products — list with filter, search, pagination (active products only)
 router.get(
@@ -67,11 +67,24 @@ router.get(
     const { page, limit, from, to } = v.pagination(req.query, { defaultLimit: 50, maxLimit: 200 });
     let query = supabase.from('products').select('*', { count: 'exact' }).order('created_at', { ascending: false });
     if (req.query.search) query = query.ilike('name', v.likePattern(req.query.search));
-    if (req.query.low_stock === 'true') query = query.lte('stock', 2);
+    if (req.query.low_stock === 'true') query = query.lte('available', 2);
     if (req.query.active === 'true' || req.query.active === 'false') query = query.eq('is_active', req.query.active === 'true');
     const { data, error, count } = await query.range(from, to);
     if (error) throw error;
-    res.json({ products: data, total: count, page, limit });
+
+    // In Transit: units in Shipping orders, still On Hand but no longer on the shelf
+    const inTransit = {};
+    if (data.length) {
+      const lines = unwrap(
+        await supabase
+          .from('order_items')
+          .select('product_id, quantity, orders!inner(status)')
+          .eq('orders.status', 'shipping')
+          .in('product_id', data.map((p) => p.id))
+      );
+      for (const l of lines) inTransit[l.product_id] = (inTransit[l.product_id] || 0) + l.quantity;
+    }
+    res.json({ products: data.map((p) => ({ ...p, in_transit: inTransit[p.id] || 0 })), total: count, page, limit });
   })
 );
 
@@ -124,7 +137,9 @@ router.post(
   requireAdmin,
   asyncHandler(async (req, res) => {
     const input = productInput(req.body, { partial: false });
-    input.stock = v.int(req.body.stock, 'stock', { min: 0, max: 100000 });
+    // New stock starts both On Hand and Available
+    input.on_hand = v.int(req.body.on_hand, 'on_hand', { min: 0, max: 100000 });
+    input.available = input.on_hand;
     const data = unwrap(
       await supabase
         .from('products')
@@ -136,14 +151,16 @@ router.post(
   })
 );
 
-// PATCH /api/products/:id — admin only (stock is changed via POST /:id/stock)
+// PATCH /api/products/:id — admin only (On Hand / Available change only via POST /:id/stock)
 router.patch(
   '/:id',
   authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
     const id = v.uuid(req.params.id, 'id');
-    if (req.body.stock !== undefined) throw badRequest('Use POST /api/products/:id/stock to adjust stock');
+    if (['stock', 'on_hand', 'available'].some((k) => req.body[k] !== undefined)) {
+      throw badRequest('Use POST /api/products/:id/stock to receive or correct stock');
+    }
     const updates = productInput(req.body, { partial: true });
     if (!Object.keys(updates).length) throw badRequest('Nothing to update');
     const data = unwrap(await supabase.from('products').update(updates).eq('id', id).select().maybeSingle());
@@ -152,7 +169,7 @@ router.patch(
   })
 );
 
-// POST /api/products/:id/stock — admin: atomic +/- adjustment { delta }
+// POST /api/products/:id/stock — admin: receive (+) or correct (−) stock { delta }; moves On Hand and Available together
 router.post(
   '/:id/stock',
   authenticate,

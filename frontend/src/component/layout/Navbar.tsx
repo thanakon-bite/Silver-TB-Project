@@ -8,6 +8,7 @@ import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { iconButton } from '../ui/buttonStyles';
+import NotificationBell, { useNotifications } from './NotificationBell';
 
 interface NavItem {
   to: string;
@@ -58,6 +59,8 @@ const Navbar: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   const isThai = (i18n.language || 'th').startsWith('th');
   const nav = NAV.filter((n) => !n.only || (n.only === 'admin' ? isAdmin : !!user));
+  // One feed for both bells (desktop and phone header); only signed-in Members have one.
+  const notifications = useNotifications(!!user);
 
   // A route change closes the mobile menu.
   useEffect(() => setIsOpen(false), [location.pathname]);
@@ -103,6 +106,7 @@ const Navbar: React.FC = () => {
               </button>
             </>
           )}
+          {user && <NotificationBell state={notifications} />}
           <button type="button" onClick={toggleTheme} className={iconButton} aria-label={themeLabel} title={themeLabel}>
             {theme === 'dark' ? <Sun className="h-5 w-5" aria-hidden /> : <Moon className="h-5 w-5" aria-hidden />}
           </button>
@@ -144,6 +148,7 @@ const Navbar: React.FC = () => {
 
         {/* Phones: a signed-in Customer's cart stays one tap away; everything else is in the menu. */}
         <div className="flex items-center gap-1 lg:hidden">
+          {user && <NotificationBell state={notifications} className="h-11 w-11" />}
           {user && (
             <button type="button" onClick={openCart} className={`${iconButton} relative h-11 w-11`} aria-label={cartLabel}>
               <ShoppingBag className="h-5 w-5" aria-hidden />

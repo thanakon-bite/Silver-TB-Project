@@ -25,6 +25,19 @@ export const secondaryButton =
   'transition-colors hover:border-muted motion-reduce:transition-none ' +
   `${focusRing} disabled:cursor-not-allowed disabled:opacity-50`;
 
+/**
+ * Destructive, design.md: never solid. dangerLink is the quiet way in; it opens an inline confirmation
+ * whose [keep] is a secondaryButton (focused) and whose [confirm] is a dangerButton.
+ */
+export const dangerLink =
+  'inline-flex items-center gap-1.5 whitespace-nowrap text-sm text-muted underline-offset-4 hover:text-danger hover:underline ' +
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-strong';
+
+export const dangerButton =
+  'inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger ' +
+  'transition-colors hover:bg-danger/5 motion-reduce:transition-none ' +
+  'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:cursor-not-allowed disabled:opacity-60';
+
 /** Square icon button, 40×40 (44 with the hit area of its padding on touch). Always pair with aria-label. */
 export const iconButton =
   'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-muted transition-colors hover:bg-sunken hover:text-ink motion-reduce:transition-none ' +

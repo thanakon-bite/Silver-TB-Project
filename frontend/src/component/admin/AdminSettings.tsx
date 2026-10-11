@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, XCircle, Send } from 'lucide-react';
 import Swal from 'sweetalert2';
+import { useTranslation } from 'react-i18next';
 import { api } from '../../lib/api';
-import { baht, dateTime } from '../../lib/format';
+import { baht, localDateTime } from '../../lib/format';
+import { primaryButtonInline } from '../ui/buttonStyles';
 
 interface LineStatus {
   configured: boolean;
@@ -29,6 +31,7 @@ const Check: React.FC<{ ok: boolean; children: React.ReactNode }> = ({ ok, child
 );
 
 const AdminSettings: React.FC = () => {
+  const { t, i18n } = useTranslation();
   const [line, setLine] = useState<LineStatus | null>(null);
   const [events, setEvents] = useState<PaymentEvent[]>([]);
   const [sending, setSending] = useState(false);
@@ -42,9 +45,9 @@ const AdminSettings: React.FC = () => {
     setSending(true);
     try {
       await api.post('/notifications/line/test', {});
-      Swal.fire({ icon: 'success', title: 'Test message sent', text: 'Check your LINE.' });
+      Swal.fire({ icon: 'success', title: t('admin.settings.test_sent'), text: t('admin.settings.check_line') });
     } catch (err: any) {
-      Swal.fire('LINE test failed', err.message, 'error');
+      Swal.fire(t('admin.settings.test_failed'), err.message, 'error');
     } finally {
       setSending(false);
     }
@@ -53,40 +56,39 @@ const AdminSettings: React.FC = () => {
   return (
     <div className="grid lg:grid-cols-2 gap-6">
       <div className="rounded-2xl border border-line p-5 space-y-4">
-        <h3 className="font-semibold text-ink">LINE OA admin notifications</h3>
+        <h3 className="font-semibold text-ink">{t('admin.settings.line_title')}</h3>
         {!line ? (
-          <p className="text-sm text-muted">Loading…</p>
+          <p className="text-sm text-muted">{t('loading')}</p>
         ) : (
           <>
             <ul className="space-y-2 text-sm">
-              <Check ok={line.configured}>Channel access token set on the server</Check>
-              <Check ok={line.webhook_secret_set}>Channel secret set (webhook signature check)</Check>
+              <Check ok={line.configured}>{t('admin.settings.token_set')}</Check>
+              <Check ok={line.webhook_secret_set}>{t('admin.settings.secret_set')}</Check>
               <Check ok={line.targets.length > 0}>
-                {line.source === 'env' && `Sending to ${line.targets.join(', ')}`}
-                {line.source === 'none' && 'No recipient set'}
+                {line.source === 'env' && t('admin.settings.sending_to', { targets: line.targets.join(', ') })}
+                {line.source === 'none' && t('admin.settings.no_recipient')}
               </Check>
             </ul>
             {line.source === 'none' && (
               <p className="text-sm text-muted bg-sunken rounded-lg p-3">
-                Set <code className="text-xs">LINE_OWNER_USER_ID</code> on the server to your LINE user ID (LINE Developers console →
-                Basic settings → "Your user ID"), and add the Official Account as a friend on that LINE account.
+                {t('admin.settings.how_to_set')} <code className="text-xs">LINE_OWNER_USER_ID</code>
               </p>
             )}
             <button
               onClick={test}
               disabled={sending || !line.configured || line.targets.length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-[#06C755] text-white font-semibold rounded-lg disabled:opacity-40"
+              className={primaryButtonInline}
             >
-              <Send className="w-4 h-4" /> {sending ? 'Sending…' : 'Send test message'}
+              <Send className="w-4 h-4" /> {sending ? t('admin.settings.sending') : t('admin.settings.send_test')}
             </button>
           </>
         )}
       </div>
 
       <div className="rounded-2xl border border-line p-5">
-        <h3 className="font-semibold text-ink mb-3">Recent Stripe events</h3>
+        <h3 className="font-semibold text-ink mb-3">{t('admin.settings.stripe_events')}</h3>
         {events.length === 0 ? (
-          <p className="text-sm text-muted">No webhook events received yet.</p>
+          <p className="text-sm text-muted">{t('admin.settings.no_events')}</p>
         ) : (
           <ul className="divide-y divide-line text-sm max-h-96 overflow-y-auto">
             {events.map((e) => (
@@ -94,7 +96,7 @@ const AdminSettings: React.FC = () => {
                 <div>
                   <div className="font-medium text-ink">{e.type}</div>
                   <div className="text-xs text-muted">
-                    {dateTime(e.created_at)} · {e.orders?.order_number || '—'} · {e.result}
+                    {localDateTime(e.created_at, i18n.language)} · {e.orders?.order_number || '—'} · {e.result}
                   </div>
                 </div>
                 {e.amount != null && <span className="text-ink">{baht(e.amount / 100)}</span>}

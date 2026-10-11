@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Check } from 'lucide-react';
-import { thaiDateTime } from '../../lib/format';
+import { localDateTime } from '../../lib/format';
 import type { Order } from '../../lib/types';
 
 /** Copies the Tracking Number; the label itself confirms it, no toast. */
@@ -35,17 +35,14 @@ const CopyButton: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-/**
- * Where the Order is: ordered → paid → shipped, plus delivered once the admin has marked it.
- * Delivered is optional (CONTEXT.md), so it never shows as a step still to come.
- */
+/** Where the Order is: placed (สั่งซื้อ, not a status) → paid → shipping → confirmed (received). */
 const OrderJourney: React.FC<{ order: Order }> = ({ order }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const steps = [
     { key: 'placed', at: order.created_at },
     { key: 'paid', at: order.paid_at },
-    { key: 'shipped', at: order.shipped_at },
-    ...(order.delivered_at ? [{ key: 'delivered', at: order.delivered_at }] : []),
+    { key: 'shipping', at: order.shipped_at },
+    { key: 'confirmed', at: order.confirmed_at },
   ];
 
   return (
@@ -61,8 +58,11 @@ const OrderJourney: React.FC<{ order: Order }> = ({ order }) => {
             {s.at && <Check className="h-3 w-3" strokeWidth={3} />}
           </span>
           <p className={`text-sm ${s.at ? 'font-semibold text-ink' : 'text-muted'}`}>{t(`order_page.step_${s.key}`)}</p>
-          {s.at && <p className="font-mono text-xs tabular-nums text-muted">{thaiDateTime(s.at)}</p>}
-          {s.key === 'shipped' && order.tracking_number && (
+          {s.at && <p className="font-mono text-xs tabular-nums text-muted">{localDateTime(s.at, i18n.language)}</p>}
+          {s.key === 'confirmed' && order.confirmed_by && order.confirmed_by !== 'customer' && (
+            <p className="text-xs text-muted">{t(`order_page.confirmed_by_${order.confirmed_by}`)}</p>
+          )}
+          {s.key === 'shipping' && order.tracking_number && (
             <div className="mt-2 flex flex-wrap items-center gap-x-2 text-sm text-muted">
               <span>
                 {order.carrier ? `${order.carrier} · ` : ''}

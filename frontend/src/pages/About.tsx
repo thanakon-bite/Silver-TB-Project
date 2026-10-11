@@ -1,16 +1,18 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ArrowUpRight, ShieldCheck, Truck, Sprout } from 'lucide-react';
+import { ArrowRight, ArrowUpRight, ShieldCheck, Truck, Sprout, RefreshCw, Globe2, Leaf, Crown } from 'lucide-react';
+import { PHOTOS, type BeetlePhoto } from '../lib/beetlePhotos';
 import { SOCIAL_LINKS } from '../component/brand/social';
 import { primaryButtonInline } from '../component/ui/buttonStyles';
 import { PageHeader } from '../component/ui/Feedback';
 
-const FACTS = [
-  { titleKey: 'metamorphosis', bodyKey: 'metamorphosis_desc' },
-  { titleKey: 'global_diversity', bodyKey: 'global_diversity_desc' },
-  { titleKey: 'diet_habitat', bodyKey: 'diet_habitat_desc' },
-  { titleKey: 'trophy_horns', bodyKey: 'trophy_horns_desc' },
+/** Each fact gets a photo and an icon; rows alternate sides so the page reads as a story, not a list. */
+const FACTS: { titleKey: string; bodyKey: string; icon: React.FC<{ className?: string }>; photo: BeetlePhoto }[] = [
+  { titleKey: 'metamorphosis', bodyKey: 'metamorphosis_desc', icon: RefreshCw, photo: PHOTOS.atlasWings },
+  { titleKey: 'global_diversity', bodyKey: 'global_diversity_desc', icon: Globe2, photo: PHOTOS.hercules },
+  { titleKey: 'diet_habitat', bodyKey: 'diet_habitat_desc', icon: Leaf, photo: PHOTOS.stagTop },
+  { titleKey: 'trophy_horns', bodyKey: 'trophy_horns_desc', icon: Crown, photo: PHOTOS.atlas },
 ];
 
 const PROMISES = [
@@ -24,7 +26,8 @@ const sectionHeading = 'font-display text-2xl font-bold text-ink sm:text-3xl';
 
 /** Who the shop is: its promises, what to know about beetles, where its community gathers. Contact details live on /contact. */
 const About: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isThai = (i18n.language || 'th').startsWith('th');
 
   return (
     <div>
@@ -51,20 +54,43 @@ const About: React.FC = () => {
         </ul>
       </section>
 
-      <section className={`${container} py-16 sm:py-20`}>
-        <div className="grid gap-10 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-16">
-          <div>
-            <h2 className={sectionHeading}>{t('know_your_beetle')}</h2>
-            <p className="mt-3 text-muted">{t('understanding_beetle')}</p>
-          </div>
-          <dl className="grid gap-x-10 sm:grid-cols-2">
-            {FACTS.map((f) => (
-              <div key={f.titleKey} className="border-t border-line py-5">
-                <dt className="font-display text-lg font-bold text-ink">{t(f.titleKey)}</dt>
-                <dd className="mt-2 text-[0.9375rem] leading-relaxed text-muted">{t(f.bodyKey)}</dd>
+      <section aria-labelledby="know-your-beetle" className={`${container} py-16 sm:py-20`}>
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 id="know-your-beetle" className={sectionHeading}>{t('know_your_beetle')}</h2>
+          <p className="mt-3 text-muted">{t('understanding_beetle')}</p>
+        </div>
+        <div className="mt-12 space-y-12 sm:space-y-16">
+          {FACTS.map(({ titleKey, bodyKey, icon: Icon, photo }, i) => (
+            <article key={titleKey} className={`grid items-center gap-6 md:grid-cols-2 md:gap-12 ${i % 2 ? 'md:[&>figure]:order-2' : ''}`}>
+              <figure>
+                <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-line bg-sunken">
+                  <img
+                    src={photo.src}
+                    alt={isThai ? photo.alt.th : photo.alt.en}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 hover:scale-[1.03] motion-reduce:transition-none motion-reduce:hover:scale-100"
+                  />
+                </div>
+                <figcaption className="mt-2 text-xs text-muted">
+                  {t('hero.photo_by', { author: photo.author })} ·{' '}
+                  <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
+                    {photo.license}
+                  </a>{' '}
+                  ·{' '}
+                  <a href={photo.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
+                    Wikimedia Commons
+                  </a>
+                </figcaption>
+              </figure>
+              <div className="max-w-prose">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-strong/10 text-accent-strong">
+                  <Icon className="h-6 w-6" aria-hidden />
+                </span>
+                <h3 className="mt-4 font-display text-xl font-bold text-ink sm:text-2xl">{t(titleKey)}</h3>
+                <p className="mt-3 text-[0.9375rem] leading-relaxed text-muted sm:text-base">{t(bodyKey)}</p>
               </div>
-            ))}
-          </dl>
+            </article>
+          ))}
         </div>
       </section>
 

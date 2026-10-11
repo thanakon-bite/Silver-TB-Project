@@ -31,7 +31,7 @@ router.post(
     const orderId = v.uuid(req.body.order_id, 'order_id');
     const order = await orders.getOrderWithItems(orderId);
     if (!order || order.user_id !== req.user.id) throw notFound('Order not found');
-    if (order.payment_status === 'paid') throw conflict('This order is already paid', 'ALREADY_PAID');
+    if (order.paid_at) throw conflict('This order is already paid', 'ALREADY_PAID');
     if (!isPayable(order)) throw conflict('This order has expired. Please check out again.', 'ORDER_EXPIRED');
 
     if (order.stripe_checkout_session_id) {
@@ -54,7 +54,8 @@ router.post(
       throw conflict('This order has expired. Please check out again.', 'ORDER_EXPIRED');
     }
 
-    const lineItems = order.order_items.map((i) => ({
+    // Gifts cost nothing and are not charged lines; discounted lines carry the price actually paid
+    const lineItems = order.order_items.filter((i) => !i.is_gift).map((i) => ({
       quantity: i.quantity,
       price_data: {
         currency: 'thb',
@@ -101,7 +102,7 @@ router.post(
       .from('orders')
       .update({ stripe_checkout_session_id: session.id, expires_at: reserveUntil })
       .eq('id', order.id)
-      .eq('status', 'pending');
+      .eq('status', 'awaiting_payment');
     linkQuery = order.stripe_checkout_session_id
       ? linkQuery.eq('stripe_checkout_session_id', order.stripe_checkout_session_id)
       : linkQuery.is('stripe_checkout_session_id', null);
@@ -163,9 +164,9 @@ router.post('/webhook', async (req, res) => {
           unwrap(
             await supabase
               .from('orders')
-              .update({ payment_status: 'failed' })
+              .update({ payment_failed_at: new Date().toISOString() })
               .eq('id', record.order_id)
-              .eq('payment_status', 'unpaid')
+              .eq('status', 'awaiting_payment')
           );
         }
         record.result = 'marked_failed';
@@ -175,18 +176,18 @@ router.post('/webhook', async (req, res) => {
         const fullyRefunded = obj.amount_refunded >= obj.amount;
         const { data: order } = await supabase
           .from('orders')
-          .select('id, status, payment_status')
+          .select('id, status, paid_at, refunded_at')
           .eq('stripe_payment_intent_id', obj.payment_intent)
           .maybeSingle();
         if (order) {
           record.order_id = order.id;
-          if (fullyRefunded && order.payment_status === 'paid') {
+          if (fullyRefunded && order.paid_at && !order.refunded_at) {
             // Refund made in the Stripe Dashboard: flag it so an admin cancels/restocks in the app
             unwrap(
               await supabase
                 .from('orders')
                 .update({
-                  payment_status: 'refunded',
+                  refunded_at: new Date().toISOString(),
                   needs_attention: order.status !== 'cancelled',
                   admin_note: order.status !== 'cancelled' ? 'Refunded in Stripe — cancel or update this order.' : undefined,
                 })

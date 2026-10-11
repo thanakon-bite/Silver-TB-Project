@@ -1,18 +1,17 @@
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const supabase = require('../config/supabase');
-const stripe = require('../config/stripe');
 const { authenticate, requireAdmin } = require('../middleware/auth');
 const { asyncHandler, unwrap, badRequest, notFound, conflict, forbidden, fromDbError } = require('../lib/http');
-const { checkAdminTransition, checkCustomerCancel, ORDER_STATUSES, PAYMENT_STATUSES } = require('../lib/orderStatus');
+const { checkAdminTransition, checkCancelReason, checkCustomerCancel, checkCustomerConfirm, orderActions, ORDER_STATUSES } = require('../lib/orderStatus');
 const { buildSnapshot } = require('../lib/thaiAddress');
 const v = require('../lib/validate');
 const addresses = require('../services/addresses');
 const orders = require('../services/orders');
+const pricing = require('../services/pricing');
 
 const router = express.Router();
 
-const SHIPPING_FEE = Number(process.env.SHIPPING_FEE_THB || 0);
 const RESERVATION_MINUTES = Number(process.env.ORDER_RESERVATION_MINUTES || 30);
 
 const createOrderLimiter = rateLimit({
@@ -67,15 +66,18 @@ router.post(
     }
 
     const shipping = await resolveShipping(req);
+    // Priced with today's prices and Shipping Rule; the order keeps this fee even if the rule changes later
+    const priced = await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices));
     await orders.releaseOtherPendingOrders(req.user.id, requestId);
 
     const { data: order, error } = await supabase.rpc('create_order', {
       p_user_id: req.user.id,
-      p_items: items,
+      p_items: pricing.orderLines(priced),
       p_shipping_address: shipping,
       p_client_request_id: requestId,
-      p_shipping_fee: SHIPPING_FEE,
+      p_shipping_fee: priced.shipping_fee,
       p_ttl_minutes: RESERVATION_MINUTES,
+      p_redeem: priced.redeem,
     });
 
     if (error) {
@@ -84,19 +86,25 @@ router.post(
         const again = await orders.getOrderWithItems(
           (await supabase.from('orders').select('id').eq('user_id', req.user.id).eq('client_request_id', requestId).single()).data.id
         );
-        return res.status(200).json(again);
+        return res.status(200).json(forViewer(again, req.user));
       }
       throw fromDbError(error);
     }
 
-    res.status(201).json(await orders.getOrderWithItems(order.id));
+    res.status(201).json(forViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 
-// GET /api/orders/shipping-fee — the flat fee checkout will add, so the cart can show it up front
-router.get('/shipping-fee', (req, res) => {
-  res.json({ shipping_fee: SHIPPING_FEE });
-});
+// POST /api/orders/price-preview — what these cart items cost today: lines, discounts, Shipping Fee, total.
+// The Cart and Checkout show exactly this; order creation prices the same way.
+router.post(
+  '/price-preview',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const items = v.cartItems(req.body.items);
+    res.json(await pricing.priceItems(items, req.user.id, v.giftChoices(req.body.gift_choices)));
+  })
+);
 
 // GET /api/orders — my order history
 router.get(
@@ -130,9 +138,6 @@ router.get(
       .range(from, to);
 
     if (req.query.status) query = query.eq('status', v.oneOf(req.query.status, 'status', ORDER_STATUSES));
-    if (req.query.payment_status) {
-      query = query.eq('payment_status', v.oneOf(req.query.payment_status, 'payment_status', PAYMENT_STATUSES));
-    }
     if (req.query.needs_attention === 'true') query = query.eq('needs_attention', true);
     if (req.query.search) query = query.ilike('order_number', v.likePattern(req.query.search));
 
@@ -142,12 +147,30 @@ router.get(
   })
 );
 
+/** One order with its lines; an Admin also gets the Member's name, email and phone (as in the admin list). */
+async function fetchOrder(id, user) {
+  const select = user.role === 'admin' ? ADMIN_ORDER_SELECT : orders.ORDER_WITH_ITEMS;
+  return unwrap(await supabase.from('orders').select(select).eq('id', id).maybeSingle());
+}
+
 async function loadOrderFor(req) {
   const id = v.uuid(req.params.id, 'id');
-  const order = await orders.getOrderWithItems(id);
+  const order = await fetchOrder(id, req.user);
   if (!order) throw notFound('Order not found');
   if (order.user_id !== req.user.id && req.user.role !== 'admin') throw notFound('Order not found');
   return order;
+}
+
+/** One order as the signed-in viewer may see it: admin-only fields hidden from customers, and what they may do with it. */
+function forViewer(order, user) {
+  const admin = user.role === 'admin';
+  if (!admin) {
+    delete order.admin_note;
+    delete order.needs_attention;
+    delete order.admin_notified_at;
+    delete order.client_request_id;
+  }
+  return { ...order, actions: orderActions(order, { owner: order.user_id === user.id, admin }) };
 }
 
 // GET /api/orders/:id — owner or admin. Used by the checkout page to poll server-verified status.
@@ -155,15 +178,7 @@ router.get(
   '/:id',
   authenticate,
   asyncHandler(async (req, res) => {
-    const order = await loadOrderFor(req);
-    // Never expose internal admin fields to customers
-    if (req.user.role !== 'admin') {
-      delete order.admin_note;
-      delete order.needs_attention;
-      delete order.admin_notified_at;
-      delete order.client_request_id;
-    }
-    res.json(order);
+    res.json(forViewer(await loadOrderFor(req), req.user));
   })
 );
 
@@ -177,40 +192,67 @@ router.post(
     const check = checkCustomerCancel(order);
     if (!check.ok) throw conflict(check.reason, check.code);
     await orders.cancelUnpaidOrder(order, 'customer_cancelled');
-    res.json(await orders.getOrderWithItems(order.id));
+    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 
-// PATCH /api/orders/:id/status — admin fulfilment: pending→cancelled, paid→shipped, shipped→delivered
+// POST /api/orders/:id/confirm — customer confirms they received their Shipping order
+router.post(
+  '/:id/confirm',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const order = await loadOrderFor(req);
+    if (order.user_id !== req.user.id) throw forbidden();
+    const check = checkCustomerConfirm(order);
+    if (!check.ok) throw conflict(check.reason, check.code);
+    unwrap(await supabase.rpc('confirm_order', { p_order_id: order.id, p_by: 'customer' }));
+    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+  })
+);
+
+// PATCH /api/orders/:id/status — admin fulfilment: waiting_shipping→shipping, shipping→confirmed, and
+// cancel (with a reason) before Shipping — a paid order is refunded in full through Stripe first
 router.patch(
   '/:id/status',
   authenticate,
   requireAdmin,
   asyncHandler(async (req, res) => {
-    const order = await loadOrderFor(req);
     const next = v.oneOf(req.body.status, 'status', ORDER_STATUSES);
+    // The customer is told why (Cancel Reason), so an admin always gives one
+    const reason = next === 'cancelled' ? v.str(req.body.reason, 'reason', { max: 500 }) : null;
+    if (reason) {
+      const typed = checkCancelReason(reason);
+      if (!typed.ok) throw badRequest(typed.reason, typed.code);
+    }
+    const order = await loadOrderFor(req);
     const check = checkAdminTransition(order, next);
     if (!check.ok) throw conflict(check.reason, 'INVALID_TRANSITION');
 
     if (next === 'cancelled') {
-      await orders.cancelUnpaidOrder(order, v.str(req.body.reason, 'reason', { required: false, max: 200 }) || 'admin_cancelled');
-      return res.json(await orders.getOrderWithItems(order.id));
+      if (check.refund) await orders.refundAndCancel(order, reason);
+      else if (order.refunded_at) unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason, p_refunded: true }));
+      else await orders.cancelUnpaidOrder(order, reason);
+      return res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
+    }
+
+    if (next === 'confirmed') {
+      unwrap(await supabase.rpc('confirm_order', { p_order_id: order.id, p_by: 'admin' }));
+      return res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
     }
 
     const updates = { status: next };
-    if (next === 'shipped') {
+    if (next === 'shipping') {
       updates.carrier = v.str(req.body.carrier, 'carrier', { max: 50 });
       updates.tracking_number = v.str(req.body.tracking_number, 'tracking_number', { max: 100 });
       updates.shipped_at = new Date().toISOString();
     }
-    if (next === 'delivered') updates.delivered_at = new Date().toISOString();
 
     // Optimistic concurrency: only update if the status hasn't changed underneath us
     const updated = unwrap(
       await supabase.from('orders').update(updates).eq('id', order.id).eq('status', order.status).select('id')
     );
     if (!updated.length) throw conflict('Order changed while you were editing. Refresh and try again.');
-    res.json(await orders.getOrderWithItems(order.id));
+    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 
@@ -230,40 +272,7 @@ router.patch(
     }
     if (!Object.keys(updates).length) throw badRequest('Nothing to update');
     unwrap(await supabase.from('orders').update(updates).eq('id', order.id));
-    res.json(await orders.getOrderWithItems(order.id));
-  })
-);
-
-// POST /api/orders/:id/refund — admin: full refund through Stripe, then cancel (optionally restock)
-router.post(
-  '/:id/refund',
-  authenticate,
-  requireAdmin,
-  asyncHandler(async (req, res) => {
-    const order = await loadOrderFor(req);
-    const restock = v.bool(req.body.restock, 'restock') ?? true;
-    const reason = v.str(req.body.reason, 'reason', { required: false, max: 200 }) || 'refunded_by_admin';
-
-    if (order.payment_status !== 'paid') throw conflict('Only paid orders can be refunded');
-    if (['shipped', 'delivered'].includes(order.status)) {
-      throw conflict('Shipped orders must be handled as returns — refund them in the Stripe dashboard.');
-    }
-    if (!order.stripe_payment_intent_id) throw conflict('No Stripe payment is linked to this order');
-
-    await stripe.refunds.create(
-      { payment_intent: order.stripe_payment_intent_id, reason: 'requested_by_customer', metadata: { order_id: order.id } },
-      { idempotencyKey: `refund-${order.id}` }
-    );
-
-    unwrap(
-      await supabase.rpc('cancel_order', {
-        p_order_id: order.id,
-        p_reason: reason,
-        p_restock: restock,
-        p_refunded: true,
-      })
-    );
-    res.json(await orders.getOrderWithItems(order.id));
+    res.json(forViewer(await fetchOrder(order.id, req.user), req.user));
   })
 );
 

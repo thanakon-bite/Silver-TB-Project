@@ -20,7 +20,7 @@ jest.mock('./lib/api', () => {
 /** The public backend a guest sees: free shipping and an empty shop. */
 function backend(overrides: Record<string, unknown | Error> = {}) {
   const responses: Record<string, unknown> = {
-    '/orders/shipping-fee': { shipping_fee: 0 },
+    '/rules/shipping': { tiers: [], free_threshold: null, fallback_fee: 0 },
     '/products?limit=100': { products: [] },
     ...overrides,
   };
@@ -75,14 +75,34 @@ describe('the shipping policy', () => {
     expect(await within(main.getByRole('region', { name: 'ค่าจัดส่ง' })).findByText(/ฟรี/)).toBeInTheDocument();
   });
 
-  test('states the Shipping Fee the server charges when it is not zero', async () => {
-    backend({ '/orders/shipping-fee': { shipping_fee: 60 } });
+  test('states the flat Shipping Fee when no tiers are set up', async () => {
+    backend({ '/rules/shipping': { tiers: [], free_threshold: null, fallback_fee: 60 } });
     const main = await page();
     expect(await within(main.getByRole('region', { name: 'ค่าจัดส่ง' })).findByText(/฿60/)).toBeInTheDocument();
   });
 
+  test('lists every Shipping Tier and the Free Shipping Threshold', async () => {
+    backend({
+      '/rules/shipping': {
+        tiers: [
+          { min_units: 1, max_units: 1, fee: 10 },
+          { min_units: 2, max_units: 5, fee: 50 },
+          { min_units: 6, max_units: null, fee: 80 },
+        ],
+        free_threshold: 1000,
+        fallback_fee: 0,
+      },
+    });
+    const region = within((await page()).getByRole('region', { name: 'ค่าจัดส่ง' }));
+    expect(await region.findByText('1 ชิ้น')).toBeInTheDocument();
+    expect(region.getByText('2–5 ชิ้น')).toBeInTheDocument();
+    expect(region.getByText('6 ชิ้นขึ้นไป')).toBeInTheDocument();
+    expect(region.getByText('฿80')).toBeInTheDocument();
+    expect(region.getByText(/ส่งฟรีเมื่อซื้อสินค้าครบ ฿1,000/)).toBeInTheDocument();
+  });
+
   test('still explains shipping when the Shipping Fee cannot be loaded', async () => {
-    backend({ '/orders/shipping-fee': new Error('offline') });
+    backend({ '/rules/shipping': new Error('offline') });
     const main = await page();
     expect(await main.findByText(/ค่าจัดส่งจะแสดงในขั้นตอนชำระเงิน/)).toBeInTheDocument();
     expect(main.getByText(/จันทร์–พุธ/)).toBeInTheDocument();
@@ -101,7 +121,7 @@ describe('the shipping policy', () => {
 
 describe('the Live Arrival Guarantee', () => {
   const product = (id: string, name: string, category: string) => ({
-    id, name, description: null, price: 3200, stock: 2, category, attributes: {}, images: [], is_best_seller: false, views: 0,
+    id, name, description: null, price: 3200, available: 2, category, attributes: {}, images: [], is_best_seller: false, views: 0,
   });
 
   test('the about page promises arrival alive, not a 30-day survival', async () => {

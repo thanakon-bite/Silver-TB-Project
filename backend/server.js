@@ -14,6 +14,7 @@ const notificationRoutes = require('./src/routes/notifications');
 const addressRoutes = require('./src/routes/addresses');
 const geoRoutes = require('./src/routes/geo');
 const adminRoutes = require('./src/routes/admin');
+const ruleRoutes = require('./src/routes/rules');
 const { startOrderJobs } = require('./src/services/orders');
 
 const app = express();
@@ -64,6 +65,7 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/addresses', addressRoutes);
 app.use('/api/geo', geoRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/rules', ruleRoutes);
 
 // Health check
 app.get('/api/health', (req, res) => res.json({ status: 'ok', timestamp: new Date().toISOString() }));

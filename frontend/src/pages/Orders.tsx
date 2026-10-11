@@ -4,13 +4,12 @@ import { Link } from 'react-router-dom';
 import { Package, ChevronRight } from 'lucide-react';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
-import { baht, dateTime, thaiDateTime, ORDER_STATUS_STYLE } from '../lib/format';
+import { baht, dateTime, thaiDateTime, ORDER_STATUS_STYLE, orderStatusKey } from '../lib/format';
 import type { Order } from '../lib/types';
 import { EmptyState, ErrorBox, PageHeader } from '../component/ui/Feedback';
 import { primaryButtonInline } from '../component/ui/buttonStyles';
 
 /** The Order Status as customers read it (CONTEXT.md); a refunded cancellation says so. */
-const statusKey = (o: Order) => (o.status === 'cancelled' && o.payment_status === 'refunded' ? 'cancelled_refunded' : o.status);
 
 const Orders: React.FC = () => {
   const { t, i18n } = useTranslation();
@@ -55,7 +54,7 @@ const Orders: React.FC = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-mono text-sm font-medium tabular-nums text-ink">{o.order_number}</span>
-                      <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${ORDER_STATUS_STYLE[o.status]}`}>{t(`order_status.${statusKey(o)}`)}</span>
+                      <span className={`rounded-md px-2 py-0.5 text-xs font-semibold ${ORDER_STATUS_STYLE[o.status]}`}>{t(`order_status.${orderStatusKey(o)}`)}</span>
                     </div>
                     <p className="mt-1 truncate text-sm text-muted">
                       {isThai ? thaiDateTime(o.created_at) : dateTime(o.created_at)} · {o.order_items.map((i) => `${i.product_name} ×${i.quantity}`).join(', ')}

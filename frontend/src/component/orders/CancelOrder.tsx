@@ -4,6 +4,7 @@ import { AlertCircle } from 'lucide-react';
 import { api, ApiError } from '../../lib/api';
 import { errorMessage } from '../../lib/errorMessage';
 import type { Order } from '../../lib/types';
+import { dangerButton, dangerLink, secondaryButton } from '../ui/buttonStyles';
 
 interface Props {
   order: Order;
@@ -67,7 +68,7 @@ const CancelOrder: React.FC<Props> = ({ order, onCancelled, onAlreadyPaid }) => 
               type="button"
               onClick={() => setConfirming(false)}
               disabled={busy}
-              className="whitespace-nowrap rounded-xl border border-line px-4 py-2.5 text-sm font-semibold text-ink transition-colors hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-strong disabled:opacity-60 motion-reduce:transition-none"
+              className={secondaryButton}
             >
               {t('order_page.cancel_keep')}
             </button>
@@ -75,7 +76,7 @@ const CancelOrder: React.FC<Props> = ({ order, onCancelled, onAlreadyPaid }) => 
               type="button"
               onClick={cancel}
               disabled={busy}
-              className="whitespace-nowrap rounded-xl border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger transition-colors hover:bg-danger/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-danger disabled:opacity-60 motion-reduce:transition-none"
+              className={dangerButton}
             >
               {busy ? t('order_page.cancelling') : t('order_page.cancel_confirm')}
             </button>
@@ -86,7 +87,7 @@ const CancelOrder: React.FC<Props> = ({ order, onCancelled, onAlreadyPaid }) => 
           ref={openRef}
           type="button"
           onClick={() => setConfirming(true)}
-          className="whitespace-nowrap text-sm text-muted underline-offset-4 hover:text-danger hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-strong"
+          className={dangerLink}
         >
           {t('order_page.cancel')}
         </button>

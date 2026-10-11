@@ -1,4 +1,4 @@
-import type { OrderStatus, PaymentStatus, ShippingSnapshot } from './types';
+import type { Order, OrderStatus, ShippingSnapshot, ShippingTier } from './types';
 
 export const baht = (n: number | string | null | undefined) =>
   `฿${Number(n || 0).toLocaleString('th-TH', { maximumFractionDigits: 2 })}`;
@@ -9,6 +9,10 @@ export const dateTime = (iso: string | null | undefined) =>
 /** Dates as Thai customers read them: Thai months and the Buddhist year, e.g. "10 ต.ค. 2569 14:30". */
 export const thaiDateTime = (iso: string) =>
   new Date(iso).toLocaleString('th-TH', { dateStyle: 'medium', timeStyle: 'short' });
+
+/** A date and time in the reader's language: Thai months and Buddhist year in Thai, day-month-year in English. */
+export const localDateTime = (iso: string | null | undefined, lang: string | undefined) =>
+  !iso ? '-' : (lang || 'th').startsWith('th') ? thaiDateTime(iso) : dateTime(iso);
 
 export function formatAddressLines(a: ShippingSnapshot | string | null | undefined): string[] {
   if (!a) return [];
@@ -22,28 +26,31 @@ export function formatAddressLines(a: ShippingSnapshot | string | null | undefin
   ];
 }
 
-export const ORDER_STATUS_LABEL: Record<OrderStatus, string> = {
-  pending: 'Awaiting payment',
-  paid: 'Paid · preparing',
-  shipped: 'Shipped',
-  delivered: 'Delivered',
-  cancelled: 'Cancelled',
-};
+/** Cancel Reasons the system writes itself are codes; an Admin's own words show as written. */
+const SYSTEM_CANCEL_REASONS = ['payment_timeout', 'customer_cancelled', 'replaced_by_new_checkout', 'admin_cancelled', 'refunded_by_admin'];
+export const cancelReasonText = (reason: string, t: (key: string) => string) =>
+  SYSTEM_CANCEL_REASONS.includes(reason) ? t(`cancel_reasons.${reason}`) : reason;
+
+/** "1 ชิ้น", "2–5 ชิ้น", "6 ชิ้นขึ้นไป": the paid units a Shipping Tier covers. */
+export const tierLabel = (tier: ShippingTier, t: (key: string, o?: Record<string, unknown>) => string) =>
+  tier.max_units === null
+    ? t('shipping_rule.units_open', { min: tier.min_units })
+    : tier.max_units === tier.min_units
+      ? t('shipping_rule.units_one', { count: tier.min_units })
+      : t('shipping_rule.units_range', { min: tier.min_units, max: tier.max_units });
+
+/** The i18n key under `order_status` for an Order as people read it (CONTEXT.md); a refunded cancellation says so. */
+export const orderStatusKey = (o: Pick<Order, 'status' | 'refunded_at'>) =>
+  o.status === 'cancelled' && o.refunded_at ? 'cancelled_refunded' : o.status;
 
 /** Status chips: one neutral shape; colour only where the status asks the reader to act or reassures them. */
 export const ORDER_STATUS_STYLE: Record<OrderStatus, string> = {
-  pending: 'border border-accent-strong/40 bg-accent-strong/10 text-accent-strong',
+  awaiting_payment: 'border border-accent-strong/40 bg-accent-strong/10 text-accent-strong',
   paid: 'border border-line bg-sunken text-ink',
-  shipped: 'border border-line bg-sunken text-ink',
-  delivered: 'border border-success/40 bg-success/10 text-success',
+  waiting_shipping: 'border border-line bg-sunken text-ink',
+  shipping: 'border border-line bg-sunken text-ink',
+  confirmed: 'border border-success/40 bg-success/10 text-success',
   cancelled: 'border border-line text-muted',
-};
-
-export const PAYMENT_STATUS_STYLE: Record<PaymentStatus, string> = {
-  unpaid: 'border border-accent-strong/40 bg-accent-strong/10 text-accent-strong',
-  paid: 'border border-success/40 bg-success/10 text-success',
-  failed: 'border border-danger/40 bg-danger/10 text-danger',
-  refunded: 'border border-line text-muted',
 };
 
 /** Read/write localStorage safely (private mode, blocked storage, SSR). */

@@ -4,21 +4,22 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { AlertCircle, CheckCircle2, Clock, Loader2 } from 'lucide-react';
 import { api } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
-import { formatAddressLines } from '../lib/format';
+import { cancelReasonText, formatAddressLines, orderStatusKey } from '../lib/format';
 import type { Order } from '../lib/types';
 import { useCart } from '../contexts/CartContext';
 import PaymentStep from '../component/checkout/PaymentStep';
 import OrderSummary from '../component/checkout/OrderSummary';
 import OrderJourney from '../component/orders/OrderJourney';
 import CancelOrder from '../component/orders/CancelOrder';
+import ConfirmReceipt from '../component/orders/ConfirmReceipt';
 
 const POLL_MS = 2000;
 const MAX_POLLS = 45; // ~90 seconds
 
 const reservationOver = (o: Order) => !!o.expires_at && new Date(o.expires_at) <= new Date();
 
-/** Pending and not paid: the order is still waiting on the customer or on Stripe. */
-const isUnpaidPending = (o: Order) => o.status === 'pending' && o.payment_status !== 'paid';
+/** Awaiting Payment: the order is still waiting on the customer or on Stripe. */
+const isAwaitingPayment = (o: Order) => o.status === 'awaiting_payment';
 
 /** A quiet status line on the sunken panel; errors use the danger box instead (design.md). */
 const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
@@ -27,8 +28,6 @@ const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   </div>
 );
 
-/** The Order Status as customers read it (CONTEXT.md); a refunded cancellation says so. */
-const statusKey = (o: Order) => (o.status === 'cancelled' && o.payment_status === 'refunded' ? 'cancelled_refunded' : o.status);
 
 const OrderDetail: React.FC = () => {
   const { t } = useTranslation();
@@ -74,9 +73,9 @@ const OrderDetail: React.FC = () => {
   // empty the Cart once. Opening an old order without ?paid=1 never touches the Cart.
   useEffect(() => {
     if (!justPaid || !order) return;
-    if (order.payment_status !== 'paid') {
-      // Cancelled or otherwise past Pending: there is no payment left to wait for.
-      if (order.status !== 'pending') setWaiting(false);
+    if (!order.paid_at) {
+      // Cancelled or otherwise past Awaiting Payment: there is no payment left to wait for.
+      if (order.status !== 'awaiting_payment') setWaiting(false);
       return;
     }
     setWaiting(false);
@@ -126,9 +125,9 @@ const OrderDetail: React.FC = () => {
   }
 
   // Back from Stripe and not yet confirmed: offering to pay again could charge the customer twice.
-  const unconfirmed = justPaid && isUnpaidPending(order);
-  const expired = isUnpaidPending(order) && (countdownEnded || reservationOver(order));
-  const payable = isUnpaidPending(order) && !expired && !unconfirmed;
+  const unconfirmed = justPaid && isAwaitingPayment(order);
+  const expired = isAwaitingPayment(order) && (countdownEnded || reservationOver(order));
+  const payable = isAwaitingPayment(order) && !expired && !unconfirmed;
 
   return (
     <div className="bg-paper text-ink">
@@ -138,7 +137,7 @@ const OrderDetail: React.FC = () => {
         </Link>
 
         <div className="mb-8 mt-4">
-          <h1 className="font-display text-3xl font-bold text-ink">{t(`order_status.${statusKey(order)}`)}</h1>
+          <h1 className="font-display text-3xl font-bold text-ink">{t(`order_status.${orderStatusKey(order)}`)}</h1>
           <p className="mt-1 font-mono text-sm tabular-nums text-muted">{t('order_page.order_number', { number: order.order_number })}</p>
         </div>
 
@@ -147,12 +146,14 @@ const OrderDetail: React.FC = () => {
             <OrderSummary
               lines={order.order_items.map((i) => ({
                 key: i.id,
-                name: i.product_name,
+                name: i.is_gift ? `${i.product_name} (${t('promotions.gift_label')})` : i.product_name,
+                free: !!i.is_gift,
                 quantity: i.quantity,
                 amount: i.line_total,
                 image: i.product_image || undefined,
               }))}
               shippingFee={order.shipping_fee}
+              discount={order.discount_total}
               total={order.total}
               totalLabel={t('checkout_page.total')}
             />
@@ -173,7 +174,7 @@ const OrderDetail: React.FC = () => {
                 </p>
               </Notice>
             )}
-            {order.status === 'paid' && (
+            {(order.status === 'paid' || order.status === 'waiting_shipping') && (
               <Notice>
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
                 <p>
@@ -183,7 +184,18 @@ const OrderDetail: React.FC = () => {
               </Notice>
             )}
 
+            {order.status === 'cancelled' && order.cancel_reason && (
+              <Notice>
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden />
+                <p>
+                  <strong className="font-semibold">{t('order_page.cancel_reason')}</strong> · <span>{cancelReasonText(order.cancel_reason, t)}</span>
+                </p>
+              </Notice>
+            )}
+
             {order.status !== 'cancelled' && <OrderJourney order={order} />}
+
+            {order.actions?.customer?.confirm && <ConfirmReceipt order={order} onConfirmed={setOrder} />}
 
             <section className="border-y border-line py-4 text-sm text-muted">
               <h2 className="mb-2 font-display text-lg font-bold text-ink">{t('order_page.shipping_to')}</h2>
@@ -208,7 +220,7 @@ const OrderDetail: React.FC = () => {
 
             {payable && (
               <div className="space-y-5">
-                {order.payment_status === 'failed' && (
+                {order.payment_failed_at && (
                   <Notice>
                     <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
                     <p>
@@ -224,7 +236,7 @@ const OrderDetail: React.FC = () => {
                     reload();
                   }}
                 />
-                <CancelOrder order={order} onCancelled={setOrder} onAlreadyPaid={reload} />
+                {order.actions?.customer?.cancel && <CancelOrder order={order} onCancelled={setOrder} onAlreadyPaid={reload} />}
               </div>
             )}
           </div>

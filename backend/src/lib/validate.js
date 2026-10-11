@@ -63,6 +63,19 @@ function uuid(value, field) {
   return value.toLowerCase();
 }
 
+const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}:\d{2})$/;
+
+/**
+ * An ISO 8601 date-time, returned unchanged so Postgres microseconds survive (a JS Date would cut
+ * them to milliseconds). The strict shape keeps it safe inside a PostgREST or() filter.
+ */
+function timestamp(value, field) {
+  if (typeof value !== 'string' || !TIMESTAMP_RE.test(value) || Number.isNaN(Date.parse(value))) {
+    throw badRequest(`${field} must be an ISO date-time`);
+  }
+  return value;
+}
+
 /** Thai phone numbers: 0XXXXXXXX(X) or +66XXXXXXXX(X). Spaces and dashes are stripped. */
 function phone(value, field = 'phone', { required = true } = {}) {
   if (isMissing(value)) {
@@ -104,6 +117,16 @@ function cartItems(items) {
       quantity: int(item.quantity, `items[${i}].quantity`, { min: 1, max: 99 }),
     };
   });
+}
+
+/** The Customer's pick of gift product per Promotion: { [promotion_id]: product_id }. Bad entries are dropped. */
+function giftChoices(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  const out = {};
+  for (const [promo, product] of Object.entries(value).slice(0, 20)) {
+    if (UUID_RE.test(promo) && typeof product === 'string' && UUID_RE.test(product)) out[promo] = product;
+  }
+  return out;
 }
 
 /** Product images: only https URLs (Supabase Storage public URLs or other https hosts). */
@@ -177,11 +200,13 @@ module.exports = {
   money,
   bool,
   uuid,
+  timestamp,
   phone,
   email,
   postalCode,
   oneOf,
   cartItems,
+  giftChoices,
   imageUrls,
   pagination,
   likePattern,

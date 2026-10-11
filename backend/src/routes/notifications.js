@@ -1,13 +1,82 @@
 const express = require('express');
 const axios = require('axios');
+const supabase = require('../config/supabase');
 const { authenticate, requireAdmin } = require('../middleware/auth');
-const { asyncHandler, badRequest } = require('../lib/http');
+const { asyncHandler, badRequest, unwrap } = require('../lib/http');
 const line = require('../lib/line');
 const v = require('../lib/validate');
 
 const router = express.Router();
 
 const mask = (id) => (id && id.length > 8 ? `${id.slice(0, 4)}…${id.slice(-4)}` : id);
+
+// ---- The signed-in Member's bell (CONTEXT.md: Notification). Text is rendered by the frontend from type + data.
+
+const PAGE_SIZE = 20;
+
+/**
+ * GET /api/notifications — a page of my notifications, newest first, and how many are unread.
+ * Older pages: ?before=<created_at>&before_id=<id> of the last one shown (keyset, so new arrivals never shift a page).
+ */
+router.get(
+  '/',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    let query = supabase
+      .from('notifications')
+      .select('id, type, order_id, data, read_at, created_at')
+      .eq('user_id', req.user.id);
+    if (req.query.before !== undefined || req.query.before_id !== undefined) {
+      const before = v.timestamp(req.query.before, 'before');
+      const beforeId = v.uuid(req.query.before_id, 'before_id');
+      query = query.or(`created_at.lt."${before}",and(created_at.eq."${before}",id.lt.${beforeId})`);
+    }
+    const [list, unread] = await Promise.all([
+      query
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(PAGE_SIZE + 1),
+      supabase.from('notifications').select('id', { count: 'exact', head: true }).eq('user_id', req.user.id).is('read_at', null),
+    ]);
+    if (list.error) throw list.error;
+    if (unread.error) throw unread.error;
+    res.json({
+      notifications: list.data.slice(0, PAGE_SIZE),
+      unread: unread.count || 0,
+      has_more: list.data.length > PAGE_SIZE,
+    });
+  })
+);
+
+// POST /api/notifications/read-all — mark every one of mine read
+router.post(
+  '/read-all',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    unwrap(await supabase.from('notifications').update({ read_at: new Date().toISOString() }).eq('user_id', req.user.id).is('read_at', null));
+    res.json({ unread: 0 });
+  })
+);
+
+// POST /api/notifications/:id/read — mark one of mine read
+router.post(
+  '/:id/read',
+  authenticate,
+  asyncHandler(async (req, res) => {
+    const id = v.uuid(req.params.id, 'id');
+    unwrap(
+      await supabase
+        .from('notifications')
+        .update({ read_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('user_id', req.user.id)
+        .is('read_at', null)
+    );
+    res.json({ ok: true });
+  })
+);
+
+// ---- LINE (admin)
 
 // GET /api/notifications/line/status — admin: is LINE set up, and where do alerts go?
 router.get(

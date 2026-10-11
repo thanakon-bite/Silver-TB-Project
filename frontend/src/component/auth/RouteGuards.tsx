@@ -1,12 +1,16 @@
 import React, { useCallback } from 'react';
 import { Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../../contexts/AuthContext';
 
-const Spinner = () => (
+const Spinner = () => {
+  const { t } = useTranslation();
+  return (
   <div className="flex items-center justify-center min-h-[50vh]">
-    <div className="w-10 h-10 border-2 border-line border-t-accent-strong rounded-full animate-spin motion-reduce:animate-none" role="status" aria-label="Loading" />
+    <div className="w-10 h-10 border-2 border-line border-t-accent-strong rounded-full animate-spin motion-reduce:animate-none" role="status" aria-label={t('loading')} />
   </div>
-);
+  );
+};
 
 /** Signed-in users only. Sends guests to /login and brings them back afterwards. */
 export const RequireAuth: React.FC<{ children: React.ReactNode }> = ({ children }) => {

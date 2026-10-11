@@ -1,24 +1,26 @@
 import React, { useEffect, useState } from 'react';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import { Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip } from 'chart.js';
-import { AlertTriangle, Banknote, PackageOpen, Users, Table2, BarChart3 } from 'lucide-react';
+import { AlertTriangle, Banknote, PackageCheck, Users, Table2, BarChart3 } from 'lucide-react';
 import { api } from '../../lib/api';
-import { baht, ORDER_STATUS_LABEL } from '../../lib/format';
+import { useTranslation } from 'react-i18next';
+import { baht } from '../../lib/format';
 import { tokenColor } from '../../lib/tokenColor';
 import { ORDER_STATUSES, PRODUCT_CATEGORIES, type OrderStatus, type ProductCategory } from '../../lib/types';
-import { CATEGORY_LABELS } from './AdminProducts';
 import { useTheme } from '../../contexts/ThemeContext';
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip);
 
 interface Stats {
+  /** Revenue: totals of Confirmed orders only (CONTEXT.md). */
   revenue_total: number;
+  confirmed_orders: number;
   orders_by_status: Record<OrderStatus, number>;
   products_by_category?: Record<ProductCategory, number>;
   to_fulfil: number;
   needs_attention: number;
   customers: number;
-  low_stock: { id: string; name: string; stock: number }[];
+  low_stock: { id: string; name: string; available: number }[];
   daily: { date: string; revenue: number; orders: number }[];
 }
 
@@ -28,10 +30,12 @@ interface Stats {
  * because it is the end of the road. Text never wears these: the legend and table carry names and counts.
  */
 const STATUS_SERIES: Record<OrderStatus, [token: string, alpha: number]> = {
-  pending: ['series-1', 1],
-  paid: ['series-2', 1],
-  shipped: ['series-3', 1],
-  delivered: ['series-4', 1],
+  awaiting_payment: ['series-1', 1],
+  // Paid only lasts until the Owner is alerted, so it shares Waiting Shipping's hue at a lower alpha.
+  paid: ['series-2', 0.55],
+  waiting_shipping: ['series-2', 1],
+  shipping: ['series-3', 1],
+  confirmed: ['series-4', 1],
   cancelled: ['muted', 0.55],
 };
 
@@ -68,6 +72,7 @@ const Panel: React.FC<{
   children: React.ReactNode;
 }> = ({ title, note, action, empty, table, className = '', children }) => {
   const [asTable, setAsTable] = useState(false);
+  const { t } = useTranslation();
   return (
     <section aria-label={title} className={`bg-paper rounded-2xl border border-line p-5 ${className}`}>
       <div className="flex items-start justify-between gap-3 mb-4">
@@ -85,7 +90,7 @@ const Panel: React.FC<{
               aria-pressed={asTable}
             >
               {asTable ? <BarChart3 className="w-4 h-4" aria-hidden /> : <Table2 className="w-4 h-4" aria-hidden />}
-              {asTable ? 'Chart' : 'Table'}
+              {asTable ? t('admin.overview.chart') : t('admin.overview.table')}
             </button>
           )}
         </div>
@@ -102,6 +107,8 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
   const [stats, setStats] = useState<Stats | null>(null);
   const [error, setError] = useState('');
   const { theme } = useTheme();
+  const { t, i18n } = useTranslation();
+  const statusLabel = (s: OrderStatus) => t(`order_status.${s}`);
   // Canvas cannot read CSS variables; re-read the tokens whenever the theme flips.
   const chart = React.useMemo(
     () => ({
@@ -122,9 +129,9 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
   }, []);
 
   if (error) return <p className="text-danger">{error}</p>;
-  if (!stats) return <p className="text-muted">Loading…</p>;
+  if (!stats) return <p className="text-muted">{t('loading')}</p>;
 
-  const labels = stats.daily.map((d) => new Date(d.date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }));
+  const labels = stats.daily.map((d) => new Date(d.date).toLocaleDateString(i18n.language?.startsWith('en') ? 'en-GB' : 'th-TH', { day: 'numeric', month: 'short' }));
   const statusCounts = ORDER_STATUSES.map((s) => stats.orders_by_status[s] || 0);
   const orderTotal = statusCounts.reduce((a, b) => a + b, 0);
   const byCategory = PRODUCT_CATEGORIES.map((c) => stats.products_by_category?.[c] || 0);
@@ -140,35 +147,35 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <Tile icon={Banknote} label="Paid revenue (all time)" value={baht(stats.revenue_total)} />
-        <Tile icon={PackageOpen} label="Paid, waiting to ship" value={String(stats.to_fulfil)} onClick={() => goTo('orders', 'paid')} />
+        <Tile icon={Banknote} label={t('admin.overview.revenue')} value={baht(stats.revenue_total)} />
+        <Tile icon={PackageCheck} label={t('admin.overview.confirmed_orders')} value={String(stats.confirmed_orders)} onClick={() => goTo('orders', 'confirmed')} />
         <Tile
           icon={AlertTriangle}
-          label="Needs attention"
+          label={t('admin.overview.attention')}
           value={String(stats.needs_attention)}
           tone={stats.needs_attention ? 'warn' : undefined}
           onClick={() => goTo('orders', 'attention')}
         />
-        <Tile icon={Users} label="Customers" value={String(stats.customers)} />
+        <Tile icon={Users} label={t('admin.overview.customers')} value={String(stats.customers)} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel
-          title="Orders by status"
-          note="Every order so far · click a status to see its orders"
-          empty={orderTotal === 0 ? 'No orders yet.' : undefined}
+          title={t('admin.overview.by_status')}
+          note={t('admin.overview.by_status_note')}
+          empty={orderTotal === 0 ? t('admin.overview.no_orders') : undefined}
           table={
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-muted border-b border-line">
-                  <th className={th}>Status</th>
-                  <th className={`${th} text-right`}>Orders</th>
+                  <th className={th}>{t('admin.common.status')}</th>
+                  <th className={`${th} text-right`}>{t('admin.common.orders')}</th>
                 </tr>
               </thead>
               <tbody>
                 {ORDER_STATUSES.map((s, i) => (
                   <tr key={s} className="border-b border-line">
-                    <td className={td}>{ORDER_STATUS_LABEL[s]}</td>
+                    <td className={td}>{statusLabel(s)}</td>
                     <td className={`${td} text-right font-mono tabular-nums`}>{statusCounts[i]}</td>
                   </tr>
                 ))}
@@ -180,7 +187,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
             <div className="relative mx-auto h-48 w-48">
               <Doughnut
                 data={{
-                  labels: ORDER_STATUSES.map((s) => ORDER_STATUS_LABEL[s]),
+                  labels: ORDER_STATUSES.map((s) => statusLabel(s)),
                   datasets: [
                     {
                       data: statusCounts,
@@ -200,12 +207,12 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
                     const target = e.native?.target as HTMLElement | undefined;
                     if (target) target.style.cursor = els.length ? 'pointer' : 'default';
                   },
-                  plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed} order(s)` } } },
+                  plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${t('admin.overview.n_orders', { count: ctx.parsed })}` } } },
                 }}
               />
               <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                 <span className="font-mono text-2xl font-medium tabular-nums text-ink">{orderTotal}</span>
-                <span className="text-xs text-muted">orders</span>
+                <span className="text-xs text-muted">{t('admin.overview.orders_word')}</span>
               </div>
             </div>
             {/* The legend names each slice and states its count, so colour never carries the meaning alone. */}
@@ -218,7 +225,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
                     className="flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left hover:bg-sunken"
                   >
                     <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: chart.status[s] }} />
-                    <span className="flex-1 text-ink">{ORDER_STATUS_LABEL[s]}</span>
+                    <span className="flex-1 text-ink">{statusLabel(s)}</span>
                     <span className="font-mono tabular-nums text-ink">{statusCounts[i]}</span>
                     <span className="w-10 text-right font-mono text-xs tabular-nums text-muted">
                       {orderTotal ? Math.round((statusCounts[i] / orderTotal) * 100) : 0}%
@@ -231,21 +238,21 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
         </Panel>
 
         <Panel
-          title="Products by category"
-          note="Active products in the shop"
-          empty={byCategory.every((n) => n === 0) ? 'No active products yet.' : undefined}
+          title={t('admin.overview.by_category')}
+          note={t('admin.overview.by_category_note')}
+          empty={byCategory.every((n) => n === 0) ? t('admin.overview.no_products') : undefined}
           table={
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-muted border-b border-line">
-                  <th className={th}>Category</th>
-                  <th className={`${th} text-right`}>Products</th>
+                  <th className={th}>{t('category')}</th>
+                  <th className={`${th} text-right`}>{t('admin.common.products')}</th>
                 </tr>
               </thead>
               <tbody>
                 {PRODUCT_CATEGORIES.map((c, i) => (
                   <tr key={c} className="border-b border-line">
-                    <td className={td}>{CATEGORY_LABELS[c]}</td>
+                    <td className={td}>{t(c)}</td>
                     <td className={`${td} text-right font-mono tabular-nums`}>{byCategory[i]}</td>
                   </tr>
                 ))}
@@ -256,7 +263,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
           <div className="h-56">
             <Bar
               data={{
-                labels: PRODUCT_CATEGORIES.map((c) => CATEGORY_LABELS[c]),
+                labels: PRODUCT_CATEGORIES.map((c) => t(c)),
                 datasets: [
                   {
                     data: byCategory,
@@ -271,7 +278,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
               options={{
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.y} product(s)` } } },
+                plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${t('admin.overview.n_products', { count: ctx.parsed.y ?? 0 })}` } } },
                 scales: { x: { grid: { display: false }, ticks: { color: chart.muted } }, y: { beginAtZero: true, ...axis } },
               }}
             />
@@ -280,27 +287,27 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
       </div>
 
       <Panel
-        title="Running low (stock ≤ 2)"
-        note="Active products, lowest first · click a bar to restock"
+        title={t('admin.overview.low')}
+        note={t('admin.overview.low_note')}
         action={
           <button type="button" onClick={() => goTo('products', 'low')} className="text-xs font-semibold text-accent-strong hover:underline">
-            Manage
+            {t('admin.overview.manage')}
           </button>
         }
-        empty={lowStock.length === 0 ? 'All active products are well stocked.' : undefined}
+        empty={lowStock.length === 0 ? t('admin.overview.well_stocked') : undefined}
         table={
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted border-b border-line">
-                <th className={th}>Product</th>
-                <th className={`${th} text-right`}>Stock</th>
+                <th className={th}>{t('admin.common.product')}</th>
+                <th className={`${th} text-right`}>Stockmove</th>
               </tr>
             </thead>
             <tbody>
               {lowStock.map((p) => (
                 <tr key={p.id} className="border-b border-line">
                   <td className={td}>{p.name}</td>
-                  <td className={`${td} text-right font-mono tabular-nums ${p.stock === 0 ? 'text-danger' : ''}`}>{p.stock === 0 ? 'Sold out' : p.stock}</td>
+                  <td className={`${td} text-right font-mono tabular-nums ${p.available === 0 ? 'text-danger' : ''}`}>{p.available === 0 ? t('sold_out') : p.available}</td>
                 </tr>
               ))}
             </tbody>
@@ -311,11 +318,11 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
         <div style={{ height: Math.max(120, lowStock.length * 32 + 40) }}>
           <Bar
             data={{
-              labels: lowStock.map((p) => (p.stock === 0 ? `${p.name} · sold out` : p.name)),
+              labels: lowStock.map((p) => (p.available === 0 ? `${p.name} · ${t('sold_out')}` : p.name)),
               datasets: [
                 {
-                  data: lowStock.map((p) => p.stock),
-                  backgroundColor: lowStock.map((p) => (p.stock === 0 ? chart.danger : chart.bar)),
+                  data: lowStock.map((p) => p.available),
+                  backgroundColor: lowStock.map((p) => (p.available === 0 ? chart.danger : chart.bar)),
                   hoverBackgroundColor: chart.barHover,
                   borderRadius: { topRight: 4, bottomRight: 4 },
                   borderSkipped: 'left',
@@ -328,7 +335,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
               responsive: true,
               maintainAspectRatio: false,
               onClick: (_e, els) => els[0] && goTo('products', 'low'),
-              plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${ctx.parsed.x} in stock` } } },
+              plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => ` ${t('admin.overview.n_in_stock', { count: ctx.parsed.x ?? 0 })}` } } },
               scales: {
                 x: { beginAtZero: true, suggestedMax: 2, ...axis, ticks: { ...axis.ticks, stepSize: 1 } },
                 y: { grid: { display: false }, ticks: { color: chart.muted, autoSkip: false } },
@@ -339,16 +346,16 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
       </Panel>
 
       <Panel
-        title="Paid revenue, last 14 days"
-        note="Thai Baht per day (Asia/Bangkok)"
-        empty={revenueDays === 0 ? 'No paid orders in the last 14 days.' : undefined}
+        title={t('admin.overview.revenue_14')}
+        note={t('admin.overview.revenue_14_note')}
+        empty={revenueDays === 0 ? t('admin.overview.no_revenue') : undefined}
         table={
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-muted border-b border-line">
-                <th className={th}>Date</th>
-                <th className={`${th} text-right`}>Orders</th>
-                <th className={`${th} text-right`}>Revenue</th>
+                <th className={th}>{t('admin.common.date')}</th>
+                <th className={`${th} text-right`}>{t('admin.common.orders')}</th>
+                <th className={`${th} text-right`}>{t('admin.overview.revenue_col')}</th>
               </tr>
             </thead>
             <tbody>
@@ -383,7 +390,7 @@ const AdminOverview: React.FC<{ goTo: (tab: 'orders' | 'products', filter?: stri
               maintainAspectRatio: false,
               plugins: {
                 legend: { display: false },
-                tooltip: { callbacks: { label: (ctx) => `${baht(ctx.parsed.y)} · ${stats.daily[ctx.dataIndex].orders} order(s)` } },
+                tooltip: { callbacks: { label: (ctx) => `${baht(ctx.parsed.y)} · ${t('admin.overview.n_orders', { count: stats.daily[ctx.dataIndex].orders })}` } },
               },
               scales: {
                 x: { grid: { display: false }, ticks: { color: chart.muted, maxRotation: 0, autoSkip: true } },

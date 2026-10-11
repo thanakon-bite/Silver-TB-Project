@@ -27,12 +27,19 @@ The beetle group shown to shoppers, e.g. Rhinoceros, Stag, Flower. A Beetle Attr
 **Stage**:
 Life stage of a live beetle: `egg`, `L1`, `L2`, `L3` (larval instars), `pupa`, `adult`.
 
-**Stock**:
-How many units of a product can still be sold. Many beetles are one-of-a-kind (stock 1).
-_Avoid_: Inventory count, quantity (reserved for order lines)
+**On Hand**:
+Units of a product the shop is still responsible for: in the warehouse, or on their way to a customer who has not yet confirmed receipt. Goes up only when an Admin receives stock; goes down only when an order becomes **Confirmed**. Admin screens may label it Onhand.
+_Avoid_: Stock (alone), inventory count
+
+**Available**:
+Units of a product that can still be ordered, and the number shoppers see. Equals On Hand minus the units in orders that are neither Confirmed nor Cancelled. Goes down when an order is created, comes back when an order is Cancelled. Many beetles are one-of-a-kind (Available 1). Admin screens may label it Stockmove.
+_Avoid_: Stock (alone), stock move (which suggests a movement record, not a balance)
+
+**In Transit**:
+Units in **Shipping** orders: still On Hand but no longer on the shelf. Shown on the stock screen so a physical count can be reconciled.
 
 **Reservation**:
-Stock held for a **Pending** order while the customer pays. Released when the order is cancelled or expires.
+The Available units an order takes the moment it is created, held until it is Confirmed (when they leave On Hand) or Cancelled (when they return to Available).
 _Avoid_: Hold, lock
 
 ### Ordering
@@ -54,31 +61,74 @@ One product line in an order, with the price and name as they were at checkout.
 _Avoid_: Line item, cart item
 
 **Shipping Fee**:
-The flat delivery charge (ค่าจัดส่ง) added to every order's total. When it is zero, customers see "free" (ฟรี).
+The delivery charge (ค่าจัดส่ง) added to an order's total, worked out by the **Shipping Rule** and kept on the order as it was at checkout. When it is zero, customers see "free" (ฟรี).
 _Avoid_: Shipping (alone, which can mean the address or the act of shipping), delivery cost
+
+**Shipping Rule**:
+The shop's table that sets the Shipping Fee from how many paid units an order holds (Gifts don't count). Its **Shipping Tiers** run without gaps or overlaps from 1 unit, the last one open-ended ("N or more"). It may also set a **Free Shipping Threshold**: an item total, after discounts, at or above which the fee is zero.
+_Avoid_: Shipping cost setting, delivery rule
+
+### Promotions
+
+**Promotion**:
+A time-boxed offer an Admin sets up (โปรโมชั่น) with a Thai and optional English name, a start and end date (Thai time, both days included), the products it covers (all or a chosen list), and a **Discount**, a **Gift**, or both. Applied automatically, with no code to enter. A product may sit in several Promotions at once, but an order line gets only the one that benefits the customer most; Promotions never stack. Once anyone has redeemed a Promotion it can be ended but never deleted, and what it covers and gives is fixed from its start date.
+_Avoid_: Promotion Plan, deal, coupon (no codes exist)
+
+**Discount**:
+The price cut part of a Promotion, given as **Discount Tiers**: "buy N or more, get X% or X baht off each unit". Units of every product covered by the same Promotion count together, and only the highest tier reached applies.
+_Avoid_: Sale price, markdown
+
+**Gift**:
+The free-goods part of a Promotion (ของแถม): every X paid units of covered products earn Y free units, repeatable. When the Admin ticks several gift products, the customer picks which one in the Cart. A gift product may be one not otherwise for sale. A Gift takes Available like any order line, appears on the order at zero price, and is simply left out when none is Available; the order still goes through.
+_Avoid_: Freebie, bonus item
+
+**Redemption**:
+One use of a Promotion by one Customer, counted when the order is created and given back when that order is Cancelled. A Promotion may cap Redemptions per Customer, and cap how many different Customers may redeem it, or leave either unlimited.
+_Avoid_: Usage, claim
 
 **Order Number**:
 The human-readable order reference shown to customers and the owner (e.g. `STB-261010-00002`).
 _Avoid_: Order ID (the internal UUID)
 
 **Order Status**:
-Where an order is in fulfilment: **Pending** → **Paid** → **Shipped** (→ **Delivered**), or **Cancelled**. Customers see each status in Thai, named on each entry below.
+The single field that says where an order is: **Awaiting Payment** → **Paid** → **Waiting Shipping** → **Shipping** → **Confirmed**, or **Cancelled**. There is no separate payment status. Customers and Admins see the same statuses, in Thai or English. Placing the order (สั่งซื้อ) is the first point on the order's timeline, not a status.
 
-**Pending**:
-Created, stock reserved, waiting for payment. Customers see รอชำระเงิน.
+**Awaiting Payment**:
+Created, units reserved, waiting for the customer to pay. Customers see รอชำระเงิน.
+_Avoid_: Pending, Request Order
 
 **Paid**:
-Stripe confirmed the payment through a verified webhook. Only Stripe can make an order Paid; a person never can. Customers see ชำระแล้ว.
-_Avoid_: Confirmed
+Stripe confirmed the payment through a verified webhook. Only Stripe can make an order Paid; a person never can. Paid is the moment the Owner is alerted to pack the order; until that alert is automated the order moves straight on to Waiting Shipping. Customers see ชำระแล้ว.
+_Avoid_: Paided, Confirmed
 
-**Shipped**:
-Handed to a carrier; has a **Tracking Number**. Customers see จัดส่งแล้ว.
+**Waiting Shipping**:
+Paid and being packed, not yet handed to a carrier. Customers see รอจัดส่ง.
 
-**Delivered**:
-Optional final step after Shipped, set by the admin. Customers see ได้รับสินค้าแล้ว.
+**Shipping**:
+Handed to a carrier by an Admin, who must enter its **Tracking Number**. Customers see จัดส่งแล้ว.
+_Avoid_: Shipped, Delivered
+
+**Confirmed**:
+The customer has received the order: they confirmed it, an Admin confirmed it for them, or 7 days passed after Shipping. The final step; only now do the units leave On Hand and the money count as **Revenue**. Customers see ได้รับสินค้าแล้ว.
+_Avoid_: Delivered, Completed
 
 **Cancelled**:
-Ended without fulfilment. Reserved stock is returned; a Paid order must be refunded first. Customers see ยกเลิกแล้ว, or ยกเลิกและคืนเงินแล้ว when it was refunded.
+Ended without fulfilment, with a **Cancel Reason**. A customer may cancel only while Awaiting Payment; an Admin may cancel while Awaiting Payment, Paid or Waiting Shipping, and a paid order is refunded in full in the same step. Unpaid orders that run out of time to pay are cancelled too. Reserved units return to Available. Customers see ยกเลิกแล้ว, or ยกเลิกและคืนเงินแล้ว when it was refunded.
+
+**Cancel Reason**:
+Why an order was cancelled, shown to the customer. Required whenever an Admin cancels, written once in the Admin's own words; when time to pay runs out the system gives "Payment time expired" itself.
+
+**Admin Note**:
+The Admin's private note on an order, never shown to the customer.
+_Avoid_: Remark, comment
+
+**Revenue**:
+The money the shop has actually earned: the totals customers paid (after discounts, including Shipping Fees) on Confirmed orders only.
+_Avoid_: Sales (which may include unconfirmed orders)
+
+**Notification**:
+A message in a signed-in Member's bell (การแจ้งเตือน), in the site only. Sent when an order is Awaiting Payment, goes Shipping, is still unconfirmed 3 days after Shipping (asking the customer to confirm receipt), or is Cancelled (with the Cancel Reason), and to every Customer when a Promotion starts.
+_Avoid_: Alert (which means the LINE message to the Owner)
 
 **Tracking Number**:
 The carrier's parcel reference entered by the admin when shipping.
@@ -96,7 +146,7 @@ Not covered: a parcel delayed or returned because the customer was unavailable o
 _Avoid_: Health guarantee, 30-day guarantee, DOA (in customer-facing text)
 
 **Refund**:
-Money returned to the customer through the original Stripe payment. A Paid order not yet Shipped can be refunded in full; after Shipped, only under the Live Arrival Guarantee, for unopened gear returned within 7 days (customer pays the return postage, refunded once the shop receives it), or for goods that arrived damaged or wrong. Food and logs/substrate are not returnable otherwise. Live beetles are never refunded for a change of mind.
+Money returned to the customer through the original Stripe payment. An order cancelled before Shipping is refunded in full automatically; once Shipping, a refund is made by hand and only under the Live Arrival Guarantee, for unopened gear returned within 7 days (customer pays the return postage, refunded once the shop receives it), or for goods that arrived damaged or wrong. Food and logs/substrate are not returnable otherwise. Live beetles are never refunded for a change of mind.
 _Avoid_: Return (which is the parcel coming back, not the money)
 
 ### Customers and addresses
@@ -107,6 +157,7 @@ _Avoid_: Client, buyer, account
 
 **Member**:
 Anyone with an account, whatever their role: every Customer and every Admin. The admin's member list shows Members, not only Customers.
+An Admin adds a Member by invitation (the Member sets their own password). Removing a Member who has orders **Deactivates** them (they can no longer sign in, their orders stay); one with no orders is deleted outright. The last Admin can never be removed.
 _Avoid_: Customer (when admins are included), user (when meaning the person rather than the role)
 
 **Admin**:

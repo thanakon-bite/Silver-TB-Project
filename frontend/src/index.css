@@ -26,6 +26,9 @@
   --series-2: 67.1% 0.175 40.6;
   --series-3: 66.9% 0.141 162.1;
   --series-4: 76.4% 0.161 75.1;
+  /* Over photos (hero, image tiles): the same in both themes, because a photo does not change with the theme. */
+  --scrim: 16% 0.012 60;
+  --on-scrim: 98% 0.006 85;
 }
 
 .dark {

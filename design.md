@@ -29,6 +29,7 @@ Never inline hex/OKLCH in components; add a token first.
 | accent-ink | 99% 0.004 85 | 20% 0.02 55 | text on accent-strong (5.2:1 / 7.5:1) |
 | success / danger | 50% .12 150 · 52% .18 28 | 74% .13 150 · 70% .16 28 | "free", errors |
 | series-1…4 | blue · orange · aqua · yellow | same hues stepped for dark | admin chart marks only (Order Status), never text; colour-blind separation checked |
+| scrim / on-scrim | 16% 0.012 60 · 98% 0.006 85 | same (a photo does not change with the theme) | over photos only (hero, image tiles): an even `scrim/60` layer, never a gradient |
 
 Type (Google Fonts, only these weights): display **Noto Serif Thai 700** (`font-display`),
 body **IBM Plex Sans Thai 400–700** (`font-sans`, default), data **IBM Plex Mono 400/500**
@@ -45,10 +46,13 @@ Radius · 12 px (`rounded-xl`) controls and notices · 16 px (`rounded-2xl`) the
 - Destructive · never a solid button. A quiet `muted` text link (hover `danger`) opens an inline
   confirmation: one sentence saying what is lost, then [keep] bordered `line` and [confirm] bordered
   `danger`, with focus on keep. Used for cancelling an order (it releases one-of-a-kind stock).
+  Shared as `dangerLink` / `dangerButton`. When the confirmation needs a typed reason (admin cancel),
+  focus goes to the reason instead; [confirm] stays disabled until it is written.
+  `src/designSystem.test.ts` fails the build on a solid `bg-danger`, a gradient or a raw colour.
 
 ## Shared pieces (use these, don't restyle per page)
 - `component/ui/buttonStyles.ts` · `primaryButton` (full width) / `primaryButtonInline` / `compactButton` (card actions) /
-  `secondaryButton` (bordered) / `iconButton` (40×40, always with aria-label) / `textLink` / `quietLink` / `chip(active)`.
+  `secondaryButton` (bordered) / `dangerLink` + `dangerButton` (destructive) / `iconButton` (40×40, always with aria-label) / `textLink` / `quietLink` / `chip(active)`.
 - `component/ui/fieldStyles.ts` · `fieldClass(err)`, `fieldLabel`, `fieldError`, `fieldHint`. Every input has a visible `<label>`.
 - `component/ui/Feedback.tsx` · `PageHeader` (one `font-display` h1 + line, hairline under), `Notice`, `ErrorBox`, `EmptyState`.
 - `component/products/ProductCard.tsx` · the one product tile (Products and Favorites), photos, heart, stock line.

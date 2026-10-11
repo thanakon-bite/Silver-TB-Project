@@ -41,11 +41,14 @@ LINE   ──signed webhook──▶ /api/notifications/line/webhook (verified, 
 
 | Status | Set by | Meaning |
 |---|---|---|
-| `pending` | `create_order` | Stock reserved, awaiting payment (expires) |
-| `paid` | Stripe webhook only | Paid — the owner gets a LINE alert |
-| `shipped` | Admin (carrier + tracking required) | |
-| `delivered` | Admin | |
+| `awaiting_payment` | `create_order` | Stock reserved, awaiting payment (expires) |
+| `paid` | Stripe webhook only | Paid — the owner gets a LINE alert. Moves straight on to `waiting_shipping` until the LINE OA hand-off is automated |
+| `waiting_shipping` | `mark_order_paid` | Being packed |
+| `shipping` | Admin (carrier + tracking required) | Handed to the carrier |
+| `confirmed` | Customer, admin, or 7 days after shipping | Received; final step |
 | `cancelled` | Customer/admin (unpaid), expiry job, or admin refund | Stock released (refunds: optional) |
+
+There is no separate payment status: `paid_at` and `refunded_at` record the money.
 
 ---
 
@@ -89,13 +92,27 @@ frontend/src/
 ### 1. Supabase
 1. **SQL Editor** → run `backend/src/db/schema.sql` (new projects only), then `seed.sql` (optional sample products).
 2. **SQL Editor** → run the migrations in order: `001_secure_commerce.sql`, `002_spec_alignment.sql`,
-   `003_product_categories.sql`, `004_favorites_rls.sql` (all in `backend/src/db/migrations/`). Each is idempotent and
-   keeps existing data. 003 moves Rhinoceros/Stag/Flower into `attributes.family` and turns other old categories into
+   `003_product_categories.sql`, `004_favorites_rls.sql`, `005_order_flow.sql` (all in `backend/src/db/migrations/`).
+   Each is idempotent and keeps existing data; once 005 has run, don't re-run 001–004 (005 removes `payment_status`). 003 moves Rhinoceros/Stag/Flower into `attributes.family` and turns other old categories into
    `gear` — review those products afterwards.
+   The Shipping Rule lives in the `shipping_tiers` table (one row per Shipping Tier) plus the
+   `free_shipping_threshold` key in `app_settings`; edit it in Admin → Rules, which saves both at once
+   through `set_shipping_rule()`. 005 moves an older `app_settings.shipping_rule` JSON into the table.
 3. Seed Thai addresses (≈7,400 subdistricts): `cd backend && npm run seed:thai-geo`
 4. **Authentication → Providers → Email**: keep *Confirm email* ON. Set minimum password length to 8.
 5. **Authentication → URL Configuration**: Site URL = your storefront URL; add `http://localhost:3000/**` and
-   `https://your-domain/**` to Redirect URLs (needed for email confirmation and password reset).
+   `https://your-domain/**` to Redirect URLs (needed for email confirmation, password reset and Member invitations,
+   which all land on `/reset-password`).
+5a. **Reset / invitation emails (custom SMTP).** Supabase's built-in mailer sends only a few emails per hour and
+   often lands in spam, so "forgot password" seems broken. Set up a real sender:
+   1. Create an SMTP account with a provider (e.g. Resend, Brevo, Mailgun, Amazon SES) and verify your domain there
+      (it gives you DNS records — SPF/DKIM — to add at your domain host).
+   2. Supabase → **Authentication → Emails → SMTP Settings** → *Enable custom SMTP*: host, port (587), username,
+      password from the provider, sender email (e.g. `no-reply@your-domain`) and sender name (`Silver Thief Bug`).
+   3. **Authentication → Rate Limits**: raise "emails per hour" to what you need.
+   4. Optional: **Authentication → Emails → Templates** → *Reset Password* / *Invite user*: write the text in Thai.
+   5. Test: on `/login` choose *ลืมรหัสผ่าน?*, enter your own email, open the link — it should open
+      `/reset-password` with the new-password form. If it says the link is invalid, check step 5's Redirect URLs.
 6. Create your account in the app, then promote yourself:
    ```sql
    UPDATE public.profiles SET role = 'admin'

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Check, ChevronLeft, ChevronRight, Heart, Plus, Star } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight, Heart, Plus, Star, Tag } from 'lucide-react';
 import BeetleMark from '../brand/BeetleMark';
 import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
@@ -37,8 +37,8 @@ export const useAddToCart = () => {
 
   const add = useCallback(
     (p: ShopProduct) => {
-      if (p.stock <= 0 || !requireSignIn()) return;
-      addItem({ product_id: p.id, name: p.name, name_th: p.name_th, price: p.price, image: p.images?.[0] || '', max_quantity: p.stock });
+      if (p.available <= 0 || !requireSignIn()) return;
+      addItem({ product_id: p.id, name: p.name, name_th: p.name_th, price: p.price, image: p.images?.[0] || '', max_quantity: p.available });
       setAdded(p.id);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => setAdded(null), 1600);
@@ -134,13 +134,15 @@ interface CardProps {
   onOpen?: (p: ShopProduct) => void;
   onAdd: (p: ShopProduct) => void;
   justAdded: boolean;
+  /** Short text for the Promotion this product is in, e.g. "ซื้อ 3 ลด 10%". */
+  promotionBadge?: string | null;
 }
 
-const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded }) => {
+const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded, promotionBadge }) => {
   const { t } = useTranslation();
   const text = useProductText();
   const name = text.name(product);
-  const soldOut = product.stock <= 0;
+  const soldOut = product.available <= 0;
 
   return (
     <article className="group flex flex-col rounded-xl border border-line bg-paper p-3 transition-colors hover:border-muted motion-reduce:transition-none">
@@ -156,6 +158,12 @@ const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded })
           </span>
         )}
         <FavoriteButton product={product} className="absolute right-2 top-2" />
+        {promotionBadge && !soldOut && (
+          <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded-lg bg-accent-strong px-2 py-1 text-xs font-semibold text-accent-ink">
+            <Tag className="h-3 w-3" aria-hidden />
+            {promotionBadge}
+          </span>
+        )}
         {soldOut && (
           <div className="absolute inset-0 flex items-center justify-center bg-ink/45">
             <span className="rounded-lg bg-paper px-3 py-1 text-sm font-semibold text-ink">{t('sold_out')}</span>
@@ -179,7 +187,7 @@ const ProductCard: React.FC<CardProps> = ({ product, onOpen, onAdd, justAdded })
         <div className="mt-auto flex flex-col gap-2 pt-3 sm:flex-row sm:items-end sm:justify-between">
           <div>
             <p className="font-mono text-lg font-medium tabular-nums text-ink">{baht(product.price)}</p>
-            <StockLine stock={product.stock} />
+            <StockLine stock={product.available} />
           </div>
           <button
             type="button"

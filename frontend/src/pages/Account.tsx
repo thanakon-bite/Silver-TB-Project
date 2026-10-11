@@ -10,7 +10,7 @@ import { useAuth } from '../contexts/AuthContext';
 import Modal from '../component/common/Modal';
 import AddressForm, { addressToForm, emptyAddress, pruneErrors, toAddressPayload, validateAddress, AddressFormValue } from '../component/address/AddressForm';
 import { ErrorBox, Notice, PageHeader } from '../component/ui/Feedback';
-import { primaryButton, primaryButtonInline, secondaryButton, textLink } from '../component/ui/buttonStyles';
+import { dangerButton, primaryButton, primaryButtonInline, secondaryButton, textLink } from '../component/ui/buttonStyles';
 import { fieldClass, fieldLabel } from '../component/ui/fieldStyles';
 
 const sectionTitle = 'font-display text-xl font-bold text-ink';
@@ -67,7 +67,7 @@ const AddressItem: React.FC<{
               type="button"
               onClick={() => run(onDelete)}
               disabled={busy}
-              className="inline-flex items-center rounded-xl border border-danger/40 px-4 py-2.5 text-sm font-semibold text-danger hover:bg-danger/5 disabled:opacity-60"
+              className={dangerButton}
             >
               {busy ? t('account_page.deleting') : t('account_page.delete_confirm')}
             </button>

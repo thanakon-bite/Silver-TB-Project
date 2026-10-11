@@ -22,13 +22,16 @@ const authenticate = async (req, res, next) => {
 
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('id, role, full_name, phone')
+      .select('id, role, full_name, phone, deactivated_at')
       .eq('id', data.user.id)
       .maybeSingle();
 
     if (profileError) return next(profileError);
     if (!profile) return res.status(403).json({ error: 'Account profile not found' });
+    // A removed Member who has orders is Deactivated (CONTEXT.md): their old sessions stop working too.
+    if (profile.deactivated_at) return res.status(403).json({ error: 'This account has been deactivated', code: 'ACCOUNT_DEACTIVATED' });
 
+    delete profile.deactivated_at;
     req.user = { ...profile, email: data.user.email };
     next();
   } catch (err) {

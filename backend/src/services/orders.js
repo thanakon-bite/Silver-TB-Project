@@ -10,8 +10,10 @@ const supabase = require('../config/supabase');
 const stripe = require('../config/stripe');
 const line = require('../lib/line');
 const { conflict, unwrap } = require('../lib/http');
+const { AUTO_CONFIRM_DAYS, CONFIRM_REQUEST_DAYS } = require('../lib/orderStatus');
 
-const ORDER_WITH_ITEMS = '*, order_items(id, product_id, product_name, product_image, unit_price, quantity, line_total)';
+const ORDER_WITH_ITEMS =
+  '*, order_items(id, product_id, product_name, product_image, unit_price, quantity, line_total, list_price, discount_per_unit, promotion_id, is_gift)';
 
 async function getOrderWithItems(orderId) {
   const { data, error } = await supabase.from('orders').select(ORDER_WITH_ITEMS).eq('id', orderId).maybeSingle();
@@ -28,7 +30,7 @@ async function notifyAdminsOrderPaid(orderId) {
     .from('orders')
     .update({ admin_notified_at: new Date().toISOString() })
     .eq('id', orderId)
-    .eq('payment_status', 'paid')
+    .not('paid_at', 'is', null)
     .is('admin_notified_at', null)
     .select('id');
   if (error) throw new Error(error.message);
@@ -169,14 +171,26 @@ async function cancelUnpaidOrder(order, reason) {
   return unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason }));
 }
 
+/**
+ * Admin cancels a paid order (Paid / Waiting Shipping): full refund through Stripe first, then cancel.
+ * If the refund fails nothing changes, so the money and the Order Status never disagree.
+ */
+async function refundAndCancel(order, reason) {
+  if (!order.stripe_payment_intent_id) throw conflict('No Stripe payment is linked to this order');
+  await stripe.refunds.create(
+    { payment_intent: order.stripe_payment_intent_id, reason: 'requested_by_customer', metadata: { order_id: order.id } },
+    { idempotencyKey: `refund-${order.id}` }
+  );
+  return unwrap(await supabase.rpc('cancel_order', { p_order_id: order.id, p_reason: reason, p_refunded: true }));
+}
+
 /** One open checkout per customer: release their other unpaid orders before reserving new stock. */
 async function releaseOtherPendingOrders(userId, keepRequestId) {
   const { data: pending, error } = await supabase
     .from('orders')
-    .select('id, order_number, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id, client_request_id, expires_at')
+    .select('id, order_number, status, stripe_payment_intent_id, stripe_checkout_session_id, client_request_id, expires_at')
     .eq('user_id', userId)
-    .eq('status', 'pending')
-    .in('payment_status', ['unpaid', 'failed']);
+    .eq('status', 'awaiting_payment');
   if (error) throw new Error(error.message);
 
   for (const order of pending || []) {
@@ -200,9 +214,8 @@ async function releaseOtherPendingOrders(userId, keepRequestId) {
 async function expireStaleOrders() {
   const { data: stale, error } = await supabase
     .from('orders')
-    .select('id, order_number, status, payment_status, stripe_payment_intent_id, stripe_checkout_session_id, expires_at')
-    .eq('status', 'pending')
-    .in('payment_status', ['unpaid', 'failed'])
+    .select('id, order_number, status, stripe_payment_intent_id, stripe_checkout_session_id, expires_at')
+    .eq('status', 'awaiting_payment')
     .lt('expires_at', new Date().toISOString())
     .limit(50);
   if (error) throw new Error(error.message);
@@ -221,6 +234,27 @@ async function expireStaleOrders() {
   return expired;
 }
 
+/** Background job: Shipping orders nobody confirmed within AUTO_CONFIRM_DAYS become Confirmed. */
+async function autoConfirmOrders() {
+  const { data, error } = await supabase.rpc('auto_confirm_orders', { p_days: AUTO_CONFIRM_DAYS });
+  if (error) throw new Error(error.message);
+  return data || 0;
+}
+
+/** Background job: one "please confirm receipt" Notification for orders still Shipping after CONFIRM_REQUEST_DAYS. */
+async function sendConfirmRequests() {
+  const { data, error } = await supabase.rpc('send_confirm_requests', { p_days: CONFIRM_REQUEST_DAYS });
+  if (error) throw new Error(error.message);
+  return data || 0;
+}
+
+/** Background job: every Promotion that has started is announced once to every active Customer. */
+async function announcePromotions() {
+  const { data, error } = await supabase.rpc('announce_started_promotions');
+  if (error) throw new Error(error.message);
+  return data || 0;
+}
+
 /** Background job: retry LINE notifications for paid orders that were not delivered. */
 async function retryAdminNotifications() {
   if (!line.isConfigured()) return 0;
@@ -228,7 +262,7 @@ async function retryAdminNotifications() {
   const { data, error } = await supabase
     .from('orders')
     .select('id')
-    .eq('payment_status', 'paid')
+    .not('paid_at', 'is', null)
     .is('admin_notified_at', null)
     .gte('paid_at', since)
     .limit(20);
@@ -252,8 +286,15 @@ function startOrderJobs({ intervalMs = 60_000 } = {}) {
     running = true;
     try {
       const expired = await expireStaleOrders();
+      const asked = await sendConfirmRequests();
+      const confirmed = await autoConfirmOrders();
+      const announced = await announcePromotions();
       const notified = await retryAdminNotifications();
-      if (expired || notified) console.log(`🧹 jobs: expired ${expired} order(s), sent ${notified} LINE notification(s)`);
+      if (expired || asked || confirmed || announced || notified) {
+        console.log(
+          `🧹 jobs: expired ${expired}, asked ${asked} to confirm, auto-confirmed ${confirmed} order(s), announced ${announced} promotion(s), sent ${notified} LINE notification(s)`
+        );
+      }
     } catch (err) {
       console.error('Order job error:', err.message);
     } finally {
@@ -273,8 +314,12 @@ module.exports = {
   markPaidFromIntent,
   markPaidFromCheckoutSession,
   cancelUnpaidOrder,
+  refundAndCancel,
   releaseOtherPendingOrders,
   expireStaleOrders,
+  autoConfirmOrders,
+  sendConfirmRequests,
+  announcePromotions,
   retryAdminNotifications,
   startOrderJobs,
 };

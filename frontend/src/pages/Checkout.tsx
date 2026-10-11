@@ -9,6 +9,8 @@ import { api, ApiError } from '../lib/api';
 import { errorMessage } from '../lib/errorMessage';
 import { formatAddressLines, uuidv4 } from '../lib/format';
 import type { Address, Order } from '../lib/types';
+import { pricingBody, usePricedCart } from '../lib/usePricedCart';
+import { readGiftChoices } from '../lib/giftChoices';
 import AddressForm, { emptyAddress, validateAddress, pruneErrors, toAddressPayload, AddressFormValue } from '../component/address/AddressForm';
 import PaymentStep from '../component/checkout/PaymentStep';
 import { CheckoutHeader, CheckoutFooter } from '../component/checkout/FocusedChrome';
@@ -51,7 +53,7 @@ const optionClass = (active: boolean) =>
   }`;
 
 const Checkout = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const text = useProductText();
   const { items, totalPrice } = useCart();
   const { user } = useAuth();
@@ -65,7 +67,6 @@ const Checkout = () => {
   const [saveAddress, setSaveAddress] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
-  const [shippingFee, setShippingFee] = useState<number | null>(null);
   const [orderError, setOrderError] = useState('');
   const [reservationExpired, setReservationExpired] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -83,10 +84,6 @@ const Checkout = () => {
         if (list.length) setSelected((list.find((a) => a.is_default) || list[0]).id);
       })
       .catch(() => setAddresses([]));
-    api
-      .get<{ shipping_fee: number }>('/orders/shipping-fee')
-      .then((r) => setShippingFee(Number(r.shipping_fee)))
-      .catch(() => setShippingFee(null));
   }, []);
 
   // Each step starts at the top of the page, not wherever the previous step was scrolled to.
@@ -98,6 +95,11 @@ const Checkout = () => {
     () => JSON.stringify([...items].sort((a, b) => a.product_id.localeCompare(b.product_id)).map((i) => [i.product_id, i.quantity])),
     [items]
   );
+
+  // Before the order exists, the server prices the Cart (Shipping Rule, Promotions, the Gifts picked in the Cart)
+  // so the summary matches what will be charged.
+  const [giftChoices] = useState(readGiftChoices);
+  const priced = usePricedCart(items, true, giftChoices);
 
   const updateForm = (next: AddressFormValue) => {
     setErrors((e) => pruneErrors(e, form, next));
@@ -123,10 +125,7 @@ const Checkout = () => {
     }
 
     const signature = `${cartSignature}|${JSON.stringify(shipping)}`;
-    const body = {
-      items: items.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
-      ...shipping,
-    };
+    const body = { ...pricingBody(items, giftChoices), ...shipping };
 
     setSubmitting(true);
     setOrderError('');
@@ -168,20 +167,34 @@ const Checkout = () => {
       <OrderSummary
         lines={order.order_items.map((i) => ({
           key: i.id,
-          name: i.product_name,
+          name: i.is_gift ? `${i.product_name} (${t('promotions.gift_label')})` : i.product_name,
           quantity: i.quantity,
           amount: i.line_total,
           image: i.product_image || imageOf(i.product_id),
+          free: !!i.is_gift,
         }))}
         shippingFee={order.shipping_fee}
+        discount={order.discount_total}
         total={order.total}
         totalLabel={t('checkout_page.total')}
       />
     ) : (
       <OrderSummary
-        lines={items.map((i) => ({ key: i.product_id, name: text.name(i), quantity: i.quantity, amount: i.price * i.quantity, image: i.image }))}
-        shippingFee={shippingFee}
-        total={totalPrice + (shippingFee || 0)}
+        lines={[
+          ...items.map((i) => ({ key: i.product_id, name: text.name(i), quantity: i.quantity, amount: i.price * i.quantity, image: i.image })),
+          ...(priced?.gifts || [])
+            .filter((g) => g.quantity > 0)
+            .map((g) => ({
+              key: `gift-${g.promotion_id}`,
+              name: `${(i18n.language || 'th').startsWith('th') ? g.name_th_product || g.name : g.name} (${t('promotions.gift_label')})`,
+              quantity: g.quantity,
+              amount: 0,
+              free: true,
+            })),
+        ]}
+        shippingFee={priced ? priced.shipping_fee : null}
+        discount={priced?.discount_total}
+        total={priced ? priced.total : totalPrice}
         totalLabel={t('checkout_page.estimated_total')}
         note={t('checkout_page.summary_note')}
       />

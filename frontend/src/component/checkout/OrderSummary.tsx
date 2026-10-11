@@ -9,6 +9,8 @@ export interface SummaryLine {
   quantity: number;
   amount: number | string;
   image?: string;
+  /** A Gift: shown as free instead of ฿0. */
+  free?: boolean;
 }
 
 interface Props {
@@ -18,13 +20,15 @@ interface Props {
   total: number | string;
   totalLabel: string;
   note?: string;
+  /** Promotion discount already taken off the lines; shown when above zero. */
+  discount?: number | string | null;
 }
 
 /**
  * What the customer is paying for. Beside the form on wide screens (sticky); folded into a bar with
  * the total on small screens, so the form comes first but the amount is never out of sight.
  */
-const OrderSummary: React.FC<Props> = ({ lines, shippingFee, total, totalLabel, note }) => {
+const OrderSummary: React.FC<Props> = ({ lines, shippingFee, total, totalLabel, note, discount }) => {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const panelId = useId();
@@ -62,11 +66,21 @@ const OrderSummary: React.FC<Props> = ({ lines, shippingFee, total, totalLabel, 
                 <span className="block truncate">{l.name}</span>
                 <span className="font-mono text-xs text-muted">×{l.quantity}</span>
               </span>
-              <span className="font-mono text-sm tabular-nums text-ink">{baht(l.amount)}</span>
+              {l.free ? (
+                <span className="text-sm font-medium text-success">{t('checkout_page.free')}</span>
+              ) : (
+                <span className="font-mono text-sm tabular-nums text-ink">{baht(l.amount)}</span>
+              )}
             </li>
           ))}
         </ul>
         <dl className="mt-4 space-y-2 border-t border-line pt-4 text-sm">
+          {Number(discount) > 0 && (
+            <div className="flex justify-between text-accent-strong">
+              <dt>{t('promotions.discount')}</dt>
+              <dd className="font-mono tabular-nums">−{baht(discount)}</dd>
+            </div>
+          )}
           <div className="flex justify-between text-muted">
             <dt>{t('checkout_page.shipping_fee')}</dt>
             <dd className="font-mono tabular-nums">{fee}</dd>

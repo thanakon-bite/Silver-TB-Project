@@ -35,6 +35,9 @@ const DB_ERRORS = {
   INVALID_DELTA: [400, () => 'Stock adjustment must be a non-zero whole number.'],
   PRODUCT_NOT_FOUND: [404, () => 'Product not found.'],
   STOCK_BELOW_ZERO: [409, () => 'Stock cannot go below zero.'],
+  INVALID_DISCOUNT: [500, () => 'A discount did not match its Promotion.'],
+  PROMOTION_UNAVAILABLE: [409, () => 'A promotion in your cart has just ended. Please review your cart.'],
+  PROMOTION_LIMIT_REACHED: [409, (d) => `The promotion${d ? ` "${d}"` : ''} has reached its limit. Please review your cart.`],
 };
 
 /** Convert a Supabase/PostgREST error into an HttpError (or a generic 500). */
