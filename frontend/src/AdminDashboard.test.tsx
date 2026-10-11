@@ -48,7 +48,7 @@ const stats = (overrides = {}) => ({
 });
 
 const product = (id: string, name: string, is_active = true) => ({
-  id, name, name_th: null, description: null, description_th: null, price: 3200, on_hand: 6, available: 5, in_transit: 1, category: 'beetle',
+  id, name, name_th: null, description: null, description_th: null, price: 3200, on_hand: 6, available: 5, in_progress: 1, category: 'beetle',
   attributes: {}, images: [], is_best_seller: false, is_active, views: 0, created_at: '2026-10-01T00:00:00Z',
 });
 
@@ -344,16 +344,16 @@ test('Orders shows 10 per page with a pager', async () => {
 });
 
 describe('Products & stock', () => {
-  test('each product shows On Hand, Available and In Transit', async () => {
+  test('each product shows On Hand, Count Qty and In progress', async () => {
     renderAdmin();
     await openTab('Products & stock');
     const row = await screen.findByRole('row', { name: /Atlas beetle/ });
     expect(screen.getByRole('columnheader', { name: 'On Hand' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'Available' })).toBeInTheDocument();
-    expect(screen.getByRole('columnheader', { name: 'In transit' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Count Qty' })).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'In progress' })).toBeInTheDocument();
     expect(within(row).getByLabelText('On Hand')).toHaveTextContent('6');
-    expect(within(row).getByLabelText('Available')).toHaveTextContent('5');
-    expect(within(row).getByLabelText('In transit')).toHaveTextContent('1');
+    expect(within(row).getByLabelText('Count Qty')).toHaveTextContent('5');
+    expect(within(row).getByLabelText('In progress')).toHaveTextContent('1');
     expect(screen.queryByText(/Onhand|Stockmove/)).not.toBeInTheDocument();
   });
 
@@ -373,7 +373,7 @@ describe('Products & stock', () => {
     expect(seen.opts.html).toContain('min="1"');
     expect(Swal.showValidationMessage).toHaveBeenCalledWith("Can't go below 1: customers have reserved them");
     await waitFor(() => expect(within(row).getByLabelText('On Hand')).toHaveTextContent('9'));
-    expect(within(row).getByLabelText('Available')).toHaveTextContent('8');
+    expect(within(row).getByLabelText('Count Qty')).toHaveTextContent('8');
   });
 
   test('a count the server refuses as below Reserved says the minimum', async () => {
@@ -388,7 +388,7 @@ describe('Products & stock', () => {
     expect(within(row).getByLabelText('On Hand')).toHaveTextContent('6');
   });
 
-  test('the history icon after Edit opens the Stock History, newest first, a page at a time', async () => {
+  test('the history icon after Edit opens the Stock Move History, newest first, a page at a time', async () => {
     const change = (id: number, over: Record<string, unknown>) => ({
       id, kind: 'set_on_hand', on_hand_delta: 0, available_delta: 0, on_hand_after: 6, available_after: 5, note: null,
       created_at: '2026-10-11T03:00:00Z', order_number: null, actor: null, ...over,
@@ -407,10 +407,10 @@ describe('Products & stock', () => {
     await openTab('Products & stock');
     const row = await screen.findByRole('row', { name: /Atlas beetle/ });
     const buttons = within(row).getAllByRole('button').map((b) => b.getAttribute('aria-label'));
-    expect(buttons.indexOf('Stock History of Atlas beetle')).toBe(buttons.indexOf('Edit Atlas beetle') + 1);
+    expect(buttons.indexOf('Stock Move History of Atlas beetle')).toBe(buttons.indexOf('Edit Atlas beetle') + 1);
 
-    userEvent.click(within(row).getByRole('button', { name: 'Stock History of Atlas beetle' }));
-    const dialog = within(await screen.findByRole('dialog', { name: 'Stock History — Atlas beetle' }));
+    userEvent.click(within(row).getByRole('button', { name: 'Stock Move History of Atlas beetle' }));
+    const dialog = within(await screen.findByRole('dialog', { name: 'Stock Move History — Atlas beetle' }));
     const rows = await dialog.findAllByRole('row');
     expect(rows).toHaveLength(4);
     expect(rows[1]).toHaveTextContent('On Hand set');
@@ -992,7 +992,7 @@ describe('Categories', () => {
     (api.delete as jest.Mock).mockRejectedValue(new ApiError('1 beetle(s) still have this Family', 409, 'FAMILY_IN_USE', { count: 1 }));
     const Swal = jest.requireMock('sweetalert2').default;
     await openCategories();
-    const families = within(screen.getByRole('region', { name: 'Beetle Families' }));
+    const families = within(screen.getByRole('region', { name: 'Subcategories' }));
     await families.findByRole('row', { name: /Rhinoceros/ });
 
     Swal.fire.mockResolvedValueOnce({ isConfirmed: true, value: '  Stag ' });

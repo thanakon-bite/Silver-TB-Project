@@ -373,7 +373,7 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
                   <span aria-label={t('admin.products.available_label')} className={`font-semibold font-mono tabular-nums ${p.available === 0 ? 'text-danger' : p.available <= 2 ? 'text-accent-strong' : 'text-ink'}`}>{p.available}</span>
                 </td>
                 <td className="p-3 text-center">
-                  <span aria-label={t('admin.products.in_transit')} className="font-mono tabular-nums text-muted">{p.in_transit ?? 0}</span>
+                  <span aria-label={t('admin.products.in_transit')} className="font-mono tabular-nums text-muted">{p.in_progress ?? 0}</span>
                 </td>
                 <td className="p-3 whitespace-nowrap">
                   <ActiveSwitch product={p} onToggle={toggleActive} />

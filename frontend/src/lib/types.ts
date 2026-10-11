@@ -27,7 +27,7 @@ export interface Product {
   available: number;
   // admin-only
   on_hand?: number;
-  in_transit?: number;
+  in_progress?: number;
   category: ProductCategory;
   attributes?: BeetleAttributes;
   images: string[];

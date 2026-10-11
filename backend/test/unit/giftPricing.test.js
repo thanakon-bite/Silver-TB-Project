@@ -91,6 +91,10 @@ test('a Promotion may give a gift with no discount, and needs gift products when
   assert.match(validatePromotion({ ...base, gift_every: 2, gift_quantity: 1, gift_product_ids: [] }).reason, /gift product/);
   assert.match(validatePromotion({ ...base, gift_every: 2, gift_quantity: '' }).reason, /gift/);
   assert.match(validatePromotion({ ...base }).reason, /discount or a gift/);
+  // A started Promotion whose gift products were all deleted can still save its other fields
+  const orphan = validatePromotion({ ...base, gift_every: 1, gift_quantity: 1, gift_product_ids: [] }, { giftProductsGone: true });
+  assert.equal(orphan.ok, true);
+  assert.deepEqual(orphan.promotion.gift_product_ids, []);
 });
 
 test('two Stackable Promotions giving the same gift product give one gift line each, sharing its Available', () => {

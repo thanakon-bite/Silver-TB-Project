@@ -23,10 +23,12 @@ const limit = (v) => {
 };
 
 /**
- * Validates and normalises an admin's Promotion form.
+ * Validates and normalises an admin's Promotion form. `giftProductsGone`: a started Promotion whose gift
+ * products were all deleted keeps its gift numbers without any ticked product, so its names, end date and
+ * on/off can still be saved (the gift fields are locked by then and cannot be fixed).
  * @returns {{ ok: true, promotion: object } | { ok: false, reason: string }}
  */
-function validatePromotion(body, { requireBenefit = true } = {}) {
+function validatePromotion(body, { requireBenefit = true, giftProductsGone = false } = {}) {
   const fail = (reason) => ({ ok: false, reason });
   if (!body || typeof body !== 'object') return fail('Promotion is required');
 
@@ -76,7 +78,7 @@ function validatePromotion(body, { requireBenefit = true } = {}) {
       return fail('A gift needs both "every X units" and "Y free", as whole numbers from 1');
     }
     gift_product_ids = [...new Set(Array.isArray(body.gift_product_ids) ? body.gift_product_ids : [])];
-    if (gift_product_ids.length === 0 || gift_product_ids.some((id) => !UUID.test(String(id)))) {
+    if (gift_product_ids.some((id) => !UUID.test(String(id))) || (gift_product_ids.length === 0 && !giftProductsGone)) {
       return fail('Tick at least one gift product');
     }
   }

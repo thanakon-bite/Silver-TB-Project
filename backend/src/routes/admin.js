@@ -293,10 +293,11 @@ router.patch(
     const id = v.uuid(req.params.id, 'id');
     const existing = await promotionsService.getOne(id);
     if (!existing) throw notFound('Promotion not found');
-    const check = validatePromotion(req.body);
+    const locked = editablePromotionFields(existing, new Date());
+    const giftProductsGone = Boolean(locked && existing.gift_every && existing.gift_product_ids.length === 0);
+    const check = validatePromotion(req.body, { giftProductsGone });
     if (!check.ok) throw badRequest(check.reason, 'INVALID_PROMOTION');
     const p = check.promotion;
-    const locked = editablePromotionFields(existing, new Date());
     if (locked) {
       const changed = lockedFieldsChanged(existing, p);
       if (changed.length) {

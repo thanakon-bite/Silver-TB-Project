@@ -72,19 +72,19 @@ router.get(
     const { data, error, count } = await query.range(from, to);
     if (error) throw error;
 
-    // In Transit: units in Shipping orders, still On Hand but no longer on the shelf
-    const inTransit = {};
+    // In progress: units in every open order (Awaiting Payment through Shipping), so On Hand - In progress = Available
+    const inProgress = {};
     if (data.length) {
       const lines = unwrap(
         await supabase
           .from('order_items')
           .select('product_id, quantity, orders!inner(status)')
-          .eq('orders.status', 'shipping')
+          .in('orders.status', ['awaiting_payment', 'paid', 'waiting_shipping', 'shipping'])
           .in('product_id', data.map((p) => p.id))
       );
-      for (const l of lines) inTransit[l.product_id] = (inTransit[l.product_id] || 0) + l.quantity;
+      for (const l of lines) inProgress[l.product_id] = (inProgress[l.product_id] || 0) + l.quantity;
     }
-    res.json({ products: data.map((p) => ({ ...p, in_transit: inTransit[p.id] || 0 })), total: count, page, limit });
+    res.json({ products: data.map((p) => ({ ...p, in_progress: inProgress[p.id] || 0 })), total: count, page, limit });
   })
 );
 
