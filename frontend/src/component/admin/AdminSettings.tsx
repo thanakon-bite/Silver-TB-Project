@@ -260,7 +260,7 @@ const LineRecipients: React.FC<{ onChange: (count: number) => void }> = ({ onCha
 };
 
 const AdminSettings: React.FC = () => {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const [line, setLine] = useState<LineStatus | null>(null);
   const [events, setEvents] = useState<PaymentEvent[]>([]);
   const [sending, setSending] = useState(false);

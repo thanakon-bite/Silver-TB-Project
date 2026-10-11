@@ -174,6 +174,9 @@ cd frontend && npm install && cp .env.example .env
 npm start                                             # http://localhost:3000
 ```
 
+## Deploy
+Free hosting (Render for the API via `render.yaml`, Vercel for the shop via `frontend/vercel.json`): step by step in [docs/deploy.md](docs/deploy.md).
+
 ## Environment variables
 
 **backend/.env** (server only)
