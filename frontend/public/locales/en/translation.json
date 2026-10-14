@@ -3,7 +3,7 @@
   "home": "Home",
   "shop": "Shop",
   "products": "Products",
-  "about": "About",
+  "about": "About us",
   "contact": "Contact",
   "favorites": "Favorites",
   "login": "Login",
@@ -82,8 +82,6 @@
   "payment": "Payment",
   "pending": "Pending",
   "confirmed": "Confirmed",
-  "shipped": "Shipped",
-  "delivered": "Delivered",
   "cancelled": "Cancelled",
   "no_orders_found": "No orders found.",
   "shipping_details_step": "1. Shipping Details",
@@ -104,10 +102,10 @@
   "in_stock": "in stock",
   "available": "available",
   "views": "Views:",
-  "health_guarantee": "Health Guarantee",
-  "health_guarantee_desc": "Every beetle comes with a 30-day live arrival guarantee.",
-  "express_shipping": "Express Shipping",
-  "express_shipping_desc": "Secure, climate-controlled packaging for safe delivery.",
+  "health_guarantee": "Live Arrival Guarantee",
+  "health_guarantee_desc": "If a beetle dies in transit, we replace or refund it. Film the unboxing and tell us within 2 hours.",
+  "express_shipping": "Sent out on beetle-safe days",
+  "express_shipping_desc": "Live beetles ship Monday to Wednesday, never sitting in a depot over a weekend.",
   "expert_bred": "Expert Bred",
   "expert_bred_desc": "Professional breeding stock sourced from top collectors.",
   "understanding_beetle": "Understanding your beetle is the key to successful keeping. Here's what every enthusiast should know.",
@@ -123,15 +121,14 @@
   "community_desc": "Stay updated on new arrivals, live sales, and beetle care tips.",
   "ready_to_start_desc": "Browse our curated selection of premium exotic beetles, from rare rhinoceros beetles to stunning stag beetles.",
   "footer_desc": "The premium destination for exotic beetle enthusiasts. Quality breeding and rare specimens from around the world.",
-  "shop_all_beetle": "Shop All Bettle",
+  "shop_all_beetle": "Shop all products",
   "our_story": "Our Story",
   "membership": "Membership",
   "support": "Support",
   "terms_of_service": "Terms of Service",
   "contact_us": "Contact Us",
-  "address_123": "Silver Thief Bug Farm, Lamnarai, Chaibadan, Lopburi 15130",
   "hero_desc_long": "The premier destination for exotic beetle enthusiasts. Professionally bred, health-guaranteed, and shipped safely across Thailand.",
-  "all_rights_reserved": "SILVER THIEF BUG. ALL RIGHTS RESERVED.",
+  "all_rights_reserved": "Silver Thief Bug. All rights reserved.",
   "fb_main_page": "Main Page",
   "fb_main_desc": "Follow for breeding updates & new arrivals",
   "fb_community": "Community Group",
@@ -144,5 +141,1081 @@
   "add_btn": "Add",
   "Rhinoceros": "Rhinoceros",
   "Stag": "Stag",
-  "Flower": "Flower"
+  "Flower": "Flower",
+  "beetle": "Beetles",
+  "food": "Food",
+  "log": "Logs & substrate",
+  "gear": "Gear",
+  "species": "Species",
+  "locality": "Locality",
+  "sex": "Sex",
+  "stage": "Stage",
+  "size": "Size",
+  "sex_male": "Male",
+  "sex_female": "Female",
+  "sex_pair": "Pair (1♂ 1♀)",
+  "sex_trio": "Trio (1♂ 2♀)",
+  "sex_unsexed": "Unsexed",
+  "stage_egg": "Egg",
+  "stage_L1": "Larva L1",
+  "stage_L2": "Larva L2",
+  "stage_L3": "Larva L3",
+  "stage_pupa": "Pupa",
+  "stage_adult": "Adult",
+  "checkout_page": {
+    "step_address": "Shipping address",
+    "step_payment": "Payment",
+    "address_title": "Shipping address",
+    "payment_title": "Review and pay",
+    "loading_addresses": "Loading your addresses…",
+    "default_address": "Default",
+    "new_address": "Ship to a new address",
+    "save_address": "Save this address to my account",
+    "summary": "Order summary",
+    "items_total": "Items",
+    "shipping_fee": "Shipping",
+    "free": "Free",
+    "estimated_total": "Estimated total",
+    "total": "Total",
+    "summary_note": "Prices and stock are checked again when you continue.",
+    "reserving": "Reserving your items…",
+    "continue": "Continue to payment",
+    "order_number": "Order {{number}}",
+    "change_address": "Change address",
+    "pay_later": "You can also finish paying later from",
+    "my_orders": "My orders",
+    "place_error": "Could not place order",
+    "expired_title": "Reservation expired",
+    "expired_text": "Your reservation timed out. Please place the order again.",
+    "reserved_for": "Your items are reserved for",
+    "opening_payment": "Opening secure payment…",
+    "pay_button": "Pay {{amount}}",
+    "pay_note": "You will pay on Stripe’s secure page, then come back here. We never see your card details.",
+    "edit_cart": "Edit cart",
+    "contact_shop": "Contact the shop",
+    "show_summary": "Show order summary",
+    "hide_summary": "Hide order summary",
+    "pay_methods": "Card / PromptPay",
+    "place_error_hint": "Edit your cart and try again. If it still fails, contact the shop."
+  },
+  "address_form": {
+    "recipient": "Recipient",
+    "phone": "Phone",
+    "address_line": "Address",
+    "address_placeholder": "House no., village no., soi, road, building…",
+    "province": "Province",
+    "district": "District",
+    "subdistrict": "Subdistrict",
+    "postal_code": "Postal code",
+    "choose_province": "Choose province…",
+    "choose_district": "Choose district…",
+    "choose_subdistrict": "Choose subdistrict…",
+    "choose_for_postal": "Choose your subdistrict for {{code}}:",
+    "label": "Label (optional)",
+    "label_placeholder": "Home, Office…",
+    "provinces_error": "Could not load provinces. Please refresh the page.",
+    "err_recipient": "Enter the recipient’s name",
+    "err_phone": "Enter a Thai phone number, e.g. 0812345678",
+    "err_address_line": "Enter the house number and street",
+    "err_subdistrict": "Choose province, district and subdistrict",
+    "err_postal": "Postal code must be 5 digits"
+  },
+  "api_errors": {
+    "NETWORK": "Cannot reach the shop. Check your connection and try again.",
+    "INVALID_ITEMS": "Your cart is empty or invalid.",
+    "INVALID_QUANTITY": "Each quantity must be between 1 and 99.",
+    "INVALID_ADDRESS": "The shipping address is invalid.",
+    "PRODUCT_UNAVAILABLE": "A product in your cart is no longer available.",
+    "INSUFFICIENT_STOCK": "Some products in your cart are short on stock. Lower the quantity or remove them.",
+    "ORDER_EXPIRED": "Your reservation expired. Please place the order again.",
+    "ALREADY_PAID": "This order is already paid.",
+    "PAYMENT_PROCESSING": "Your payment is processing. Wait a moment, then check My orders.",
+    "PAYMENT_IN_PROGRESS": "Payment is already being set up for this order. Please refresh.",
+    "AMOUNT_MISMATCH": "The order total changed. Please place the order again.",
+    "PAYMENT_PROVIDER": "Payments are temporarily unavailable. Please try again shortly.",
+    "ORDER_NOT_CANCELLABLE": "Only unpaid orders can be cancelled. Contact the shop about a paid order.",
+    "ORDER_NOT_CONFIRMABLE": "Only orders in Shipping can be confirmed as received.",
+    "BELOW_MINIMUM_TOTAL": "An order must come to at least ฿10 to be paid by card or PromptPay. Add a little more to your cart.",
+    "PROMOTION_LOCKED": "This promotion has started: only its names, end date and on/off can change. Reload to see what is saved.",
+    "RESERVED_CANCEL_REASON": "That reason is one the system uses. Write it in your own words.",
+    "CATEGORY_IN_USE": "Products still in this Category: {{count}}. Move them to another Category first",
+    "FAMILY_IN_USE": "Beetles still in this Family: {{count}}. Change their Family first",
+    "SYSTEM_CATEGORY": "The beetle Category can be renamed but not deleted",
+    "BELOW_RESERVED": "On Hand can't go below {{reserved}}: customers have reserved them",
+    "UNKNOWN_CATEGORY": "Choose one of the shop's Categories",
+    "UNKNOWN_FAMILY": "Choose one of the shop's Families",
+    "LINE_FOLLOWERS_UNAVAILABLE": "LINE lists followers only for verified or premium Official Accounts. Use the webhook instead: point the Webhook URL in LINE Developers at the server (use ngrok when running on your own machine), then have each recipient message the OA once."
+  },
+  "order_status": {
+    "awaiting_payment": "Awaiting payment",
+    "paid": "Paid",
+    "waiting_shipping": "Waiting shipping",
+    "shipping": "Shipping",
+    "confirmed": "Confirmed",
+    "cancelled": "Cancelled",
+    "cancelled_refunded": "Cancelled and refunded"
+  },
+  "order_page": {
+    "order_number": "Order {{number}}",
+    "loading": "Loading your order…",
+    "load_error": "We couldn't open this order",
+    "my_orders": "My orders",
+    "back_to_orders": "← My orders",
+    "shipping_to": "Shipping to",
+    "journey": "Order progress",
+    "step_placed": "Ordered",
+    "step_paid": "Paid",
+    "step_shipping": "Shipping",
+    "step_confirmed": "Received",
+    "tracking_number": "Tracking number",
+    "copy": "Copy",
+    "copied": "Copied",
+    "cancel": "Cancel order",
+    "cancel_question": "Cancel this order? The items reserved for you will be released for others to buy.",
+    "cancel_keep": "Keep it",
+    "cancel_confirm": "Yes, cancel",
+    "cancelling": "Cancelling…",
+    "cancel_error": "Could not cancel the order",
+    "confirming": "Confirming your payment with the bank… this usually takes a few seconds.",
+    "not_confirmed_title": "We haven't received the payment confirmation yet",
+    "not_confirmed_text": "If you have paid, don't pay again. Refresh this page in a little while.",
+    "paid_thanks": "Payment received, thank you",
+    "preparing": "We're preparing your order for shipping",
+    "expired_title": "Payment time is over",
+    "expired_text": "This order will be cancelled automatically and the items released.",
+    "keep_shopping": "Keep shopping",
+    "failed_title": "The last payment didn't go through",
+    "failed_text": "You can try again by card or PromptPay.",
+    "confirm_receipt": "I've received it",
+    "confirming_receipt": "Confirming…",
+    "confirm_receipt_hint": "Got your parcel? Let the shop know. If you don't, it is confirmed automatically 7 days after shipping.",
+    "confirmed_by_admin": "Confirmed by the shop",
+    "confirmed_by_auto": "Confirmed automatically 7 days after shipping",
+    "cancel_reason": "Why it was cancelled"
+  },
+  "close": "Close",
+  "ig_desc": "Follow our official Instagram for photos",
+  "tiktok_desc": "Watch our beetles in action",
+  "about_subtitle": "We provide the best exotic beetles and pet insects for enthusiasts everywhere.",
+  "connect_with_us": "Follow us",
+  "our_location": "Where the farm is",
+  "hq_name": "Silver Thief Bug Farm",
+  "address_full": "1 Lam Narai, Chai Badan, Lopburi 15130",
+  "open_in_google_maps": "Open in Google Maps",
+  "nav": {
+    "main": "Main menu",
+    "cart_count_one": "Cart, {{count}} item",
+    "cart_count_other": "Cart, {{count}} items",
+    "favorites_count_one": "Favorites, {{count}} saved",
+    "favorites_count_other": "Favorites, {{count}} saved",
+    "light_mode": "Light mode",
+    "dark_mode": "Dark mode",
+    "admin": "Admin",
+    "orders": "Orders",
+    "my_orders": "My orders",
+    "my_account": "My account",
+    "open_menu": "Open menu",
+    "close_menu": "Close menu"
+  },
+  "product_card": {
+    "prev_photo": "Previous photo",
+    "next_photo": "Next photo",
+    "favorite": "Add to favorites",
+    "unfavorite": "Remove from favorites",
+    "added": "Added",
+    "cart_full": "All in Cart",
+    "cart_full_note": "Your Cart already holds all {{count}} available.",
+    "guarantee_line": "Film the unboxing and tell us within 2 hours if the beetle died in transit."
+  },
+  "products_page": {
+    "clear_search": "Clear search",
+    "sort_label": "Sort by",
+    "sort_default": "Recommended",
+    "sort_price_asc": "Price: low to high",
+    "sort_price_desc": "Price: high to low",
+    "sort_name_asc": "Name A–Z",
+    "family": "Beetle type",
+    "count_one": "{{count}} product",
+    "count_other": "{{count}} products",
+    "loading": "Loading products…",
+    "load_error": "Couldn't load products",
+    "retry": "Try again",
+    "empty_filtered": "Try another search, or look in every category.",
+    "empty_shop": "Nothing is listed right now. Check back soon.",
+    "views": "Views",
+    "toolbar": "Search and filter products",
+    "promotion_filter": "Products in {{name}}",
+    "promotion_filter_clear": "Show all products",
+    "pages": "Product pages",
+    "previous": "Previous",
+    "next": "Next",
+    "page_n": "Page {{n}}",
+    "page_summary": "Page {{page}} of {{pages}} · {{count}} products"
+  },
+  "favorites_page": {
+    "title": "Favorites",
+    "count_one": "{{count}} saved",
+    "count_other": "{{count}} saved",
+    "empty_title": "No favorites yet",
+    "empty_text": "Tap the heart on anything you like and it will wait for you here.",
+    "browse": "Browse the shop",
+    "unavailable": "The products you saved are no longer for sale."
+  },
+  "cart_page": {
+    "items_one": "{{count}} item",
+    "items_other": "{{count}} items",
+    "empty_hint": "Pick a beetle or some supplies and add them to your cart.",
+    "decrease": "Decrease quantity",
+    "increase": "Increase quantity",
+    "shipping_note": "Shipping is calculated at checkout.",
+    "item_subtotal": "Items subtotal",
+    "remove_title": "Remove from cart?",
+    "remove_text": "Take \"{{name}}\" out of your cart",
+    "remove_confirm": "Remove",
+    "keep": "Keep it",
+    "lowered_to_available": "Some products have fewer left, so their quantities were lowered to what is available",
+    "max_reached": "Only {{count}} available",
+    "option_stack": "Combined: {{names}}",
+    "option_saving": "Saves {{amount}}",
+    "option_nothing": "Not reached yet",
+    "order_promotion": "Promotion for this order",
+    "order_promotion_hint": "Pick one; it applies to the whole order. Products it doesn't cover are at the normal price",
+    "using_promotion": "Promotion: {{name}}",
+    "products": "Products in your cart",
+    "summary": "Order summary",
+    "expand": "Open the full cart",
+    "change_promotion": "Change promotion",
+    "collapse": "Shrink the Cart"
+  },
+  "home_page": {
+    "promises": "What the shop guarantees",
+    "opens_new_tab": "opens in a new tab",
+    "guarantee_terms": "Read the terms"
+  },
+  "about_page": {
+    "map_title": "Map of the Silver Thief Bug farm"
+  },
+  "login_page": {
+    "err_email_required": "Enter your email",
+    "err_email_format": "That email doesn't look right, e.g. you@example.com",
+    "err_password_required": "Enter your password",
+    "err_password_short": "Use at least 8 characters",
+    "err_name_required": "Enter your full name",
+    "reset_sent": "If an account uses this email, a reset link is on its way. Check your inbox (and spam).",
+    "confirm_sent": "We sent a confirmation link to {{email}}. Open it, then sign in here.",
+    "err_generic": "Something went wrong. Try again.",
+    "signup_title": "Start collecting with us",
+    "forgot_title": "Forgot your password",
+    "login_title": "Welcome back",
+    "signup_submit": "Create account",
+    "forgot_submit": "Send reset link",
+    "login_submit": "Sign in",
+    "forgot_text": "Enter the email you signed up with and we'll send a link to choose a new password.",
+    "mode": "Sign in or create an account",
+    "tab_login": "Sign in",
+    "tab_signup": "Create account",
+    "forgot_link": "Forgot password?",
+    "hide_password": "Hide password",
+    "show_password": "Show password",
+    "password_hint": "At least 8 characters",
+    "optional": "optional",
+    "err_title": "That didn't work",
+    "wait": "Please wait…",
+    "back_to_login": "Back to sign in",
+    "back_to_store": "Back to the shop"
+  },
+  "reset_page": {
+    "err_mismatch": "The two passwords don't match",
+    "title": "Choose a new password",
+    "invalid": "This reset link is invalid or has expired.",
+    "request_new": "Request a new one",
+    "new_password": "New password",
+    "confirm_password": "Confirm new password",
+    "submit": "Save new password"
+  },
+  "orders_page": {
+    "load_error": "Couldn't load your orders",
+    "loading": "Loading your orders…",
+    "empty_title": "No orders yet",
+    "empty_text": "Once you order, you can follow its status and tracking number here."
+  },
+  "account_page": {
+    "delete_question": "Delete this address? This can't be undone.",
+    "deleting": "Deleting…",
+    "delete_confirm": "Delete",
+    "edit": "Edit",
+    "make_default": "Make default",
+    "delete": "Delete",
+    "profile_saved": "Profile saved",
+    "profile": "Profile",
+    "profile_text": "Used as the starting point for new addresses.",
+    "save_error": "Couldn't save",
+    "saving": "Saving…",
+    "save_profile": "Save profile",
+    "addresses": "Shipping addresses",
+    "addresses_full": "You can save up to 10 addresses. Delete one to add another.",
+    "addresses_text": "Ready to pick at checkout.",
+    "no_addresses": "No saved addresses yet. Add one here or during checkout.",
+    "add_address": "Add address",
+    "edit_address": "Edit address",
+    "save_address": "Save address",
+    "password_title": "Change password",
+    "password_text": "Enter your current password, then choose a new one.",
+    "current_password": "Current password",
+    "password_changed": "Password changed",
+    "wrong_password": "The current password is wrong",
+    "forgot_current": "Forgot it? Email me a link to set a new one",
+    "reset_sent": "Link sent to {{email}}"
+  },
+  "session_expired": {
+    "title": "You've been signed out",
+    "text": "After 15 minutes without activity we sign you out for safety. Please sign in again."
+  },
+  "favorites_login": {
+    "title": "Sign in to save favorites",
+    "text": "Favorites are kept with your account, so they follow you to any device.",
+    "later": "Not now"
+  },
+  "contact_page": {
+    "description": "Ask about a beetle, its care or your order on any channel below."
+  },
+  "policy": {
+    "updated": "Last updated {{date}}"
+  },
+  "shipping_page": {
+    "description": "What shipping costs, when live beetles ship, and what the shop does if a beetle dies on the way.",
+    "fee_title": "Shipping Fee",
+    "fee_free": "Free on every order, anywhere in Thailand.",
+    "fee_amount": "{{amount}} per order, one rate anywhere in Thailand.",
+    "fee_unknown": "The Shipping Fee is shown at checkout before you pay. We ship anywhere in Thailand.",
+    "when_title": "When we ship",
+    "when": [
+      "We ship within 1–3 working days of receiving payment.",
+      "Live beetles ship Monday to Wednesday only, so no parcel waits in a depot over a weekend.",
+      "Food, logs/substrate and gear ship on any working day.",
+      "Live beetles go by Kerry or Flash.",
+      "In extreme heat or heavy rain we may postpone a shipment for the beetle's safety, and we always tell you first.",
+      "Once shipped, your tracking number is under \"My orders\"."
+    ],
+    "guarantee_title": "Live Arrival Guarantee",
+    "guarantee_intro": "If a beetle dies in transit, we send a replacement of the same species and pay its postage. If none is in stock, we refund the beetle's price in full.",
+    "claim_title": "How to claim",
+    "claim": [
+      "Film one continuous video from before you open the box until the beetle is clearly visible, with no cuts.",
+      "Tell us within 2 hours of receiving the parcel, with the video and your order number, through any channel on the Contact page."
+    ],
+    "not_covered_title": "Not covered",
+    "not_covered": [
+      "A parcel delayed or returned because no one was there to receive it, or it was collected late.",
+      "A wrong address or phone number entered at checkout.",
+      "No unboxing video, a video with cuts, or a report after 2 hours.",
+      "A beetle that dies after unboxing; the guarantee covers transit only."
+    ],
+    "refund_title": "Cancellations and refunds",
+    "refund": [
+      "Before paying, you can cancel the order yourself on its order page; the reserved items go back on sale.",
+      "Paid but not yet shipped: contact us to cancel and we refund in full.",
+      "Refunds go back to the card or PromptPay you paid with, through Stripe.",
+      "Live beetles are not returnable or refundable for a change of mind.",
+      "Unopened gear in its original packaging can be returned within 7 days of delivery; you pay return postage and we refund once it reaches us.",
+      "Food and logs/substrate can't be returned, as they spoil and for hygiene.",
+      "If anything arrives damaged or wrong, we replace or refund it and cover every cost."
+    ],
+    "help": "A problem with a parcel or an order?",
+    "fee_tiers_intro": "The Shipping Fee depends on how many items you buy in one order (free gifts don't count). We ship anywhere in Thailand.",
+    "fee_free_over": "Free shipping on orders of {{amount}} or more (after discounts)"
+  },
+  "faq_page": {
+    "description": "Answers about ordering, shipping and your account. Can't find yours? Message the shop.",
+    "read_more": "Read the full terms",
+    "groups": [
+      {
+        "id": "order",
+        "title": "Ordering and payment",
+        "items": [
+          {
+            "q": "How can I pay?",
+            "a": "Credit/debit card or PromptPay. You pay on Stripe's secure page and come back to the shop; we never see your card details."
+          },
+          {
+            "q": "Can someone else buy a beetle that's in my cart?",
+            "a": "Yes. Your cart doesn't reserve stock, and many beetles are one of a kind. We reserve items only when you press \"Continue to payment\"."
+          },
+          {
+            "q": "How long are items reserved for me?",
+            "a": "At least 30 minutes after you continue to payment; the payment page shows the time left. If it runs out before you pay, the order is cancelled automatically and the items go back on sale."
+          },
+          {
+            "q": "Do I need an account to order?",
+            "a": "Yes, so you can follow your order's status and tracking number later."
+          },
+          {
+            "q": "Can I cancel an order?",
+            "a": "Before paying, cancel it yourself on the order's page. After paying, contact the shop.",
+            "link": "/shipping#refund"
+          }
+        ]
+      },
+      {
+        "id": "shipping",
+        "title": "Shipping and guarantee",
+        "items": [
+          {
+            "q": "Which days do beetles ship?",
+            "a": "Live beetles ship only on certain weekdays, so no parcel waits in a depot over a weekend.",
+            "link": "/shipping#when"
+          },
+          {
+            "q": "Where's my tracking number?",
+            "a": "Under \"My orders\", once we've shipped."
+          },
+          {
+            "q": "What if my beetle dies on the way?",
+            "a": "We guarantee live arrival. Always film the unboxing and tell us quickly.",
+            "link": "/shipping#guarantee"
+          },
+          {
+            "q": "Can I return something?",
+            "a": "It depends on the product: live beetles, gear, and food or logs each have their own rule.",
+            "link": "/shipping#refund"
+          }
+        ]
+      },
+      {
+        "id": "account",
+        "title": "Account",
+        "items": [
+          {
+            "q": "Why do I need to sign in to save favorites?",
+            "a": "Favorites are kept with your account, so they follow you to any device."
+          },
+          {
+            "q": "I forgot my password",
+            "a": "On the sign-in page, press \"Forgot password?\" and enter your email; we'll send a link to set a new one.",
+            "link": "/login"
+          }
+        ]
+      }
+    ],
+    "care": {
+      "id": "care",
+      "title": "Care",
+      "items": [
+        {
+          "q": "My beetle has arrived. What first?",
+          "a": "Film the unboxing, check that it moves, then move it into a prepared enclosure with moist substrate somewhere shaded and quiet. Let it rest a day before handling."
+        },
+        {
+          "q": "What do beetles eat?",
+          "a": "Adults eat beetle jelly; larvae eat fermented oak flakes and rotting wood. Change the jelly every 2–3 days."
+        },
+        {
+          "q": "What temperature and humidity?",
+          "a": "About 25–28°C and 70–80% humidity. Don't let the substrate dry out or get waterlogged."
+        }
+      ]
+    }
+  },
+  "terms_page": {
+    "description": "The terms for buying from Silver Thief Bug.",
+    "sections": [
+      {
+        "id": "seller",
+        "title": "The seller",
+        "text": [
+          "This website is operated by [Seller name], 1 Lam Narai, Chai Badan, Lopburi 15130, Thailand. Phone 095 681 2084, email silverthiefbug.official@gmail.com.",
+          "E-commerce registration number [Registration number]."
+        ]
+      },
+      {
+        "id": "ordering",
+        "title": "Ordering",
+        "items": [
+          "Prices and stock are checked again when you continue to payment; the price at that moment applies.",
+          "When you continue to payment, we reserve the items for you for at least 30 minutes (the payment page shows the time left). If you haven't paid by then, the order is cancelled automatically.",
+          "An order becomes \"Paid\" only when Stripe confirms the payment to us.",
+          "Order statuses: Awaiting Payment → Paid → Waiting Shipping → Shipping → Confirmed, or Cancelled."
+        ]
+      },
+      {
+        "id": "payment",
+        "title": "Payment",
+        "text": [
+          "Pay by credit/debit card or PromptPay on Stripe's payment page. All prices are in Thai baht."
+        ]
+      },
+      {
+        "id": "shipping",
+        "title": "Shipping, guarantee and refunds",
+        "text": [
+          "Shipping, the Live Arrival Guarantee, cancellations and refunds follow the shipping policy, which is part of these terms."
+        ],
+        "link": {
+          "to": "/shipping",
+          "label": "Shipping policy"
+        }
+      },
+      {
+        "id": "live-animals",
+        "title": "Live animals",
+        "text": [
+          "Beetles are live animals. Once unboxed, their care is the customer's responsibility. We guarantee live arrival as set out in the shipping policy, not lifespan or survival afterwards."
+        ]
+      },
+      {
+        "id": "account",
+        "title": "Your account",
+        "text": [
+          "You are responsible for a correct name, phone number and shipping address, and for keeping your password secret."
+        ]
+      },
+      {
+        "id": "law",
+        "title": "Governing law",
+        "text": [
+          "These terms are governed by the laws of the Kingdom of Thailand."
+        ]
+      },
+      {
+        "id": "changes",
+        "title": "Changes",
+        "text": [
+          "We may update these terms and show the date of the last update at the end of the page. A paid order follows the terms of the day it was placed."
+        ]
+      }
+    ]
+  },
+  "privacy_page": {
+    "description": "What we keep, why, who receives it, and how to see or delete it.",
+    "sections": [
+      {
+        "id": "controller",
+        "title": "Data controller",
+        "text": [
+          "[Seller name], 1 Lam Narai, Chai Badan, Lopburi 15130, Thailand. Contact us about personal data at silverthiefbug.official@gmail.com."
+        ]
+      },
+      {
+        "id": "collected",
+        "title": "What we keep",
+        "items": [
+          "Your account's name, email and phone number (if given).",
+          "The shipping addresses you save, and a copy of the address on each order.",
+          "Your order history, payment status and tracking numbers.",
+          "Your favorites."
+        ],
+        "text": [
+          "We never see or store your card details; payment data stays with Stripe."
+        ]
+      },
+      {
+        "id": "purposes",
+        "title": "What we use it for",
+        "items": [
+          "Taking, shipping and contacting you about your orders.",
+          "Making your account work, such as saved addresses and favorites.",
+          "Accounting and tax, as the law requires."
+        ]
+      },
+      {
+        "id": "processors",
+        "title": "Who receives it",
+        "items": [
+          "Supabase: the shop's database and sign-in system.",
+          "Stripe: payment processing.",
+          "LINE: a message to the shop owner for each paid order, with the order number, items, total and shipping address.",
+          "Carriers: the recipient's name, phone and address, to deliver the parcel.",
+          "Google Maps: the map on the About and Contact pages loads from Google."
+        ]
+      },
+      {
+        "id": "device",
+        "title": "On your device",
+        "text": [
+          "Your cart, theme and language are kept in your own browser. We use no advertising cookies or trackers."
+        ]
+      },
+      {
+        "id": "retention",
+        "title": "How long we keep it",
+        "text": [
+          "Order history is kept for 5 years for accounting and tax. Everything else in your account is deleted when you ask."
+        ]
+      },
+      {
+        "id": "rights",
+        "title": "Your rights",
+        "text": [
+          "Under Thailand's Personal Data Protection Act B.E. 2562 (2019), you can ask to see, copy, correct or delete your data, or object to its use, by emailing silverthiefbug.official@gmail.com. We reply within 30 days."
+        ]
+      }
+    ]
+  },
+  "cancel_reasons": {
+    "payment_timeout": "Payment time expired",
+    "customer_cancelled": "You cancelled it",
+    "replaced_by_new_checkout": "Replaced by a newer order",
+    "admin_cancelled": "Cancelled by the shop",
+    "refunded_by_admin": "Refunded and cancelled by the shop"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "bell_unread": "Notifications ({{count}} unread)",
+    "read_all": "Mark all read",
+    "empty": "No notifications yet",
+    "awaiting_payment": "{{number}} is awaiting payment",
+    "awaiting_payment_body": "Pay in time: your items are reserved for you.",
+    "shipping": "Order {{number}} is on its way",
+    "shipping_body": "Tracking number {{tracking}}",
+    "confirm_request": "Has {{number}} arrived?",
+    "confirm_request_body": "Confirm you received it on the order page.",
+    "cancelled": "{{number}} was cancelled",
+    "cancelled_body": "Reason: {{reason}}",
+    "promotion": "Promotion on now: {{name}}",
+    "promotion_body": "See the products in it",
+    "load_more": "Show earlier notifications",
+    "shipping_body_carrier": "{{carrier}} · Tracking number {{tracking}}",
+    "copy_tracking": "Copy tracking number {{tracking}}",
+    "copied": "Copied",
+    "confirmed_by_admin": "The shop confirmed you received {{number}}",
+    "confirmed_auto": "{{number}} was confirmed as received automatically",
+    "confirmed_body": "Thank you! Contact us if anything is wrong",
+    "admin_confirmed_by_customer": "Customer received {{number}}",
+    "admin_confirmed_auto": "{{number}} confirmed automatically (7 days)",
+    "admin_confirmed_body": "Customer: {{customer}}",
+    "promotion_new": "New promotion coming: {{name}}",
+    "promotion_new_body": "Runs {{from}} – {{to}}",
+    "delete": "Delete notification: {{title}}"
+  },
+  "shipping_rule": {
+    "units_one": "{{count}} item",
+    "units_range": "{{min}}–{{max}} items",
+    "units_open_one": "{{count}} item or more",
+    "units_open_other": "{{count}} items or more"
+  },
+  "promotions": {
+    "title": "Promotion",
+    "off_percent": "{{value}}% off",
+    "off_baht": "{{amount}} off each",
+    "badge_buy": "Buy {{count}}, {{off}}",
+    "badge_gift": "Buy {{every}} get {{gift}} free",
+    "tier_line": "Buy {{count}} or more: {{off}}",
+    "gift_line": "Every {{every}} bought earns {{gift}} free",
+    "cart_line": "{{name}} · {{amount}} off each",
+    "next_tier": "Add {{count}} more to get {{amount}} off ({{name}})",
+    "limited_mine": "You've used {{name}} as many times as allowed, so normal prices apply",
+    "limited_full": "{{name}} has reached its limit of customers, so normal prices apply",
+    "discount": "Promotion discount",
+    "total": "Total",
+    "amount_percent": "{{value}}%",
+    "amount_baht": "{{amount}} each",
+    "gift_heading": "Free gift · {{name}}",
+    "gift_pick": "Choose your gift ({{name}})",
+    "gift_qty": "×{{count}} free",
+    "gift_out": "The gift is out of stock",
+    "gift_label": "Free gift",
+    "next_gift": "Add {{count}} more to get {{gift}} free ({{name}})",
+    "choose_legend": "Choose the promotion for your order",
+    "choose_hint": "Pick one; it applies to your whole order",
+    "stack_heading": "Combined"
+  },
+  "hero": {
+    "carousel": "carousel",
+    "slide": "slide",
+    "slide_of": "Slide {{n}} of {{total}}",
+    "go_to": "Go to slide {{n}}",
+    "next": "Next slide",
+    "previous": "Previous slide",
+    "photo_by": "Photo by {{author}}",
+    "slides": {
+      "beetle": {
+        "eyebrow": "Live beetles",
+        "title": "Hand-picked exotic beetles",
+        "text": "Rhinoceros, stag and flower beetles, raised with care and guaranteed to arrive alive.",
+        "cta": "See all beetles"
+      },
+      "food": {
+        "eyebrow": "Food",
+        "title": "Food beetles love",
+        "text": "Jellies, fruit and protein supplements for strong, long-lived beetles.",
+        "cta": "See beetle food"
+      },
+      "log": {
+        "eyebrow": "Logs & substrate",
+        "title": "A home that feels like the forest",
+        "text": "Rotten logs and fermented substrate for laying eggs and raising larvae.",
+        "cta": "See logs & substrate"
+      },
+      "gear": {
+        "eyebrow": "Gear",
+        "title": "Everything for keeping",
+        "text": "Enclosures, ventilated lids and care tools, all in one place.",
+        "cta": "See gear"
+      }
+    }
+  },
+  "loading": "Loading…",
+  "admin": {
+    "title": "Admin",
+    "sections": "Admin sections",
+    "tabs": {
+      "overview": "Overview",
+      "orders": "Orders",
+      "products": "Products & stock",
+      "members": "Members",
+      "rules": "Rules",
+      "settings": "Payments & LINE",
+      "categories": "Categories"
+    },
+    "common": {
+      "status": "Status",
+      "orders": "Orders",
+      "products": "Products",
+      "product": "Product",
+      "date": "Date",
+      "save": "Save",
+      "saving": "Saving…",
+      "cancel": "Cancel",
+      "saved": "Saved",
+      "error": "Error",
+      "edit": "Edit",
+      "delete": "Delete",
+      "actions": "Actions",
+      "all_statuses": "All statuses",
+      "loading_products": "Loading products…"
+    },
+    "overview": {
+      "chart": "Chart",
+      "table": "Table",
+      "revenue": "Revenue · Confirmed orders",
+      "confirmed_orders": "Confirmed orders",
+      "attention": "Needs attention",
+      "customers": "Customers",
+      "by_status": "Orders by status",
+      "by_status_note": "Every order so far · click a status to see its orders",
+      "no_orders": "No orders yet.",
+      "n_orders_one": "{{count}} order",
+      "n_orders_other": "{{count}} orders",
+      "orders_word": "orders",
+      "by_category": "Products by category",
+      "by_category_note": "Active products in the shop",
+      "no_products": "No active products yet.",
+      "n_products_one": "{{count}} product",
+      "n_products_other": "{{count}} products",
+      "low": "Running low (Available ≤ 2)",
+      "low_note": "Active products, lowest first · click a bar to restock",
+      "manage": "Manage",
+      "well_stocked": "All active products are well stocked.",
+      "n_in_stock": "{{count}} in stock",
+      "revenue_14": "Revenue from Confirmed orders, last 14 days",
+      "revenue_14_note": "Thai Baht per day (Asia/Bangkok)",
+      "no_revenue": "No confirmed orders in the last 14 days.",
+      "revenue_col": "Revenue"
+    },
+    "orders": {
+      "tracking_required": "Tracking number required",
+      "marked_shipping": "Marked as Shipping",
+      "marked_received": "Marked as received",
+      "cancelled": "Order cancelled",
+      "resolved": "Marked as resolved",
+      "note_saved": "Note saved",
+      "address_copied": "Address copied",
+      "order_number": "Order number",
+      "order": "Order",
+      "customer": "Customer",
+      "total": "Total",
+      "note": "Note",
+      "note_for": "Note for {{number}}",
+      "add_note": "Add a note",
+      "none": "No orders found.",
+      "order_title": "Order {{number}}",
+      "needs_check": "This order needs a manual check.",
+      "ship_to": "Ship to",
+      "customer_payment": "Customer & payment",
+      "placed": "Placed",
+      "paid": "Paid",
+      "line_alert": "LINE alert",
+      "ship_this": "Ship this order",
+      "carrier": "Carrier",
+      "other_carrier": "Other",
+      "mark_shipping": "Mark as Shipping",
+      "confirm_received": "Confirm received",
+      "cancel_order": "Cancel order",
+      "cancel_reason_label": "Cancel reason (the customer sees this)",
+      "paid_cancel_note": "The customer paid {{amount}}. Cancelling does not refund it automatically; refund it in the Stripe Dashboard if needed.",
+      "cancel_tell": "Cancel and tell the customer",
+      "keep": "Keep order",
+      "internal_note": "Internal note",
+      "save_note": "Save note",
+      "mark_resolved": "Mark resolved",
+      "countdown": {
+        "payment": "Payment due in {{time}}",
+        "auto_confirm": "Auto-confirms in {{time}}",
+        "days": "{{days}}d {{hours}}h",
+        "hours": "{{hours}}h {{minutes}}m",
+        "processing": "Processing"
+      }
+    },
+    "products": {
+      "show_in_shop": "Show {{name}} in the shop",
+      "active": "Active",
+      "inactive": "Inactive",
+      "invalid_image": "Invalid image",
+      "image_rules": "Use JPG, PNG or WebP files up to 5 MB.",
+      "too_many": "Too many images",
+      "too_many_text": "A product can have up to 10 images.",
+      "upload_failed": "Upload failed",
+      "search": "Search products",
+      "low_only": "Low stock only",
+      "add": "Add product",
+      "edit": "Edit product",
+      "price": "Price",
+      "on_hand_hint": "Units the shop is still responsible for",
+      "available_hint": "Units that can still be ordered (what shoppers see)",
+      "on_hand_label": "On Hand",
+      "available_label": "Count Qty",
+      "in_transit": "In progress",
+      "in_transit_hint": "Units in open orders (Awaiting Payment to Shipping). On Hand minus this is Count Qty",
+      "best_seller_for": "Best seller: {{name}}",
+      "mark_best_seller": "Mark as best seller",
+      "edit_named": "Edit {{name}}",
+      "none": "No products found.",
+      "name_en": "Name (English)",
+      "name_th": "Name (Thai)",
+      "desc_en": "Description (English)",
+      "desc_th": "Description (Thai)",
+      "price_baht": "Price (฿)",
+      "initial_on_hand": "Initial On Hand",
+      "on_hand_note": "{{n}} — set a new count with the button next to it in the table",
+      "in_shop": "Available in shop",
+      "beetle_details": "Beetle details",
+      "images": "Images (first image is the cover)",
+      "move_left": "Move left",
+      "remove_image": "Remove image",
+      "move_right": "Move right",
+      "uploading": "Uploading…",
+      "upload": "Upload",
+      "image_hint": "JPG, PNG or WebP · up to 5 MB each · max 10 images",
+      "create": "Create product",
+      "save_changes": "Save changes",
+      "set_on_hand": "Set On Hand",
+      "set_on_hand_for": "Set On Hand of {{name}}",
+      "set_on_hand_title": "Set On Hand — {{name}}",
+      "set_on_hand_text": "Now On Hand {{on_hand}} · Available {{available}} · reserved {{reserved}}. Enter the counted number; Available moves by the difference.",
+      "set_on_hand_note": "Note (optional), e.g. delivery, recount, beetle died",
+      "set_on_hand_whole": "Enter a whole number from 0",
+      "set_on_hand_min": "Can't go below {{reserved}}: customers have reserved them",
+      "no_family": "— no Family —"
+    },
+    "pager": {
+      "pages": "Pages",
+      "summary_one": "Page {{page}} of {{pages}} · {{count}} item",
+      "summary_other": "Page {{page}} of {{pages}} · {{count}} items",
+      "previous": "Previous",
+      "next": "Next"
+    },
+    "settings": {
+      "test_sent": "Test message sent",
+      "check_line": "Check your LINE.",
+      "test_failed": "LINE test failed",
+      "line_title": "LINE OA admin notifications",
+      "token_set": "Channel access token set on the server",
+      "secret_set": "Channel secret set (webhook signature check)",
+      "sending_to": "Sending to {{targets}}",
+      "no_recipient": "No recipient set",
+      "how_to_set": "Set your LINE user ID (LINE Developers console → Basic settings → \"Your user ID\") and add the Official Account as a friend on that LINE account, in the server variable:",
+      "sending": "Sending…",
+      "send_test": "Send test message",
+      "stripe_events": "Recent Stripe payments",
+      "no_events": "No Stripe events yet. If someone has paid and nothing shows here, the webhook is not reaching the server: point an endpoint in the Stripe Dashboard at /api/payments/webhook, or on your own machine run stripe listen --forward-to localhost:5000/api/payments/webhook",
+      "recipients_title": "Who gets order alerts on LINE",
+      "recipients_hint": "Tick who gets a message for every paid order and every order a customer confirms receiving. Tick as many as you like. Messages include the customer's name, phone and address.",
+      "no_friends": "Nobody here yet. Ask whoever should get alerts to add the shop's LINE Official Account as a friend, then press \"Get friends from LINE\" (or wait for the webhook to list them when they follow or message the OA, which works once the server is reachable from the internet).",
+      "unnamed_friend": "LINE user",
+      "friend_since": "Friend since {{date}}",
+      "picked_count": "Recipients picked here: {{count}}",
+      "friends_failed": "Could not load the LINE friends: {{reason}}",
+      "sync_friends": "Get friends from LINE",
+      "synced": "Found {{count}} friend(s) on LINE.",
+      "stripe_events_hint": "What Stripe told the shop through its webhook, and what the shop did with it",
+      "event_paid": "Payment received",
+      "event_failed": "Payment failed",
+      "event_refunded": "Refunded in Stripe",
+      "result_paid": "Order marked Paid",
+      "result_already_paid": "Already recorded",
+      "result_ignored": "Not about an order",
+      "result_not_paid_yet": "Not paid yet (e.g. PromptPay pending)",
+      "result_marked_failed": "The customer’s payment failed; the order still awaits payment",
+      "result_refunded": "Refunded in full; the order is flagged for attention",
+      "result_partial_refund": "Partly refunded; the order is flagged for attention",
+      "result_amount_mismatch": "The amount does not match the order. Check it in the Stripe Dashboard.",
+      "result_intent_mismatch": "The payment does not match the order. Check it in the Stripe Dashboard.",
+      "result_order_not_found": "No such order in the shop",
+      "result_paid_after_cancel": "Paid after the order was cancelled: refund it in Stripe",
+      "result_no_order_metadata": "No order attached (may not be a shop payment)",
+      "result_no_payment_intent": "No payment attached",
+      "result_unknown": "Unknown result",
+      "show_all_events": "Show all events ({{count}} more)",
+      "hide_routine": "Hide repeats"
+    },
+    "members": {
+      "role_user": "Customer (user)",
+      "role_admin": "Admin",
+      "role_customer": "user",
+      "invited": "Invitation sent",
+      "invited_text": "{{email}} will get an email to set a password.",
+      "email_taken": "A member with this email already exists.",
+      "new": "New member",
+      "full_name": "Full name",
+      "email": "Email",
+      "phone": "Phone",
+      "role": "Role",
+      "invite_note": "They will get an email with a link to set their own password.",
+      "send_invite": "Send invitation",
+      "joined": "Joined",
+      "orders_spent_one": "{{count}} order · {{amount}} spent",
+      "orders_spent_other": "{{count}} orders · {{amount}} spent",
+      "admin_note": "Admins can manage products, orders, refunds and members.",
+      "save_role": "Save role",
+      "remove_title": "Remove {{name}}?",
+      "deactivate_text_one": "{{name}} has {{count}} order, so their account is deactivated instead of deleted: they can no longer sign in, and their order stays in the history.",
+      "deactivate_text_other": "{{name}} has {{count}} orders, so their account is deactivated instead of deleted: they can no longer sign in, and their orders stay in the history.",
+      "delete_text": "{{name}} has no orders, so their account is deleted for good.",
+      "keep": "Keep member",
+      "deactivate": "Deactivate",
+      "search": "Search members",
+      "search_placeholder": "Name or email",
+      "member": "Member",
+      "spent": "Spent",
+      "deactivated": "Deactivated",
+      "edit_role": "Edit role",
+      "remove_named": "Remove {{name}}",
+      "remove": "Remove member",
+      "none": "No members found."
+    },
+    "rules": {
+      "shipping_title": "Shipping Rule",
+      "shipping_intro": "The Shipping Fee is set by how many paid units an order holds (free gifts don't count). New orders use the rule; existing orders keep their fee.",
+      "no_tiers": "No tiers yet: every order pays the flat fee of {{amount}}.",
+      "units": "Units",
+      "up_to": "Up to",
+      "fee": "Fee (฿)",
+      "up_to_tier": "Up to (units), tier {{n}}",
+      "fee_tier": "Fee (฿), tier {{n}}",
+      "remove_tier": "Remove tier {{n}}",
+      "add_tier": "Add tier",
+      "free_at": "Free shipping at (฿)",
+      "off": "Off",
+      "free_hint": "Item total after discounts. Leave empty for no free shipping.",
+      "save": "Save shipping rule"
+    },
+    "promos": {
+      "new": "New promotion",
+      "started": "This promotion has started, so the products, discounts and limits stay as they are. You can still rename it, change the end date or turn it off.",
+      "start": "Start date",
+      "end": "End date",
+      "time_note": "Thai time, from 00:00 on the start date to 23:59 on the end date.",
+      "all_products": "All products",
+      "products_group": "Promotion products",
+      "discount": "Discount",
+      "discount_note": "Units of every product in this promotion count together; the highest tier reached applies to each unit.",
+      "buy_at_least": "Buy at least (units), tier {{n}}",
+      "discount_type": "Discount type, tier {{n}}",
+      "percent_off": "% off",
+      "baht_off": "฿ off each",
+      "discount_tier": "Discount, tier {{n}}",
+      "remove_tier": "Remove discount tier {{n}}",
+      "add_tier": "Add discount tier",
+      "gift_note": "Every X units bought earn Y free units, again and again. If you tick several gift products the customer picks one in the Cart; products not for sale can be gifts too.",
+      "gift_every": "Gift: every (units bought)",
+      "no_gift": "No gift",
+      "gift_qty": "Gift: free units",
+      "gift_products": "Gift products",
+      "not_for_sale": "not for sale",
+      "per_customer": "Redemptions per customer",
+      "customers_total": "Customers in total",
+      "unlimited": "Unlimited",
+      "on": "On (turn off to stop it early)",
+      "save": "Save promotion",
+      "state_off": "Off",
+      "state_scheduled": "Scheduled",
+      "state_ended": "Ended",
+      "state_running": "Running",
+      "title": "Promotions",
+      "intro": "Applied automatically with no code. A product in several promotions gets the one that saves the customer most; they never stack.",
+      "dates": "Dates (Thai time)",
+      "discount_gift": "Discount / gift",
+      "used": "Redemptions",
+      "redemptions_n_one": "{{count}} redemption",
+      "redemptions_n_other": "{{count}} redemptions",
+      "customers_n_one": "{{count}} customer",
+      "customers_n_other": "{{count}} customers",
+      "delete_title": "Delete {{name}}?",
+      "delete_text": "The promotion is removed for good. One that customers have already used cannot be deleted: end it or turn it off instead.",
+      "keep": "Keep promotion",
+      "delete_named": "Delete {{name}}",
+      "none": "No promotions yet.",
+      "tier_tag": "{{count}}+ units −{{amount}}",
+      "gift_tag": "Buy {{every}} get {{gift}}",
+      "tags_for": "Discounts and gifts of {{name}}",
+      "stacking_label": "Combining with other promotions",
+      "exclusive": "Exclusive: used on its own",
+      "exclusive_hint": "The customer gets this or one other promotion; the best one is picked for them",
+      "stackable": "Stackable: combines with other promotions",
+      "stackable_hint": "Applies together with other stackable promotions on the same product; percentages compound, then baht come off",
+      "tag_exclusive": "Exclusive",
+      "tag_stackable": "Stackable"
+    },
+    "stock_history": {
+      "short": "Stock Move History",
+      "open": "Stock Move History of {{name}}",
+      "title": "Stock Move History — {{name}}",
+      "empty": "No history yet",
+      "when": "When",
+      "what": "What",
+      "by": "By",
+      "by_order": "Order",
+      "by_system": "System",
+      "more": "Show more",
+      "kind": {
+        "opening": "Opening balance",
+        "created": "Product created",
+        "set_on_hand": "On Hand set",
+        "order_created": "Ordered (reserved)",
+        "order_cancelled": "Order cancelled (returned)",
+        "order_confirmed": "Order received",
+        "other": "Other change"
+      }
+    },
+    "categories": {
+      "heading": "Product Categories",
+      "note": "The first filter on the products page, in this order",
+      "add": "Add Category",
+      "add_title": "Add a Category",
+      "rename_title": "Rename Category",
+      "name_th": "Thai name",
+      "name_en": "English name",
+      "slug": "Link slug",
+      "both_names": "Enter both a Thai and an English name",
+      "system": "System",
+      "system_hint": "Live beetles carry special rules (beetle details, Family, Shipping Day), so it can be renamed but not deleted",
+      "delete_title": "Delete {{name}}?",
+      "delete_text": "Only a Category with no products can be deleted",
+      "rename": "Edit {{name}}",
+      "delete": "Delete {{name}}",
+      "move_up": "Move {{name}} up",
+      "move_down": "Move {{name}} down",
+      "families_heading": "Subcategories",
+      "families_note": "The second filter once shoppers pick beetles, and the Family choices in the product form",
+      "family_add": "Add Family",
+      "family_add_title": "Add a Family",
+      "family_rename_title": "Rename Family",
+      "family_rename_text": "Every beetle in this Family is renamed too",
+      "family_name": "Family name",
+      "family_needs_name": "Enter a name",
+      "family_delete_title": "Delete {{name}}?",
+      "family_delete_text": "Only a Family no beetle uses can be deleted",
+      "no_families": "No Families yet"
+    }
+  }
 }

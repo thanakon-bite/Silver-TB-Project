@@ -1,147 +1,140 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Phone, Mail, ExternalLink } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { ArrowRight, ArrowUpRight, ShieldCheck, Truck, Sprout, RefreshCw, Globe2, Leaf, Crown } from 'lucide-react';
+import { PHOTOS, type BeetlePhoto } from '../lib/beetlePhotos';
+import { SOCIAL_LINKS } from '../component/brand/social';
+import { primaryButtonInline } from '../component/ui/buttonStyles';
+import { PageHeader } from '../component/ui/Feedback';
 
-const FacebookIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-  </svg>
-);
+/** Each fact gets a photo and an icon; rows alternate sides so the page reads as a story, not a list. */
+const FACTS: { titleKey: string; bodyKey: string; icon: React.FC<{ className?: string }>; photo: BeetlePhoto }[] = [
+  { titleKey: 'metamorphosis', bodyKey: 'metamorphosis_desc', icon: RefreshCw, photo: PHOTOS.atlasWings },
+  { titleKey: 'global_diversity', bodyKey: 'global_diversity_desc', icon: Globe2, photo: PHOTOS.hercules },
+  { titleKey: 'diet_habitat', bodyKey: 'diet_habitat_desc', icon: Leaf, photo: PHOTOS.stagTop },
+  { titleKey: 'trophy_horns', bodyKey: 'trophy_horns_desc', icon: Crown, photo: PHOTOS.atlas },
+];
 
-const InstagramIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
-    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
-    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
-  </svg>
-);
+const PROMISES = [
+  { icon: ShieldCheck, titleKey: 'health_guarantee', descriptionKey: 'health_guarantee_desc' },
+  { icon: Truck, titleKey: 'express_shipping', descriptionKey: 'express_shipping_desc' },
+  { icon: Sprout, titleKey: 'expert_bred', descriptionKey: 'expert_bred_desc' },
+];
 
-const TiktokIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="currentColor">
-    <path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93-.01 2.92.01 5.84-.02 8.75-.08 2.23-1.15 4.39-2.9 5.85-1.78 1.48-4.22 2.1-6.49 1.64-2.26-.45-4.28-1.92-5.46-3.95-1.19-2.04-1.39-4.59-.51-6.79.88-2.2 2.7-3.95 4.95-4.7 2.27-.75 4.8-.57 6.88.6v4.22c-1.02-.62-2.27-.85-3.41-.6-1.13.25-2.12.98-2.68 1.98-.56 1-.68 2.22-.32 3.3.36 1.08 1.18 1.95 2.22 2.36 1.05.41 2.26.35 3.26-.16 1-.51 1.71-1.43 1.98-2.52.12-.47.16-.96.15-1.45V.02h-4.32z"/>
-  </svg>
-);
+const container = 'mx-auto max-w-7xl px-4 sm:px-6 lg:px-8';
+const sectionHeading = 'font-display text-2xl font-bold text-ink sm:text-3xl';
 
+/** Who the shop is: its promises, what to know about beetles, where its community gathers. Contact details live on /contact. */
 const About: React.FC = () => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isThai = (i18n.language || 'th').startsWith('th');
 
   return (
-    <div className="bg-gray-50 dark:bg-gray-900 min-h-screen py-16 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-16">
-          <h1 className="text-4xl font-extrabold text-gray-900 dark:text-white mb-4 tracking-tight">
-            <span className="text-silver-dark italic">Silver</span>
-            <span className="text-orange">Thief</span>
-            <span className="text-gray-900 dark:text-gray-100">Bug</span>
-          </h1>
-          <p className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
-            {t('about_subtitle', 'We provide the best exotic beetles and pet insects for enthusiasts everywhere.')}
-          </p>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden mb-12 border border-gray-100 dark:border-gray-700">
-          <div className="p-8 sm:p-12">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 border-l-4 border-orange pl-4 uppercase tracking-wider">
-              {t('connect_with_us', 'Connect With Us')}
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-              <a 
-                href="https://www.facebook.com/profile.php?id=61570775870548&locale=th_TH" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex flex-col items-center p-6 bg-blue-50 dark:bg-blue-900/20 rounded-xl hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors group"
-              >
-                <div className="p-4 bg-blue-600 text-white rounded-full mb-4 group-hover:scale-110 transition-transform">
-                  <FacebookIcon className="w-8 h-8" />
-                </div>
-                <span className="font-bold text-gray-900 dark:text-white">Facebook</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                  {t('follow_us', 'Follow us')} <ExternalLink className="w-3 h-3" />
-                </span>
-              </a>
-
-              <a 
-                href="https://www.instagram.com/silverthiefbug.official/?utm_source=ig_web_button_share_sheet" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex flex-col items-center p-6 bg-pink-50 dark:bg-pink-900/20 rounded-xl hover:bg-pink-100 dark:hover:bg-pink-900/40 transition-colors group"
-              >
-                <div className="p-4 bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-500 text-white rounded-full mb-4 group-hover:scale-110 transition-transform">
-                  <InstagramIcon className="w-8 h-8" />
-                </div>
-                <span className="font-bold text-gray-900 dark:text-white">Instagram</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                  {t('see_photos', 'See photos')} <ExternalLink className="w-3 h-3" />
-                </span>
-              </a>
-
-              <a 
-                href="https://www.tiktok.com/@silver.thief.bug" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex flex-col items-center p-6 bg-gray-100 dark:bg-gray-800/50 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors group border border-gray-200 dark:border-gray-700"
-              >
-                <div className="p-4 bg-black dark:bg-white dark:text-black text-white rounded-full mb-4 group-hover:scale-110 transition-transform">
-                  <TiktokIcon className="w-8 h-8" />
-                </div>
-                <span className="font-bold text-gray-900 dark:text-white">TikTok</span>
-                <span className="text-sm text-gray-500 dark:text-gray-400 mt-1 flex items-center gap-1">
-                  {t('watch_videos', 'Watch videos')} <ExternalLink className="w-3 h-3" />
-                </span>
-              </a>
-            </div>
-
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6 border-l-4 border-orange pl-4 uppercase tracking-wider mt-12">
-              {t('our_location', 'Our Location')}
-            </h2>
-            
-            <div className="bg-orange/5 dark:bg-orange/10 p-6 rounded-xl border border-orange/20 flex flex-col md:flex-row gap-6 items-center md:items-start mb-8">
-              <div className="p-4 bg-white dark:bg-gray-800 rounded-full shadow-md text-orange">
-                <MapPin className="w-8 h-8" />
-              </div>
-              <div className="flex-1 text-center md:text-left">
-                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">{t('hq_name', 'Silver Thief Bug HQ')}</h3>
-                <p className="text-gray-600 dark:text-gray-300 mb-4 leading-relaxed">
-                  {t('address_full', '1 ตำบล ลำนารายณ์ อำเภอชัยบาดาล ลพบุรี 15130')}
-                </p>
-                <a 
-                  href="https://www.google.com/maps/place/1+%E0%B8%95%E0%B8%B3%E0%B8%9A%E0%B8%A5+%E0%B8%A5%E0%B8%B3%E0%B8%99%E0%B8%B2%E0%B8%A3%E0%B8%B2%E0%B8%A2%E0%B8%93%E0%B9%8C+%E0%B8%AD%E0%B8%B3%E0%B9%80%E0%B8%A0%E0%B8%AD%E0%B8%8A%E0%B8%B1%E0%B8%A2%E0%B8%9A%E0%B8%B2%E0%B8%94%E0%B8%B2%E0%B8%A5+%E0%B8%A5%E0%B8%9E%E0%B8%9A%E0%B8%B8%E0%B8%A3%E0%B8%B5+15130/@15.2084415,101.1476859,475m/data=!3m1!1e3!4m6!3m5!1s0x311e4345489d9b99:0x5ca6db51f6e6a2f3!8m2!3d15.2094508!4d101.1492295!16s%2Fg%2F11thqhfmxz?entry=ttu&g_ep=EgoyMDI2MDUxMS4wIKXMDSoASAFQAw%3D%3D" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 px-6 py-3 bg-orange text-white font-bold rounded-full hover:bg-orange-dark transition-all shadow-md hover:shadow-lg transform hover:-translate-y-1 mb-6"
-                >
-                  <MapPin className="w-5 h-5" />
-                  {t('open_in_google_maps', 'Open in Google Maps')}
-                </a>
-                
-                {/* Embedded Google Map */}
-                <iframe 
-                  className="w-full h-64 md:h-80 rounded-xl shadow-sm border border-orange/10 dark:border-gray-700" 
-                  src="https://maps.google.com/maps?q=15.2094508,101.1492295&hl=th&z=15&output=embed" 
-                  title="Silver Thief Bug Farm Map"
-                  frameBorder="0" 
-                  scrolling="no" 
-                  marginHeight={0} 
-                  marginWidth={0}>
-                </iframe>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
-              <div className="flex items-center gap-4 text-gray-600 dark:text-gray-300">
-                <Phone className="w-6 h-6 text-orange" />
-                <span className="font-medium">095 681 2084</span>
-              </div>
-              <div className="flex items-center gap-4 text-gray-600 dark:text-gray-300">
-                <Mail className="w-6 h-6 text-orange" />
-                <span className="font-medium">silverthiefbug.official@gmail.com</span>
-              </div>
-            </div>
-
-          </div>
-        </div>
+    <div>
+      <div className={`${container} pb-10 pt-8 sm:pt-12`}>
+        <PageHeader title={t('about')} description={t('about_subtitle')} />
       </div>
+
+      <section aria-label={t('home_page.promises')} className="border-y border-line bg-sunken">
+        <ul className={`${container} grid divide-y divide-line md:grid-cols-3 md:divide-x md:divide-y-0`}>
+          {PROMISES.map(({ icon: Icon, titleKey, descriptionKey }) => (
+            <li key={titleKey} className="flex items-start gap-3 py-6 md:px-6 md:first:pl-0 md:last:pr-0">
+              <Icon className="mt-0.5 h-5 w-5 shrink-0 text-accent-strong" aria-hidden />
+              <div>
+                <h2 className="text-base font-semibold text-ink">{t(titleKey)}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-muted">{t(descriptionKey)}</p>
+                {titleKey === 'health_guarantee' && (
+                  <Link to="/shipping#guarantee" className="mt-1 inline-block text-sm font-medium text-accent-strong underline-offset-4 hover:underline">
+                    {t('home_page.guarantee_terms')}
+                  </Link>
+                )}
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section aria-labelledby="know-your-beetle" className={`${container} py-16 sm:py-20`}>
+        <div className="mx-auto max-w-2xl text-center">
+          <h2 id="know-your-beetle" className={sectionHeading}>{t('know_your_beetle')}</h2>
+          <p className="mt-3 text-muted">{t('understanding_beetle')}</p>
+        </div>
+        <div className="mt-12 space-y-12 sm:space-y-16">
+          {FACTS.map(({ titleKey, bodyKey, icon: Icon, photo }, i) => (
+            <article key={titleKey} className={`grid items-center gap-6 md:grid-cols-2 md:gap-12 ${i % 2 ? 'md:[&>figure]:order-2' : ''}`}>
+              <figure>
+                <div className="aspect-[4/3] overflow-hidden rounded-2xl border border-line bg-sunken">
+                  <img
+                    src={photo.src}
+                    alt={isThai ? photo.alt.th : photo.alt.en}
+                    loading="lazy"
+                    className="h-full w-full object-cover transition-transform duration-700 hover:scale-[1.03] motion-reduce:transition-none motion-reduce:hover:scale-100"
+                  />
+                </div>
+                <figcaption className="mt-2 text-xs text-muted">
+                  {t('hero.photo_by', { author: photo.author })} ·{' '}
+                  <a href={photo.licenseUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
+                    {photo.license}
+                  </a>{' '}
+                  ·{' '}
+                  <a href={photo.sourceUrl} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2 hover:text-ink">
+                    Wikimedia Commons
+                  </a>
+                </figcaption>
+              </figure>
+              <div className="max-w-prose">
+                <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-strong/10 text-accent-strong">
+                  <Icon className="h-6 w-6" aria-hidden />
+                </span>
+                <h3 className="mt-4 font-display text-xl font-bold text-ink sm:text-2xl">{t(titleKey)}</h3>
+                <p className="mt-3 text-[0.9375rem] leading-relaxed text-muted sm:text-base">{t(bodyKey)}</p>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className={`${container} pb-16 sm:pb-20`}>
+        <div className="grid gap-10 lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-16">
+          <div>
+            <h2 className={sectionHeading}>{t('join_community')}</h2>
+            <p className="mt-3 text-muted">{t('community_desc')}</p>
+          </div>
+          <ul className="divide-y divide-line border-y border-line">
+            {SOCIAL_LINKS.map(({ label, url, descriptionKey, Icon }) => (
+              <li key={label}>
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group flex items-center gap-4 py-4 transition-colors hover:bg-sunken/60 motion-reduce:transition-none sm:px-2"
+                >
+                  <Icon className="h-6 w-6 shrink-0 text-ink" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block font-semibold text-ink">{label}</span>
+                    <span className="block text-sm text-muted">{t(descriptionKey)}</span>
+                  </span>
+                  <ArrowUpRight className="h-5 w-5 shrink-0 text-muted transition-colors group-hover:text-accent-strong" aria-hidden />
+                  <span className="sr-only">({t('home_page.opens_new_tab')})</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section className="border-t border-line">
+        <div className={`${container} flex flex-col items-start gap-6 py-14 sm:flex-row sm:items-center sm:justify-between`}>
+          <div className="max-w-xl">
+            <h2 className={sectionHeading}>{t('ready_to_start')}</h2>
+            <p className="mt-2 text-muted">{t('ready_to_start_desc')}</p>
+          </div>
+          <Link to="/" className={primaryButtonInline}>
+            {t('shop_now')}
+            <ArrowRight className="h-5 w-5" aria-hidden />
+          </Link>
+        </div>
+      </section>
     </div>
   );
 };

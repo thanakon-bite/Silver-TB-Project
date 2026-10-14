@@ -1,0 +1,246 @@
+import React, { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { AlertCircle, CheckCircle2, Clock, Loader2 } from 'lucide-react';
+import { api } from '../lib/api';
+import { errorMessage } from '../lib/errorMessage';
+import { cancelReasonText, formatAddressLines, orderStatusKey } from '../lib/format';
+import type { Order } from '../lib/types';
+import PaymentStep from '../component/checkout/PaymentStep';
+import OrderSummary from '../component/checkout/OrderSummary';
+import OrderJourney from '../component/orders/OrderJourney';
+import CancelOrder from '../component/orders/CancelOrder';
+import ConfirmReceipt from '../component/orders/ConfirmReceipt';
+
+const POLL_MS = 2000;
+const MAX_POLLS = 45; // ~90 seconds
+
+const reservationOver = (o: Order) => !!o.expires_at && new Date(o.expires_at) <= new Date();
+
+/** Awaiting Payment: the order is still waiting on the customer or on Stripe. */
+const isAwaitingPayment = (o: Order) => o.status === 'awaiting_payment';
+
+/** A quiet status line on the sunken panel; errors use the danger box instead (design.md). */
+const Notice: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div role="status" className="flex items-start gap-2 rounded-xl border border-line bg-sunken p-3 text-sm text-ink">
+    {children}
+  </div>
+);
+
+
+const OrderDetail: React.FC = () => {
+  const { t } = useTranslation();
+  const { id } = useParams<{ id: string }>();
+  const [params, setParams] = useSearchParams();
+  const justPaid = params.get('paid') === '1';
+
+  const [order, setOrder] = useState<Order | null>(null);
+  const [error, setError] = useState('');
+  const [waiting, setWaiting] = useState(justPaid);
+  const [thanked, setThanked] = useState(false);
+  const [countdownEnded, setCountdownEnded] = useState(false);
+
+  const load = useCallback(async () => {
+    const o = await api.get<Order>(`/orders/${id}`);
+    setOrder(o);
+    return o;
+  }, [id]);
+
+  useEffect(() => {
+    load().catch((e) => setError(errorMessage(e, t)));
+  }, [load, t]);
+
+  /** Re-read the order after something may have changed it; a failure leaves the page as it is. */
+  const reload = useCallback(() => {
+    load().catch(() => {});
+  }, [load]);
+
+  // Back from Stripe (?paid=1): only the SERVER (verified webhook) makes an order Paid, so poll for it.
+  useEffect(() => {
+    if (!waiting) return;
+    let polls = 0;
+    const timer = setInterval(() => {
+      polls += 1;
+      reload(); // a failed poll just tries again next time
+      if (polls >= MAX_POLLS) setWaiting(false);
+    }, POLL_MS);
+    return () => clearInterval(timer);
+  }, [waiting, reload]);
+
+  // Seeing this order Paid on the way back from Stripe ends the purchase, whenever the webhook landed.
+  // The Cart was already emptied when the Order was created (CONTEXT.md: Cart).
+  useEffect(() => {
+    if (!justPaid || !order) return;
+    if (!order.paid_at) {
+      // Cancelled or otherwise past Awaiting Payment: there is no payment left to wait for.
+      if (order.status !== 'awaiting_payment') setWaiting(false);
+      return;
+    }
+    setWaiting(false);
+    setThanked(true);
+    try {
+      sessionStorage.removeItem('stb_checkout_request');
+    } catch {
+      /* ignore */
+    }
+    setParams(
+      (p) => {
+        p.delete('paid');
+        return p;
+      },
+      { replace: true }
+    );
+  }, [justPaid, order, setParams]);
+
+  if (error) {
+    return (
+      <div className="bg-paper text-ink">
+        <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6">
+          <div role="alert" className="flex items-start gap-2 rounded-xl border border-danger/40 bg-danger/5 p-3 text-sm text-danger">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+            <div>
+              <p>
+                <strong className="font-semibold">{t('order_page.load_error')}</strong> · {error}
+              </p>
+              <Link to="/orders" className="mt-1 inline-block font-medium text-accent-strong underline-offset-4 hover:underline">
+                {t('order_page.my_orders')}
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (!order) {
+    return (
+      <div className="bg-paper">
+        <p role="status" className="mx-auto max-w-5xl px-4 py-16 text-sm text-muted sm:px-6">
+          {t('order_page.loading')}
+        </p>
+      </div>
+    );
+  }
+
+  // Back from Stripe and not yet confirmed: offering to pay again could charge the customer twice.
+  const unconfirmed = justPaid && isAwaitingPayment(order);
+  const expired = isAwaitingPayment(order) && (countdownEnded || reservationOver(order));
+  const payable = isAwaitingPayment(order) && !expired && !unconfirmed;
+
+  return (
+    <div className="bg-paper text-ink">
+      <div className="mx-auto w-full max-w-5xl px-4 pb-16 pt-8 sm:px-6">
+        <Link to="/orders" className="whitespace-nowrap text-sm text-muted underline-offset-4 hover:text-ink hover:underline">
+          {t('order_page.back_to_orders')}
+        </Link>
+
+        <div className="mb-8 mt-4">
+          <h1 className="font-display text-3xl font-bold text-ink">{t(`order_status.${orderStatusKey(order)}`)}</h1>
+          <p className="mt-1 font-mono text-sm tabular-nums text-muted">{t('order_page.order_number', { number: order.order_number })}</p>
+        </div>
+
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_22rem] lg:gap-12">
+          <div className="lg:order-2">
+            <OrderSummary
+              lines={order.order_items.map((i) => ({
+                key: i.id,
+                name: i.is_gift ? `${i.product_name} (${t('promotions.gift_label')})` : i.product_name,
+                free: !!i.is_gift,
+                quantity: i.quantity,
+                amount: i.line_total,
+                image: i.product_image || undefined,
+              }))}
+              shippingFee={order.shipping_fee}
+              discount={order.discount_total}
+              total={order.total}
+              totalLabel={t('checkout_page.total')}
+            />
+          </div>
+
+          <div className="min-w-0 space-y-8 lg:order-1">
+            {unconfirmed && waiting && (
+              <Notice>
+                <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-accent-strong motion-reduce:animate-none" aria-hidden />
+                <p>{t('order_page.confirming')}</p>
+              </Notice>
+            )}
+            {unconfirmed && !waiting && (
+              <Notice>
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
+                <p>
+                  <strong className="font-semibold">{t('order_page.not_confirmed_title')}</strong> · {t('order_page.not_confirmed_text')}
+                </p>
+              </Notice>
+            )}
+            {(order.status === 'paid' || order.status === 'waiting_shipping') && (
+              <Notice>
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+                <p>
+                  {thanked && <strong className="font-semibold">{t('order_page.paid_thanks')} · </strong>}
+                  {t('order_page.preparing')}
+                </p>
+              </Notice>
+            )}
+
+            {order.status === 'cancelled' && order.cancel_reason && (
+              <Notice>
+                <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-muted" aria-hidden />
+                <p>
+                  <strong className="font-semibold">{t('order_page.cancel_reason')}</strong> · <span>{cancelReasonText(order.cancel_reason, t)}</span>
+                </p>
+              </Notice>
+            )}
+
+            {order.status !== 'cancelled' && <OrderJourney order={order} />}
+
+            {order.actions?.customer?.confirm && <ConfirmReceipt order={order} onConfirmed={setOrder} />}
+
+            <section className="border-y border-line py-4 text-sm text-muted">
+              <h2 className="mb-2 font-display text-lg font-bold text-ink">{t('order_page.shipping_to')}</h2>
+              {formatAddressLines(order.shipping_address).map((l, i) => (
+                <div key={i} className={i === 0 ? 'font-semibold text-ink' : ''}>
+                  {l}
+                </div>
+              ))}
+            </section>
+
+            {expired && !unconfirmed && (
+              <Notice>
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
+                <p>
+                  <strong className="font-semibold">{t('order_page.expired_title')}</strong> · {t('order_page.expired_text')}{' '}
+                  <Link to="/" className="whitespace-nowrap font-medium text-accent-strong underline-offset-4 hover:underline">
+                    {t('order_page.keep_shopping')}
+                  </Link>
+                </p>
+              </Notice>
+            )}
+
+            {payable && (
+              <div className="space-y-5">
+                {order.payment_failed_at && (
+                  <Notice>
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" aria-hidden />
+                    <p>
+                      <strong className="font-semibold">{t('order_page.failed_title')}</strong> · {t('order_page.failed_text')}
+                    </p>
+                  </Notice>
+                )}
+                {/* The countdown ending hides paying at once; the reload then shows what the server says. */}
+                <PaymentStep
+                  order={order}
+                  onExpired={() => {
+                    setCountdownEnded(true);
+                    reload();
+                  }}
+                />
+                {order.actions?.customer?.cancel && <CancelOrder order={order} onCancelled={setOrder} onAlreadyPaid={reload} />}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default OrderDetail;

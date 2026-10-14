@@ -1,0 +1,20 @@
+[
+  {
+    "date": "2026-10-10",
+    "macrostructure": "record page: two-column details + sticky summary",
+    "theme": "custom",
+    "theme_axes": "light / classical-serif / warm",
+    "vibe": "warm paper, ink, one orange accent",
+    "enrichment": "none",
+    "brief": "Silver Thief Bug · order page /orders/:id onto design.md"
+  },
+  {
+    "date": "2026-10-10",
+    "macrostructure": "app flow: two-column form + sticky summary",
+    "theme": "custom",
+    "theme_axes": "light / classical-serif / warm",
+    "vibe": "warm paper, ink, one orange accent",
+    "enrichment": "none",
+    "brief": "Silver Thief Bug · checkout redesign (design.md locked)"
+  }
+]

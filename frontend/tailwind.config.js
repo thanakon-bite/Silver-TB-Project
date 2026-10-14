@@ -7,29 +7,37 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        silver: {
-          light: '#F8F9FA',
-          DEFAULT: '#E5E7EB',
-          medium: '#9CA3AF',
-          dark: '#4B5563',
-          metallic: '#C0C0C0', // Classic silver
-        },
-        white: '#FFFFFF',
-        orange: {
-          light: '#FFD8A8',
-          DEFAULT: '#FF922B', // More vibrant orange
-          dark: '#E67E22',
-          premium: '#FF6B00',
-        },
+        // Role tokens (see src/index.css). Values switch with the .dark class.
+        paper: 'oklch(var(--paper) / <alpha-value>)',
+        sunken: 'oklch(var(--sunken) / <alpha-value>)',
+        ink: 'oklch(var(--ink) / <alpha-value>)',
+        muted: 'oklch(var(--muted) / <alpha-value>)',
+        line: 'oklch(var(--line) / <alpha-value>)',
         accent: {
-          gold: '#FFD700',
-          dark: '#111827',
-        }
+          DEFAULT: 'oklch(var(--accent) / <alpha-value>)', // decoration only: below 3:1 on paper in light mode
+          strong: 'oklch(var(--accent-strong) / <alpha-value>)', // buttons, links, focus
+          ink: 'oklch(var(--accent-ink) / <alpha-value>)', // text on accent-strong
+        },
+        success: 'oklch(var(--success) / <alpha-value>)',
+        danger: 'oklch(var(--danger) / <alpha-value>)',
+        // Over photos only; fixed in both themes.
+        scrim: 'oklch(var(--scrim) / <alpha-value>)',
+        'on-scrim': 'oklch(var(--on-scrim) / <alpha-value>)',
       },
-      backgroundImage: {
-        'premium-gradient': 'linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%)',
-        'orange-gradient': 'linear-gradient(135deg, #FF922B 0%, #FF6B00 100%)',
-      }
+      fontFamily: {
+        display: ['"Noto Serif Thai"', 'Georgia', 'serif'],
+        sans: ['"IBM Plex Sans Thai"', 'system-ui', '-apple-system', '"Segoe UI"', 'sans-serif'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
+      },
+      // Hero slides: a slow push-in on the photo while it shows, and the words rising in.
+      keyframes: {
+        'hero-zoom': { from: { transform: 'scale(1)' }, to: { transform: 'scale(1.08)' } },
+        'hero-rise': { from: { opacity: '0', transform: 'translateY(16px)' }, to: { opacity: '1', transform: 'translateY(0)' } },
+      },
+      animation: {
+        'hero-zoom': 'hero-zoom 6.5s ease-out forwards',
+        'hero-rise': 'hero-rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both',
+      },
     },
   },
   plugins: [],

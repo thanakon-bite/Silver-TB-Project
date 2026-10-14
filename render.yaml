@@ -1,0 +1,40 @@
+# Render Blueprint: the backend API on Render's free web service (see docs/deploy.md).
+# The frontend is on Vercel (frontend/vercel.json). Secrets are marked sync: false, so Render asks for
+# them when the Blueprint is created; they never live in this file.
+services:
+  - type: web
+    name: silver-tb-api
+    runtime: node
+    plan: free
+    region: singapore
+    # The branch holding this round's work; switch to main once it is merged
+    branch: fix/checkout-polish
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: NODE_ENV
+        value: production
+      # Behind Render's proxy: rate limits see the visitor's IP, not the proxy's
+      - key: TRUST_PROXY
+        value: "1"
+      # The Vercel address of the shop, e.g. https://silver-tb.vercel.app (comma-separate several)
+      - key: FRONTEND_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: LINE_CHANNEL_ACCESS_TOKEN
+        sync: false
+      - key: LINE_CHANNEL_SECRET
+        sync: false
+      - key: LINE_OWNER_USER_ID
+        sync: false

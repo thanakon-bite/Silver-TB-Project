@@ -3,13 +3,12 @@
   "version": "1.0.0",
   "description": "Root package for running frontend and backend together",
   "scripts": {
-    "start": "dotenv -e .env -- concurrently \"npm run start-backend\" \"npm run start-frontend\"",
-    "start-backend": "cd backend && npm run dev",
-    "start-frontend": "cd frontend && npm start",
-    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install"
+    "start": "node scripts/start.js",
+    "start-backend": "npm --prefix backend run dev",
+    "start-frontend": "npm --prefix frontend start",
+    "install-all": "npm install && npm --prefix backend install && npm --prefix frontend install"
   },
   "devDependencies": {
-    "concurrently": "^8.2.2",
-    "dotenv-cli": "^11.0.0"
+    "concurrently": "^8.2.2"
   }
 }

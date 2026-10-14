@@ -1,25 +1,139 @@
+/* Hallmark · design-system: design.md · genre: editorial · theme: custom (warm paper, ink, one orange accent) */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Silver Thief Bug design tokens: a naturalist's field guide.
+ * Warm paper, ink, and one orange accent. Values are OKLCH "L C H" triplets so Tailwind can add alpha.
+ * accent is the bright brand orange for decoration; accent-strong is the readable one (buttons, links,
+ * focus) and passes 4.5:1 against accent-ink in both modes.
+ */
 :root {
-  --silver: #C0C0C0;
-  --white: #FFFFFF;
-  --orange: #FFA500;
+  color-scheme: light; /* native controls (radios, checkboxes, scrollbars) follow the theme */
+  --paper: 97.5% 0.008 85;
+  --sunken: 94.5% 0.012 85;
+  --ink: 24% 0.02 60;
+  --muted: 48% 0.02 65;
+  --line: 87% 0.015 80;
+  --accent: 72% 0.17 55;
+  --accent-strong: 54% 0.16 48;
+  --accent-ink: 99% 0.004 85;
+  --success: 50% 0.12 150;
+  --danger: 52% 0.18 28;
+  /* Chart series, categorical slots in fixed order (colour-blind separation checked per mode). Marks only, never text. */
+  --series-1: 57.5% 0.163 255.5;
+  --series-2: 67.1% 0.175 40.6;
+  --series-3: 66.9% 0.141 162.1;
+  --series-4: 76.4% 0.161 75.1;
+  /* Over photos (hero, image tiles): the same in both themes, because a photo does not change with the theme. */
+  --scrim: 16% 0.012 60;
+  --on-scrim: 98% 0.006 85;
+}
+
+.dark {
+  color-scheme: dark;
+  --paper: 19% 0.012 60;
+  --sunken: 23% 0.014 60;
+  --ink: 93% 0.012 80;
+  --muted: 70% 0.015 75;
+  --line: 33% 0.015 60;
+  --accent: 76% 0.15 58;
+  --accent-strong: 74% 0.16 55;
+  --accent-ink: 20% 0.02 55;
+  --success: 74% 0.13 150;
+  --danger: 70% 0.16 28;
+  --series-1: 62.2% 0.161 255.1;
+  --series-2: 62.2% 0.173 40.1;
+  --series-3: 62.1% 0.128 163.1;
+  --series-4: 67% 0.143 73.2;
+}
+
+html,
+body {
+  overflow-x: clip;
 }
 
 body {
   margin: 0;
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    sans-serif;
+  font-family: theme('fontFamily.sans');
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  @apply bg-white text-gray-900 dark:bg-gray-900 dark:text-gray-100;
+  @apply bg-paper text-ink;
 }
 
 @layer base {
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-bold text-gray-800 dark:text-gray-100;
+  /* :where() keeps these defaults at zero specificity, so a component's own classes always win. */
+  :where(h1, h2, h3, h4, h5, h6) {
+    @apply font-bold text-ink;
   }
+
+  ::selection {
+    background: oklch(var(--accent) / 0.3);
+    color: oklch(var(--ink));
+  }
+
+  /* Every keyboard-focusable control gets the same ring; components may restyle it but never remove it. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid oklch(var(--accent-strong));
+    outline-offset: 2px;
+  }
+
+  :where(input, textarea) {
+    caret-color: oklch(var(--accent-strong));
+  }
+}
+
+/*
+ * SweetAlert2 is still used by the admin tools and the session-expiry notice. Its popups take the
+ * shop's tokens so they read as part of the same product (customer pages use inline feedback instead).
+ */
+.swal2-popup {
+  background: oklch(var(--paper)) !important;
+  color: oklch(var(--ink)) !important;
+  border: 1px solid oklch(var(--line));
+  border-radius: 1rem !important;
+  font-family: theme('fontFamily.sans') !important;
+}
+.swal2-title {
+  color: oklch(var(--ink)) !important;
+  font-family: theme('fontFamily.display') !important;
+  font-size: 1.25rem !important;
+}
+.swal2-html-container {
+  color: oklch(var(--muted)) !important;
+  font-size: 0.9375rem !important;
+}
+.swal2-input {
+  background: oklch(var(--paper)) !important;
+  color: oklch(var(--ink)) !important;
+  border: 1px solid oklch(var(--line)) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+}
+.swal2-actions .swal2-styled {
+  border-radius: 0.75rem !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+}
+.swal2-actions .swal2-confirm {
+  background: oklch(var(--accent-strong)) !important;
+  color: oklch(var(--accent-ink)) !important;
+}
+.swal2-actions .swal2-cancel {
+  background: transparent !important;
+  color: oklch(var(--ink)) !important;
+  border: 1px solid oklch(var(--line)) !important;
+}
+.swal2-actions .swal2-styled:focus-visible {
+  outline: 2px solid oklch(var(--accent-strong)) !important;
+  outline-offset: 2px;
+}
+
+/* Scrolls sideways (touch, trackpad, keyboard) without showing a scrollbar, e.g. the admin tabs. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }
