@@ -2,23 +2,26 @@ import React from 'react';
 
 /**
  * The shop's mark: a rhinoceros beetle seen from above. Drawn in currentColor so it follows the text colour.
- * Temporary until the shop supplies its real logo; public/favicon.svg is the same drawing.
+ * public/favicon.svg, favicon.ico and logo192/512.png are the same drawing on an accent-strong badge.
  */
+// One side of the body (wing case + three legs); the other side is its mirror image.
+const Half = () => (
+  <>
+    <path d="M31.2 33C24.4 33.2 20.2 38.2 20.2 45.4c0 7.8 4.8 13.8 11 15.4z" />
+    <path d="M23.4 27.8 16.4 24l-2.6-7M21.4 39l-8-1.2-4.6 5.6M22.4 50.6l-5.6 4.8-.8 6.2" fill="none" stroke="currentColor" strokeWidth="2.7" strokeLinecap="round" strokeLinejoin="round" />
+  </>
+);
+
 const BeetleMark: React.FC<{ className?: string; title?: string }> = ({ className, title }) => (
-  <svg viewBox="0 0 32 32" className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} fill="currentColor">
+  <svg viewBox="0 0 64 64" className={className} role={title ? 'img' : undefined} aria-hidden={title ? undefined : true} fill="currentColor">
     {title && <title>{title}</title>}
-    <path d="M16 7.4c-.9-2.3-.6-4.4 1.5-5.8-.6 1.7-.4 3.5-.3 5.8z" />
-    <ellipse cx="16" cy="8.6" rx="2.2" ry="1.6" />
-    <ellipse cx="16" cy="12.2" rx="4.6" ry="2.9" />
-    <path d="M15.4 14.6c-4.3 0-5.9 3.5-5.9 7 0 4.4 3 7.4 5.9 7.9zM16.6 14.6c4.3 0 5.9 3.5 5.9 7 0 4.4-3 7.4-5.9 7.9z" />
-    <path
-      d="M10.6 16 6.6 13.5l-1-3M9.6 21l-4.6.5-1.5 3M10.6 25.5 7 28.5l-.5 2.5M21.4 16l4-2.5 1-3M22.4 21l4.6.5 1.5 3M21.4 25.5l3.6 3 .5 2.5"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
+    <path d="M32 21c-7.8 0-11.2 2.7-11.2 6.4 0 3.5 3.9 4.9 11.2 4.9s11.2-1.4 11.2-4.9c0-3.7-3.4-6.4-11.2-6.4z" />
+    <path d="M27.9 18.4c0-2.2 1.8-3.4 4.1-3.4s4.1 1.2 4.1 3.4-1.8 3-4.1 3-4.1-.8-4.1-3z" />
+    <path d="M30 16.2c-.9-5.2.2-9.8 3.8-13.2 1.3-1.2 3-1.6 3.9-1.2-3.2 2.6-4.9 7-5 14.4z" />
+    <Half />
+    <g transform="translate(64 0) scale(-1 1)">
+      <Half />
+    </g>
   </svg>
 );
 

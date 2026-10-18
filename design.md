@@ -81,8 +81,9 @@ Radius · 12 px (`rounded-xl`) controls and notices · 16 px (`rounded-2xl`) the
 - `MotionConfig reducedMotion="user"` wraps the app; CSS transitions carry `motion-reduce:` variants.
 
 ## Brand
-- Mark · `BeetleMark` (rhinoceros beetle, top view) in `accent-strong`; temporary until the shop
-  supplies its real logo. `favicon.svg`, theme-color and `manifest.json` repeat token values as hex.
+- Mark · `BeetleMark` (rhinoceros beetle, top view, curved horn) in `accent-strong` inside the app.
+  App icons (`favicon.svg`, `favicon.ico`, `logo192.png`, `logo512.png`) are the same beetle in `paper`
+  on an `accent-strong` badge. `favicon.svg`, theme-color and `manifest.json` repeat token values as hex.
 
 ## Exports
 `frontend/src/index.css` (tokens) + `frontend/tailwind.config.js` (Tailwind mapping) are the source
