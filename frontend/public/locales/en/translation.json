@@ -318,6 +318,8 @@
     "close_menu": "Close menu"
   },
   "product_card": {
+    "photos": "Product photos",
+    "photo_n": "Photo {{n}} of {{total}}",
     "prev_photo": "Previous photo",
     "next_photo": "Next photo",
     "favorite": "Add to favorites",
@@ -328,6 +330,9 @@
     "guarantee_line": "Film the unboxing and tell us within 2 hours if the beetle died in transit."
   },
   "products_page": {
+    "similar_title": "You may also like",
+    "similar_prev": "Previous suggestions",
+    "similar_next": "More suggestions",
     "clear_search": "Clear search",
     "sort_label": "Sort by",
     "sort_default": "Recommended",
@@ -1002,7 +1007,8 @@
       "set_on_hand_for": "Set On Hand of {{name}}",
       "set_on_hand_title": "Set On Hand — {{name}}",
       "set_on_hand_text": "Now On Hand {{on_hand}} · Available {{available}} · reserved {{reserved}}. Enter the counted number; Available moves by the difference.",
-      "set_on_hand_note": "Note (optional), e.g. delivery, recount, beetle died",
+      "set_on_hand_less": "1 less",
+      "set_on_hand_more": "1 more",
       "set_on_hand_whole": "Enter a whole number from 0",
       "set_on_hand_min": "Can't go below {{reserved}}: customers have reserved them",
       "no_family": "— no Family —"
@@ -1188,6 +1194,11 @@
       }
     },
     "categories": {
+      "search_categories": "Search categories",
+      "search_families": "Search subcategories",
+      "no_match": "Nothing matches your search",
+      "reorder_hint": "Clear the search to reorder by dragging",
+      "drag_hint": "Drag rows up or down to reorder; shoppers see them in this order (keyboard: focus a row, then Alt + ↑ / ↓)",
       "heading": "Product Categories",
       "note": "The first filter on the products page, in this order",
       "add": "Add Category",
@@ -1203,8 +1214,6 @@
       "delete_text": "Only a Category with no products can be deleted",
       "rename": "Edit {{name}}",
       "delete": "Delete {{name}}",
-      "move_up": "Move {{name}} up",
-      "move_down": "Move {{name}} down",
       "families_heading": "Subcategories",
       "families_note": "The second filter once shoppers pick beetles, and the Family choices in the product form",
       "family_add": "Add Family",

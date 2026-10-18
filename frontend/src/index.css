@@ -130,6 +130,61 @@ body {
   outline-offset: 2px;
 }
 
+/* Set On Hand (admin): − [count] + in one row. The native number spinner is hidden; − and + replace it. */
+.stb-stepper {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 0.25rem auto 0;
+}
+.stb-step {
+  width: 3rem;
+  height: 3rem;
+  flex: none;
+  border: 1px solid oklch(var(--line));
+  border-radius: 0.75rem;
+  background: oklch(var(--paper));
+  color: oklch(var(--ink));
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.stb-step:hover:not(:disabled) {
+  border-color: oklch(var(--accent-strong));
+  color: oklch(var(--accent-strong));
+}
+.stb-step:focus-visible {
+  outline: 2px solid oklch(var(--accent-strong));
+  outline-offset: 2px;
+}
+.stb-step:disabled {
+  color: oklch(var(--muted));
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.swal2-input.stb-step-input {
+  width: 6rem !important;
+  height: 3rem !important;
+  margin: 0 !important;
+  text-align: center;
+  font-family: theme('fontFamily.mono');
+  font-variant-numeric: tabular-nums;
+  font-size: 1.25rem !important;
+  -moz-appearance: textfield;
+}
+.stb-step-input::-webkit-outer-spin-button,
+.stb-step-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+@media (prefers-reduced-motion: reduce) {
+  .stb-step {
+    transition: none;
+  }
+}
+
 /* Scrolls sideways (touch, trackpad, keyboard) without showing a scrollbar, e.g. the admin tabs. */
 .no-scrollbar {
   scrollbar-width: none;

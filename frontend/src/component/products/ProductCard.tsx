@@ -1,10 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { motion } from 'framer-motion';
 import { Check, ChevronLeft, ChevronRight, Heart, Plus, Star, Tag } from 'lucide-react';
 import BeetleMark from '../brand/BeetleMark';
 import { useCart } from '../../contexts/CartContext';
 import { useFavorites } from '../../contexts/FavoritesContext';
 import { useRequireSignIn } from '../auth/RouteGuards';
+import { useAuth } from '../../contexts/AuthContext';
 import { baht } from '../../lib/format';
 import type { Product } from '../../lib/types';
 import { compactButton } from '../ui/buttonStyles';
@@ -63,15 +65,28 @@ export const useAddToCart = () => {
   };
 };
 
+// The photo box is its own hover group, so the arrows show wherever the photos are (card or product window).
 const arrow =
-  'absolute top-1/2 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-paper/90 text-ink shadow-[0_1px_4px_rgb(0_0_0/0.2)] ' +
-  'opacity-100 transition-opacity focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 motion-reduce:transition-none';
+  'absolute top-1/2 flex -translate-y-1/2 items-center justify-center rounded-full bg-paper/90 text-ink shadow-[0_1px_4px_rgb(0_0_0/0.2)] ' +
+  'opacity-100 transition-[opacity,transform] hover:scale-105 hover:bg-paper focus-visible:opacity-100 ' +
+  '[@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/photos:opacity-100 motion-reduce:transition-none';
 
-/** Photos of one product. Arrows appear on hover (always on touch screens); dots show the position. */
-export const ProductImages: React.FC<{ images: string[]; alt: string; size?: 'card' | 'detail' }> = ({ images, alt, size = 'card' }) => {
+/**
+ * Photos of one product. Arrows appear on hover (always on touch screens); dots show the position.
+ * Pass `current` and `onChange` to drive it from outside (the product window's thumbnails).
+ */
+export const ProductImages: React.FC<{
+  images: string[];
+  alt: string;
+  size?: 'card' | 'detail';
+  current?: number;
+  onChange?: (i: number) => void;
+}> = ({ images, alt, size = 'card', current: shown, onChange }) => {
   const { t } = useTranslation();
-  const [current, setCurrent] = useState(0);
+  const [own, setOwn] = useState(0);
   const valid = images?.filter(Boolean) || [];
+  const current = Math.min(shown ?? own, Math.max(0, valid.length - 1));
+  const setCurrent = (i: number) => (onChange ? onChange(i) : setOwn(i));
 
   if (valid.length === 0) {
     return (
@@ -85,9 +100,11 @@ export const ProductImages: React.FC<{ images: string[]; alt: string; size?: 'ca
     e.stopPropagation();
     setCurrent((to + valid.length) % valid.length);
   };
+  const arrowSize = size === 'detail' ? 'h-11 w-11' : 'h-9 w-9';
+  const chevron = size === 'detail' ? 'h-5 w-5' : 'h-4 w-4';
 
   return (
-    <div className="relative h-full w-full">
+    <div className="group/photos relative h-full w-full">
       <img
         src={valid[current]}
         alt={valid.length > 1 ? `${alt} (${current + 1}/${valid.length})` : alt}
@@ -97,11 +114,11 @@ export const ProductImages: React.FC<{ images: string[]; alt: string; size?: 'ca
       />
       {valid.length > 1 && (
         <>
-          <button type="button" onClick={(e) => go(e, current - 1)} className={`${arrow} left-2`} aria-label={t('product_card.prev_photo')}>
-            <ChevronLeft className="h-4 w-4" aria-hidden />
+          <button type="button" onClick={(e) => go(e, current - 1)} className={`${arrow} ${arrowSize} left-2`} aria-label={t('product_card.prev_photo')}>
+            <ChevronLeft className={chevron} aria-hidden />
           </button>
-          <button type="button" onClick={(e) => go(e, current + 1)} className={`${arrow} right-2`} aria-label={t('product_card.next_photo')}>
-            <ChevronRight className="h-4 w-4" aria-hidden />
+          <button type="button" onClick={(e) => go(e, current + 1)} className={`${arrow} ${arrowSize} right-2`} aria-label={t('product_card.next_photo')}>
+            <ChevronRight className={chevron} aria-hidden />
           </button>
           <div className="pointer-events-none absolute inset-x-0 bottom-2 flex justify-center gap-1.5" aria-hidden>
             {valid.map((_, i) => (
@@ -114,24 +131,76 @@ export const ProductImages: React.FC<{ images: string[]; alt: string; size?: 'ca
   );
 };
 
-/** Heart toggle over a product photo. */
+/** One small square per photo under the big one: shows how many there are and jumps to any of them. */
+export const ProductThumbs: React.FC<{ images: string[]; alt: string; current: number; onSelect: (i: number) => void }> = ({
+  images,
+  alt,
+  current,
+  onSelect,
+}) => {
+  const { t } = useTranslation();
+  const valid = images?.filter(Boolean) || [];
+  if (valid.length < 2) return null;
+  return (
+    <div className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1" role="group" aria-label={`${t('product_card.photos')}: ${alt}`}>
+      {valid.map((src, i) => (
+        <button
+          key={`${src}-${i}`}
+          type="button"
+          onClick={() => onSelect(i)}
+          aria-label={t('product_card.photo_n', { n: i + 1, total: valid.length })}
+          aria-current={i === current ? 'true' : undefined}
+          className={`h-14 w-14 shrink-0 overflow-hidden rounded-lg border-2 transition-[border-color,opacity] motion-reduce:transition-none ${
+            i === current ? 'border-accent-strong' : 'border-transparent opacity-70 hover:border-line hover:opacity-100'
+          }`}
+        >
+          <img src={src} alt="" aria-hidden loading="lazy" decoding="async" className="h-full w-full object-cover" />
+        </button>
+      ))}
+    </div>
+  );
+};
+
+/**
+ * Heart toggle over a product photo. Favorites belong to signed-in Customers (CONTEXT.md), so guests
+ * don't see it at all. Hover grows the button and tints the heart; turning it on pops the heart once.
+ */
 export const FavoriteButton: React.FC<{ product: ShopProduct; className?: string }> = ({ product, className = '' }) => {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { toggle, isFavorite } = useFavorites();
   const requireSignIn = useRequireSignIn();
   const on = isFavorite(product.id);
+  const [pops, setPops] = useState(0); // counts turn-ons, so only a tap (not loading the page) pops the heart
+  if (!user) return null;
   return (
     <button
       type="button"
       onClick={(e) => {
         e.stopPropagation();
-        if (requireSignIn()) toggle(product.id);
+        if (!requireSignIn()) return;
+        if (!on) setPops((n) => n + 1);
+        toggle(product.id);
       }}
       aria-pressed={on}
       aria-label={on ? t('product_card.unfavorite') : t('product_card.favorite')}
-      className={`flex h-10 w-10 items-center justify-center rounded-full bg-paper/90 shadow-[0_1px_4px_rgb(0_0_0/0.2)] transition-transform active:scale-95 motion-reduce:transition-none ${className}`}
+      title={on ? t('product_card.unfavorite') : t('product_card.favorite')}
+      className={`group/fav flex h-10 w-10 items-center justify-center rounded-full bg-paper/90 shadow-[0_1px_4px_rgb(0_0_0/0.2)] transition-[transform,background-color] duration-200 ease-out hover:scale-110 hover:bg-paper active:scale-95 motion-reduce:transition-none motion-reduce:hover:scale-100 ${className}`}
     >
-      <Heart className={`h-[18px] w-[18px] ${on ? 'fill-danger text-danger' : 'text-ink'}`} aria-hidden />
+      <motion.span
+        key={pops}
+        className="flex"
+        initial={pops ? { scale: 0.6 } : false}
+        animate={{ scale: 1 }}
+        transition={{ type: 'spring', stiffness: 500, damping: 12 }}
+      >
+        <Heart
+          className={`h-[18px] w-[18px] transition-colors duration-200 ${
+            on ? 'fill-danger text-danger' : 'text-ink group-hover/fav:fill-danger/20 group-hover/fav:text-danger'
+          }`}
+          aria-hidden
+        />
+      </motion.span>
     </button>
   );
 };

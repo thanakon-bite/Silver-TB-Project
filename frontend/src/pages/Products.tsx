@@ -1,13 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Search, X, ShoppingBag, Star, PackageSearch, ShieldCheck, Tag } from 'lucide-react';
+import { Search, X, ShoppingBag, Star, PackageSearch, ShieldCheck, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { fetchShopProducts } from '../lib/shopProducts';
 import ShopPager, { SHOP_PAGE_SIZE } from '../component/products/ShopPager';
 import { errorMessage } from '../lib/errorMessage';
 import { baht } from '../lib/format';
 import Modal from '../component/common/Modal';
-import ProductCard, { FavoriteButton, ProductImages, StockLine, useAddToCart, useProductText, type ShopProduct } from '../component/products/ProductCard';
+import ProductCard, { FavoriteButton, ProductImages, ProductThumbs, StockLine, useAddToCart, useProductText, type ShopProduct } from '../component/products/ProductCard';
 import { EmptyState, ErrorBox } from '../component/ui/Feedback';
 import ShopHero from '../component/shop/ShopHero';
 import { chip, primaryButton, secondaryButton, textLink } from '../component/ui/buttonStyles';
@@ -66,6 +66,63 @@ const Products: React.FC = () => {
   const [family, setFamily] = useState('');
   const [sort, setSort] = useState<Sort>('default');
   const [selected, setSelected] = useState<ShopProduct | null>(null);
+  const [photo, setPhoto] = useState(0);
+  const detailTop = useRef<HTMLDivElement>(null);
+  // Every product opens on its first photo; switching to a similar one scrolls the window back to the top.
+  const shownId = useRef<string | null>(null);
+  useEffect(() => {
+    setPhoto(0);
+    const from = shownId.current;
+    shownId.current = selected?.id ?? null;
+    if (from && selected) detailTop.current?.scrollIntoView?.({ block: 'start', behavior: 'smooth' });
+  }, [selected]);
+
+  /**
+   * Similar products for the open one: the same Category, the same Family first for beetles, then what
+   * can be bought now, best sellers and the most viewed. Up to twelve, four in view at a time.
+   */
+  const similar = useMemo(() => {
+    if (!selected) return [];
+    const family = selected.attributes?.family;
+    const score = (p: ShopProduct) =>
+      (family && p.attributes?.family === family ? 8 : 0) + (p.available > 0 ? 4 : 0) + (p.is_best_seller ? 2 : 0);
+    return products
+      .filter((p) => p.id !== selected.id && p.category === selected.category)
+      .sort((a, b) => score(b) - score(a) || (b.views || 0) - (a.views || 0))
+      .slice(0, 12);
+  }, [products, selected]);
+
+  // The similar row scrolls sideways; the arrows move it a whole view at a time and wrap around at either end.
+  const similarRow = useRef<HTMLUListElement>(null);
+  const [similarEnds, setSimilarEnds] = useState({ start: true, end: true });
+  const measureSimilar = () => {
+    const row = similarRow.current;
+    if (!row) return;
+    setSimilarEnds({ start: row.scrollLeft <= 1, end: row.scrollLeft + row.clientWidth >= row.scrollWidth - 1 });
+  };
+  /**
+   * Pages through the row a view at a time (4 from md, 2 below), counted by items rather than pixels so
+   * rounding never leaves it stuck. Past the last page goes back to the first; before the first goes to the last.
+   */
+  const scrollSimilar = (by: -1 | 1) => {
+    const row = similarRow.current;
+    const items = row ? (Array.from(row.children) as HTMLElement[]) : [];
+    if (!row || items.length === 0) return;
+    const perView = window.matchMedia?.('(min-width: 768px)').matches ? 4 : 2;
+    const pages = Math.ceil(items.length / perView);
+    const left = (i: number) => items[i].offsetLeft - items[0].offsetLeft;
+    const atEnd = row.scrollLeft + row.clientWidth >= row.scrollWidth - 8;
+    const firstShown = items.findIndex((_, i) => left(i) >= row.scrollLeft - 8);
+    const page = atEnd ? pages - 1 : Math.floor(Math.max(0, firstShown) / perView);
+    const next = (page + by + pages) % pages;
+    row.scrollTo?.({ left: left(next * perView), behavior: 'smooth' });
+  };
+  useEffect(() => {
+    similarRow.current?.scrollTo?.({ left: 0 });
+    measureSimilar();
+    window.addEventListener('resize', measureSimilar);
+    return () => window.removeEventListener('resize', measureSimilar);
+  }, [similar]);
 
   useEffect(() => {
     fetchShopProducts()
@@ -304,10 +361,14 @@ const Products: React.FC = () => {
 
         <Modal isOpen={!!selected} onClose={() => setSelected(null)} title={selected ? text.name(selected) : ''} maxWidth="3xl">
           {selected && (
-            <div className="grid gap-6 md:grid-cols-2">
-              <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-line bg-sunken md:aspect-square">
-                <ProductImages images={selected.images} alt={text.name(selected)} size="detail" />
-                <FavoriteButton product={selected} className="absolute right-3 top-3" />
+            <>
+            <div ref={detailTop} className="grid scroll-mt-4 gap-6 md:grid-cols-2">
+              <div className="min-w-0">
+                <div className="relative aspect-[4/3] overflow-hidden rounded-xl border border-line bg-sunken md:aspect-square">
+                  <ProductImages images={selected.images} alt={text.name(selected)} size="detail" current={photo} onChange={setPhoto} />
+                  <FavoriteButton product={selected} className="absolute right-3 top-3" />
+                </div>
+                <ProductThumbs images={selected.images} alt={text.name(selected)} current={photo} onSelect={setPhoto} />
               </div>
 
               <div className="flex min-w-0 flex-col">
@@ -403,12 +464,79 @@ const Products: React.FC = () => {
                 </div>
               </div>
             </div>
+
+            {similar.length > 0 && (
+              <section aria-labelledby="similar-heading" className="mt-8 border-t border-line pt-6">
+                <h3 id="similar-heading" className="font-display text-lg font-bold text-ink">
+                  {t('products_page.similar_title')}
+                </h3>
+                <div className="group/similar relative mt-3">
+                <ul
+                  ref={similarRow}
+                  onScroll={measureSimilar}
+                  className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth motion-reduce:scroll-auto"
+                >
+                  {similar.map((p) => (
+                    <li key={p.id} className="w-[calc((100%-0.75rem)/2)] shrink-0 snap-start md:w-[calc((100%-2.25rem)/4)]">
+                      <button
+                        type="button"
+                        onClick={() => setSelected(p)}
+                        className="group flex w-full flex-col rounded-xl border border-line p-2 text-left transition-colors hover:border-muted focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent-strong motion-reduce:transition-none"
+                      >
+                        <span className="block aspect-[4/3] w-full overflow-hidden rounded-lg bg-sunken">
+                          {p.images?.[0] ? (
+                            <img
+                              src={p.images[0]}
+                              alt=""
+                              loading="lazy"
+                              decoding="async"
+                              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+                            />
+                          ) : null}
+                        </span>
+                        <span className="mt-2 line-clamp-2 text-sm font-medium text-ink">{text.name(p)}</span>
+                        <span className="mt-1 font-mono text-sm tabular-nums text-ink">{baht(p.price)}</span>
+                        {p.available <= 0 && <span className="text-xs text-muted">{t('sold_out')}</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                {!(similarEnds.start && similarEnds.end) && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => scrollSimilar(-1)}
+                      aria-label={t('products_page.similar_prev')}
+                      className={`${similarArrow} -left-3`}
+                    >
+                      <ChevronLeft className="h-5 w-5" aria-hidden />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => scrollSimilar(1)}
+                      aria-label={t('products_page.similar_next')}
+                      className={`${similarArrow} -right-3`}
+                    >
+                      <ChevronRight className="h-5 w-5" aria-hidden />
+                    </button>
+                  </>
+                )}
+                </div>
+              </section>
+            )}
+            </>
           )}
         </Modal>
       </div>
     </>
   );
 };
+
+// Same look as the photo arrows: shown on hover (always on touch screens). Always clickable: they wrap around.
+const similarArrow =
+  'absolute top-[38%] z-10 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-line bg-paper text-ink ' +
+  'shadow-[0_1px_4px_rgb(0_0_0/0.2)] transition-[opacity,transform] hover:scale-105 ' +
+  'focus-visible:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/similar:opacity-100 motion-reduce:transition-none';
 
 const Row: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="flex gap-4 py-2.5">

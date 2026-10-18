@@ -150,11 +150,17 @@ describe('Cart and Favorites belong to signed-in Customers', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'ยินดีต้อนรับกลับ' })).toBeInTheDocument();
   });
 
-  test('a guest tapping the heart is sent to login', async () => {
+  test('a guest sees no heart on the products', async () => {
     renderApp('/');
     await screen.findByRole('button', { name: 'ด้วงกว่างสามเขา' });
-    userEvent.click(screen.getAllByRole('button', { name: 'เพิ่มในรายการโปรด' })[0]);
-    expect(await screen.findByRole('heading', { level: 1, name: 'ยินดีต้อนรับกลับ' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'เพิ่มในรายการโปรด' })).not.toBeInTheDocument();
+  });
+
+  test('a Customer sees the heart on the products', async () => {
+    mockMember = customer;
+    renderApp('/');
+    await screen.findByRole('button', { name: 'ด้วงกว่างสามเขา' });
+    expect((await screen.findAllByRole('button', { name: 'เพิ่มในรายการโปรด' })).length).toBeGreaterThan(0);
   });
 
   test('a guest opening Favorites is sent to login', async () => {

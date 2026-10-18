@@ -220,25 +220,50 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
   };
 
   /**
-   * The Admin types the counted On Hand (prefilled with today's) and why. Available moves by the same
-   * difference; a count below the units Reserved by open orders is refused (CONTEXT.md: On Hand).
+   * The Admin sets the counted On Hand (prefilled with today's), typing it or stepping it with − / +.
+   * Available moves by the same difference; a count below the units Reserved by open orders is refused
+   * (CONTEXT.md: On Hand), so − stops at Reserved.
    */
   const setOnHand = async (p: Product) => {
     const onHand = p.on_hand ?? 0;
     const reserved = Math.max(0, onHand - p.available);
-    const { value } = await Swal.fire<{ on_hand: number; note: string }>({
+    const { value } = await Swal.fire<{ on_hand: number }>({
       titleText: t('admin.products.set_on_hand_title', { name: p.name }),
       html:
         `<p class="swal2-html-container" style="margin:0 0 .5rem">${t('admin.products.set_on_hand_text', { on_hand: onHand, available: p.available, reserved })}</p>` +
         `<label for="stb-on-hand" style="display:block;font-size:.875rem;margin-top:.5rem">${t('admin.products.on_hand_label')}</label>` +
-        `<input id="stb-on-hand" type="number" min="${reserved}" step="1" value="${onHand}" class="swal2-input" style="margin:.25rem auto" />` +
-        `<label for="stb-on-hand-note" style="display:block;font-size:.875rem;margin-top:.5rem">${t('admin.products.set_on_hand_note')}</label>` +
-        `<input id="stb-on-hand-note" type="text" maxlength="300" class="swal2-input" style="margin:.25rem auto" />`,
+        `<div class="stb-stepper">` +
+        `<button type="button" id="stb-on-hand-less" class="stb-step" aria-label="${t('admin.products.set_on_hand_less')}">−</button>` +
+        `<input id="stb-on-hand" type="number" inputmode="numeric" min="${reserved}" step="1" value="${onHand}" class="swal2-input stb-step-input" />` +
+        `<button type="button" id="stb-on-hand-more" class="stb-step" aria-label="${t('admin.products.set_on_hand_more')}">+</button>` +
+        `</div>`,
       focusConfirm: false,
       showCancelButton: true,
       confirmButtonText: t('admin.common.save'),
       cancelButtonText: t('admin.common.cancel'),
-      didOpen: () => (document.getElementById('stb-on-hand') as HTMLInputElement | null)?.select(),
+      didOpen: () => {
+        const input = document.getElementById('stb-on-hand') as HTMLInputElement | null;
+        const less = document.getElementById('stb-on-hand-less') as HTMLButtonElement | null;
+        const more = document.getElementById('stb-on-hand-more') as HTMLButtonElement | null;
+        if (!input || !less || !more) return;
+        const current = () => {
+          const n = Math.floor(Number(input.value));
+          return Number.isFinite(n) ? n : onHand;
+        };
+        // − is off at Reserved, the lowest count the server accepts.
+        const sync = () => {
+          less.disabled = current() <= reserved;
+        };
+        const step = (by: number) => {
+          input.value = String(Math.max(reserved, current() + by));
+          sync();
+        };
+        less.addEventListener('click', () => step(-1));
+        more.addEventListener('click', () => step(1));
+        input.addEventListener('input', sync);
+        sync();
+        input.select();
+      },
       preConfirm: () => {
         const raw = (document.getElementById('stb-on-hand') as HTMLInputElement | null)?.value ?? '';
         const n = Number(raw);
@@ -250,12 +275,12 @@ const AdminProducts: React.FC<{ initialFilter?: string }> = ({ initialFilter }) 
           Swal.showValidationMessage(t('admin.products.set_on_hand_min', { reserved }));
           return false;
         }
-        return { on_hand: n, note: (document.getElementById('stb-on-hand-note') as HTMLInputElement | null)?.value.trim() || '' };
+        return { on_hand: n };
       },
     });
     if (!value || value.on_hand === onHand) return;
     try {
-      const updated = await api.post<Product>(`/products/${p.id}/stock`, { on_hand: value.on_hand, ...(value.note ? { note: value.note } : {}) });
+      const updated = await api.post<Product>(`/products/${p.id}/stock`, { on_hand: value.on_hand });
       setProducts((list) => list.map((x) => (x.id === p.id ? { ...x, on_hand: updated.on_hand, available: updated.available } : x)));
     } catch (err: any) {
       showAdminError(err, t);

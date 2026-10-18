@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { makeI18n, renderApp } from './test/renderPage';
 
@@ -357,20 +357,23 @@ describe('Products & stock', () => {
     expect(screen.queryByText(/Onhand|Stockmove/)).not.toBeInTheDocument();
   });
 
-  test('one button sets On Hand: the form opens on today\'s count, refuses less than Reserved, and sends the count and note', async () => {
+  test('one button sets On Hand: the form opens on today\'s count, refuses less than Reserved, and sends the count', async () => {
     (api.post as jest.Mock).mockResolvedValue({ ...product('p1', 'Atlas beetle'), on_hand: 9, available: 8 });
     const Swal = jest.requireMock('sweetalert2').default;
     const seen: { opts?: any } = {};
-    fillSwalForm([{ 'stb-on-hand': '0' }, { 'stb-on-hand': '9', 'stb-on-hand-note': 'รับของเข้า' }], seen);
+    fillSwalForm([{ 'stb-on-hand': '0' }, { 'stb-on-hand': '9' }], seen);
     renderAdmin();
     await openTab('Products & stock');
     const row = await screen.findByRole('row', { name: /Atlas beetle/ });
 
     userEvent.click(within(row).getByRole('button', { name: 'Set On Hand of Atlas beetle' }));
-    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/products/p1/stock', { on_hand: 9, note: 'รับของเข้า' }));
+    await waitFor(() => expect(api.post).toHaveBeenCalledWith('/products/p1/stock', { on_hand: 9 }));
     expect(seen.opts.titleText).toBe('Set On Hand — Atlas beetle');
     expect(seen.opts.html).toContain('value="6"');
     expect(seen.opts.html).toContain('min="1"');
+    expect(seen.opts.html).not.toContain('stb-on-hand-note');
+    expect(seen.opts.html).toContain('aria-label="1 less"');
+    expect(seen.opts.html).toContain('aria-label="1 more"');
     expect(Swal.showValidationMessage).toHaveBeenCalledWith("Can't go below 1: customers have reserved them");
     await waitFor(() => expect(within(row).getByLabelText('On Hand')).toHaveTextContent('9'));
     expect(within(row).getByLabelText('Count Qty')).toHaveTextContent('8');
@@ -966,12 +969,13 @@ describe('Categories', () => {
     expect(seen.opts.html).toContain('value="อาหาร"');
   });
 
-  test('moving a Category down sends the new order', async () => {
+  test('Categories are reordered by dragging rows; Alt + ↓ on a focused row moves it one place and sends the new order', async () => {
     (api.post as jest.Mock).mockResolvedValue({});
     const section = await openCategories();
-    userEvent.click(await section.findByRole('button', { name: 'Move ด้วง down' }));
+    expect(section.queryByRole('button', { name: /^Move / })).not.toBeInTheDocument();
+    const row = await section.findByRole('row', { name: /ด้วง.*Beetles/ });
+    fireEvent.keyDown(row, { key: 'ArrowDown', altKey: true });
     await waitFor(() => expect(api.post).toHaveBeenCalledWith('/categories/reorder', { slugs: ['food', 'beetle'] }));
-    expect(section.getByRole('button', { name: 'Move ด้วง up' })).toBeDisabled();
   });
 
   test('deleting a Category that still has products is refused with how many', async () => {
